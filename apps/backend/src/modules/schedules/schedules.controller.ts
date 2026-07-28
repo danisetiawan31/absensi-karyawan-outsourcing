@@ -9,6 +9,7 @@ import {
   Patch,
   Param,
   ParseUUIDPipe,
+  Delete,
 } from '@nestjs/common';
 import { SchedulesService } from './schedules.service';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
@@ -52,5 +53,15 @@ export class SchedulesController {
     @Body() updateScheduleDto: UpdateScheduleDto,
   ) {
     return this.schedulesService.update(req.user.userId, id, updateScheduleDto);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERVISOR)
+  @Delete(':id')
+  async remove(
+    @Request() req: { user: { userId: string; role: Role } },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.schedulesService.remove(req.user.userId, id);
   }
 }

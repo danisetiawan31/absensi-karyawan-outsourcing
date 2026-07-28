@@ -150,6 +150,58 @@ export class SchedulesService {
     return newJadwal;
   }
 
+  async remove(callerId: string, id: string) {
+    // 1. Fetch data existing dulu
+    const existing = await this.prisma.jadwalShift.findUnique({
+      where: { id },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'JADWAL_TIDAK_DITEMUKAN',
+        message: 'Jadwal shift tidak ditemukan',
+      });
+    }
+
+    // 2. Scoping: Caller harus mengawasi site
+    const assignment = await this.prisma.supervisorSite.findUnique({
+      where: {
+        supervisorId_siteId: {
+          supervisorId: callerId,
+          siteId: existing.siteId,
+        },
+      },
+    });
+    if (!assignment) {
+      throw new ForbiddenException({
+        code: 'SITE_DI_LUAR_PENGAWASAN',
+        message: 'Anda tidak mengawasi site ini',
+      });
+    }
+
+    // 3. Cek aktivitas
+    const logKehadiran = await this.prisma.logKehadiran.findFirst({
+      where: { jadwalId: id },
+    });
+    const percobaanAbsensi = await this.prisma.percobaanAbsensi.findFirst({
+      where: { jadwalId: id },
+    });
+
+    if (logKehadiran || percobaanAbsensi) {
+      throw new ConflictException({
+        code: 'SUDAH_ADA_AKTIVITAS',
+        message:
+          'Jadwal ini sudah punya aktivitas kehadiran, tidak bisa dihapus. Gunakan PATCH untuk mengubah jam/site.',
+      });
+    }
+
+    // 4. Lolos semua validasi, delete langsung
+    await this.prisma.jadwalShift.delete({
+      where: { id },
+    });
+
+    return { success: true };
+  }
+
   async findAll(callerId: string, query: FindSchedulesQueryDto) {
     const { tanggal, siteId } = query;
 

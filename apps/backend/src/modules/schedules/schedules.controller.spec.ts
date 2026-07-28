@@ -1080,4 +1080,159 @@ describe('SchedulesController (e2e)', () => {
       }
     });
   });
+
+  describe('DELETE /schedules/:id', () => {
+    let testJadwalId: string;
+
+    beforeEach(async () => {
+      // Create a fresh schedule for deletion tests
+      const j = await prisma.jadwalShift.create({
+        data: {
+          karyawanId: karyawan.id,
+          siteId: siteAktif.id,
+          tanggal: new Date('2026-09-01T00:00:00+07:00'),
+          jamMulai: new Date('2026-09-01T08:00:00+07:00'),
+          jamSelesai: new Date('2026-09-01T16:00:00+07:00'),
+        },
+      });
+      testJadwalId = j.id;
+    });
+
+    afterEach(async () => {
+      await prisma.logKehadiran.deleteMany({});
+      await prisma.percobaanAbsensi.deleteMany({});
+      await prisma.jadwalShift.deleteMany({
+        where: { id: testJadwalId },
+      });
+    });
+
+    it('should return 403 for HR_ADMIN', async () => {
+      const token = jwtService.sign({
+        userId: hrAdmin.id,
+        role: Role.HR_ADMIN,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .delete(`/schedules/${testJadwalId}`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(403);
+    });
+
+    it('should return 400 if :id is not a valid UUID', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .delete('/schedules/not-a-uuid')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 404 if :id not found', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .delete('/schedules/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(404);
+      expect((res.body as ErrorEnvelope).error.code).toBe(
+        'JADWAL_TIDAK_DITEMUKAN',
+      );
+    });
+
+    it('should return 403 if caller does not supervise the site', async () => {
+      // Supervisor 2 does not supervise siteAktif
+      const token = jwtService.sign({
+        userId: supervisor2.id,
+        role: Role.SUPERVISOR,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .delete(`/schedules/${testJadwalId}`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(403);
+      expect((res.body as ErrorEnvelope).error.code).toBe(
+        'SITE_DI_LUAR_PENGAWASAN',
+      );
+    });
+
+    it('should return 409 if schedule has LogKehadiran', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      await prisma.logKehadiran.create({
+        data: {
+          jadwalId: testJadwalId,
+          karyawanId: karyawan.id,
+          waktuCheckIn: new Date(),
+        },
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .delete(`/schedules/${testJadwalId}`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(409);
+      expect((res.body as ErrorEnvelope).error.code).toBe(
+        'SUDAH_ADA_AKTIVITAS',
+      );
+    });
+
+    it('should return 409 if schedule has PercobaanAbsensi (but no LogKehadiran)', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      await prisma.percobaanAbsensi.create({
+        data: {
+          jadwalId: testJadwalId,
+          karyawanId: karyawan.id,
+          tipe: 'CHECK_IN',
+          latitude: 0,
+          longitude: 0,
+          hasil: 'GAGAL_LOKASI',
+        },
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .delete(`/schedules/${testJadwalId}`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(409);
+      expect((res.body as ErrorEnvelope).error.code).toBe(
+        'SUDAH_ADA_AKTIVITAS',
+      );
+    });
+
+    it('should delete schedule successfully if all validations pass', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .delete(`/schedules/${testJadwalId}`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect((res.body as SuccessEnvelope<null>).success).toBe(true);
+
+      const checkDb = await prisma.jadwalShift.findUnique({
+        where: { id: testJadwalId },
+      });
+      expect(checkDb).toBeNull();
+    });
+  });
 });

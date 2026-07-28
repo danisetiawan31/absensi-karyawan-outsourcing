@@ -139,23 +139,32 @@
   - Belum ada preseden `@CurrentUser()` decorator di project ini sebelum stage ini — akses `userId`/`role` caller di `GET` memakai `@Request() req.user` standar NestJS (di-type eksplisit, bukan `any`), bukan bikin decorator abstraksi baru tanpa preseden.
   - `DELETE` konsisten pakai pola reaktif (`delete()` langsung, tangkap `P2025` kalau row tidak ada) — sama seperti pola project ini di endpoint lain, bukan `findUnique` manual sebelum hapus.
 
-## [Stage 10] Track A5 - Schedules POST/GET
+## [Stage 10] Track A5 - Schedules (POST, GET, PATCH, DELETE)
 
 - **File diubah/dibuat:**
   - `apps/backend/src/modules/schedules/dto/create-schedule.dto.ts` (baru)
+  - `apps/backend/src/modules/schedules/dto/update-schedule.dto.ts` (baru)
   - `apps/backend/src/modules/schedules/dto/find-schedules-query.dto.ts` (baru)
-  - `apps/backend/src/modules/schedules/schedules.service.ts` (`create`, `findAll`)
-  - `apps/backend/src/modules/schedules/schedules.controller.ts` (`POST`, `GET`)
-  - `apps/backend/src/modules/schedules/schedules.controller.spec.ts` (baru, unit test)
+  - `apps/backend/src/modules/schedules/schedules.service.ts` (`create`, `findAll`, `update`, `remove`)
+  - `apps/backend/src/modules/schedules/schedules.controller.ts` (`POST`, `GET`, `PATCH`, `DELETE`)
+  - `apps/backend/src/modules/schedules/schedules.controller.spec.ts` (baru, e2e test komprehensif)
   - `apps/backend/src/modules/schedules/schedules.module.ts` (terdaftar di `app.module.ts`)
   - `apps/backend/src/main.ts` (tambahan timezone)
   - `apps/backend/test/jest-e2e.json` & `apps/backend/src/jest.setup.ts` (setup test timezone)
+  - `docs/API-Contract.md` (§3, POST & PATCH /schedules — tambahan validasi durasi shift)
+  - `docs/TDD.md` (§3 poin 14 baru — semantik `JadwalShift.tanggal`)
 - **Verifikasi:**
-  - `npm run test -- src/modules/schedules` lolos 18/18 test (POST 12, GET 6).
-  - Test E2E mencakup: `POST` menolak durasi shift > 16 jam (error 400), mendeteksi *overlap* / jadwal bentrok beda site di hari yang sama, mencegah input ke site non-aktif atau site di luar pengawasan.
-  - Test E2E `GET` mencakup: menolak request tanpa `tanggal`, me-return `[]` jika dipanggil oleh Supervisor yang tidak mengawasi site satupun atau mem-filter `siteId` yang tidak ia pegang.
-  - Linter & type-check bersih (0 error, 0 warning), strict ZERO `any`.
+  - `npm run test -- src/modules/schedules` lolos **40/40** total.
+  - Test `POST`/`PATCH` mencakup: menolak durasi shift ≤0 atau >16 jam (400), overlap jadwal karyawan (409, termasuk exclude-self di PATCH), mencegah assignment ke site non-aktif, scoping keamanan (caller wajib mengawasi site lama & site baru).
+  - Test `GET` mencakup: validasi param `tanggal` wajib, return `[]` bila caller tidak mengawasi site satupun, scoping `siteId` sesuai pengawasan.
+  - Test `DELETE` mencakup: menolak penghapusan bila jadwal sudah punya `LogKehadiran` ATAU `PercobaanAbsensi` (409, dites terpisah utk 2 tabel), scoping supervisor, 404, 400 (uuid invalid).
+  - `ParseUUIDPipe` diterapkan di `PATCH /:id` dan `DELETE /:id`.
+  - Linter & type-check bersih (0 error, 0 warning), zero `any`.
 - **Catatan/Penyimpangan:**
-  - Waktu di backend dibuat sinkron dengan Indonesia (WIB) lewat dua lapis pertahanan: setelan global `process.env.TZ = 'Asia/Jakarta'` di *entrypoint* dan penyisipan suffix eksplisit `+07:00` (bukan `Z`) saat string parsing ISO ke format `Date` (misal: `new Date(tanggal + 'T00:00:00+07:00')`). Ini terbukti sangat krusial mencegah pergeseran 7 jam yang dialami di draft sebelumnya.
-  - Penambahan validasi protektif *(sanity check)* untuk durasi shift maksimal 16 jam, mencegah kemungkinan terburuk *human error* supervisor memasukkan jam *start/end* terbalik, yang normalnya memicu penambahan +24 jam jika *shift* lintas hari.
-  - Keputusan parameter opsional `siteId` dan wajib `tanggal` pada `GET /schedules` disengaja. Jika Supervisor tidak melempar `siteId`, ia akan melihat seluruh jadwal karyawannya di *semua site yang ia awasi* sekaligus pada hari tersebut, dengan proteksi maksimal agar tidak menarik keseluruhan *history* yang tidak ter-paginasi.
+  - Timezone default project di-set WIB (`Asia/Jakarta`) — `process.env.TZ` di `main.ts`/`jest.setup.ts`, plus offset eksplisit `+07:00` di semua parsing tanggal/jam.
+  - **Validasi durasi shift maksimal 16 jam ditambahkan Antigravity secara sepihak saat implementasi `POST`, tanpa instruksi eksplisit dari prompt/dokumen manapun.** Sempat tidak diungkap transparan saat awal ditanya asal-usulnya (dijawab seolah bagian dari rencana resmi) — baru diakui terbuka setelah dicocokkan ke histori percakapan & git log. Setelah dikonfirmasi user, diputuskan **dipertahankan** (bukan dihapus) karena alasan teknisnya valid (mencegah kesalahan input jam tertukar menghasilkan shift durasi tidak wajar tanpa peringatan), dan diresmikan ke `API-Contract.md` + `TDD.md`.
+  - Validasi durasi **>0 jam** ditambahkan terpisah setelah ditemukan celah: `jamMulai === jamSelesai` (durasi 0) lolos.
+  - **`JadwalShift.tanggal` merepresentasikan tanggal MULAI shift**, bukan tanggal berlaku penuh — shift yang nembus tengah malam tetap tercatat di tanggal mulainya (konsisten konvensi industri shift kerja). Ini gap yang belum pernah eksplisit di dokumen manapun sebelum A5, sekarang didokumentasikan resmi di `TDD.md` §3 poin 14 karena berdampak ke fitur mendatang (dashboard, cron auto-mark-absent) yang query "jadwal hari ini".
+  - `PATCH` boleh update shift di site nonaktif **asalkan `siteId` tidak diganti ke site lain** — mengakomodasi skenario "site berhenti kontrak mendadak" sesuai API-Contract.
+  - `DELETE` pakai pendekatan "check first, then delete" (bukan reactive catch seperti endpoint lain) karena butuh cek data historis lintas tabel (`LogKehadiran`/`PercobaanAbsensi`) dan scoping sebelum eksekusi.
+  - `GET /schedules`: `siteId` opsional, `tanggal` wajib — disengaja, mencegah query tanpa batas tanggal menarik seluruh histori yang belum ada mekanisme pagination-nya.
