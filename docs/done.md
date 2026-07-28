@@ -88,4 +88,17 @@
 - **Catatan/Penyimpangan:**
   - Melakukan instalasi `eslint-plugin-jest` khusus untuk menengahi aturan linter TypeScript `unbound-method` yang tidak kompatibel dengan perilaku Jest secara bawaan saat melakukan _mocking_.
   - Mendefinisikan aturan baru anti-any di AGENTS.md untuk mengikat pengerjaan fitur ke depannya.
-  - Alih-alih memakai `eslint-disable` untuk menghiraukan *warning* dari parameter default NestJS, kita menangani masalah tersebut secara elegan menggunakan *type-casting* `app.getHttpServer() as Server` dan menangkap *floating promise* di `main.ts`.
+  - Alih-alih memakai `eslint-disable` untuk menghiraukan _warning_ dari parameter default NestJS, kita menangani masalah tersebut secara elegan menggunakan _type-casting_ `app.getHttpServer() as Server` dan menangkap _floating promise_ di `main.ts`.
+
+## [Stage 7] Track A2 - Employees GET & PATCH
+
+- **File diubah/dibuat:**
+  - `apps/backend/src/modules/employees/dto/find-employees-query.dto.ts`, `update-employee.dto.ts`
+  - `apps/backend/src/modules/employees/employees.service.ts`, `employees.controller.ts`, `employees.module.ts` (terdaftar otomatis di `app.module.ts`)
+  - `apps/backend/src/modules/employees/employees.service.spec.ts` & `employees.controller.spec.ts`
+- **Verifikasi:**
+  - `npm run test -- src/modules/employees` lolos 12/12 — cover filter role/statusAktif/search, partial update, 404, 409 (konflik email), exclude field sensitif, 403.
+- **Catatan/Penyimpangan:**
+  - `GET /employees` — hasil di-order berdasarkan `nama` ascending (konsisten dengan pola `GET /sites`), field sensitif (`passwordHash`, `resetToken`, dst) di-exclude via blok `select` Prisma di level query DB, bukan disaring manual di layer service.
+  - Nilai boolean `wajahTerdaftar` direkayasa (derived) dari kalkulasi `faceEmbedding.length > 0` dan `Array.isArray()`, ini bukan kolom murni dari DB — sama persis seperti respons di endpoint `POST /auth/login`.
+  - `PATCH /employees/:id` menggunakan pendekatan penanganan konflik `email` unik secara reaktif: _catch exception error_ `P2002` dan `P2025` tepat setelah perintah `update()` dieksekusi. Ini berbeda dengan pendekatan pada `PATCH /sites/:id` yang sebelumnya menggunakan pengecekan manual (`findUnique` sebelum `update`). Pendekatan reaktif ini dipilih karena lebih efisien (hemat 1 query DB) dan kebal dari kondisi balapan (_race-condition free_) yang krusial untuk menjaga integritas _unique constraint_ email. Saat membentur duplikasi email, respons ditransformasi ke `409 EMAIL_SUDAH_DIPAKAI`.
