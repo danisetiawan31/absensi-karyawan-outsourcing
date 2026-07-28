@@ -531,4 +531,185 @@ describe('SchedulesController (e2e)', () => {
       expect(body.data.id).toBeDefined();
     });
   });
+
+  describe('GET /schedules', () => {
+    it('should return 400 if tanggal query is missing', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .get('/schedules')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(400);
+      const body = res.body as ErrorEnvelope;
+      expect(body.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('should return 403 for HR_ADMIN', async () => {
+      const token = jwtService.sign({
+        userId: hrAdmin.id,
+        role: Role.HR_ADMIN,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .get('/schedules?tanggal=2026-08-01')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(403);
+    });
+
+    it('should return empty array if caller has no SupervisorSite assignment', async () => {
+      // HR Admin doesn't have supervisor assignments, but they are forbidden.
+      // Let's create a new SUPERVISOR user with no assignments
+      const supervisorNoSite = await prisma.user.upsert({
+        where: { id: '12345678-1234-1234-1234-123456789012' },
+        update: {},
+        create: {
+          id: '12345678-1234-1234-1234-123456789012',
+          nama: 'Supervisor No Site',
+          email: 'nositex@example.com',
+          passwordHash: 'hash',
+          role: Role.SUPERVISOR,
+        },
+      });
+
+      const token = jwtService.sign({
+        userId: supervisorNoSite.id,
+        role: Role.SUPERVISOR,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .get('/schedules?tanggal=2026-08-01')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      const body = res.body as SuccessEnvelope<unknown[]>;
+      expect(body.success).toBe(true);
+      expect(body.data).toEqual([]);
+
+      await prisma.user.delete({ where: { id: supervisorNoSite.id } });
+    });
+
+    it('should return empty array if querying siteId not supervised by caller', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      // supervisor only supervises siteAktif and siteNonAktif, NOT siteLain
+      const res = await request(app.getHttpServer() as Server)
+        .get(`/schedules?tanggal=2026-08-01&siteId=${siteLain.id}`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      const body = res.body as SuccessEnvelope<unknown[]>;
+      expect(body.success).toBe(true);
+      expect(body.data).toEqual([]);
+    });
+
+    describe('with populated schedules', () => {
+      beforeEach(async () => {
+        // Create multiple schedules for testing retrieval
+        await prisma.jadwalShift.createMany({
+          data: [
+            // siteAktif, tanggal 01
+            {
+              karyawanId: karyawan.id,
+              siteId: siteAktif.id,
+              tanggal: new Date('2026-08-01T00:00:00+07:00'),
+              jamMulai: new Date('2026-08-01T15:00:00+07:00'), // later start
+              jamSelesai: new Date('2026-08-01T23:00:00+07:00'),
+            },
+            {
+              karyawanId: karyawan2.id,
+              siteId: siteAktif.id,
+              tanggal: new Date('2026-08-01T00:00:00+07:00'),
+              jamMulai: new Date('2026-08-01T08:00:00+07:00'), // earlier start
+              jamSelesai: new Date('2026-08-01T16:00:00+07:00'),
+            },
+            // siteNonAktif, tanggal 01 (Supervisor 1 supervises this too)
+            {
+              karyawanId: karyawan.id,
+              siteId: siteNonAktif.id,
+              tanggal: new Date('2026-08-01T00:00:00+07:00'),
+              jamMulai: new Date('2026-08-01T09:00:00+07:00'),
+              jamSelesai: new Date('2026-08-01T17:00:00+07:00'),
+            },
+            // siteLain, tanggal 01 (Not supervised by Supervisor 1)
+            {
+              karyawanId: karyawan.id,
+              siteId: siteLain.id,
+              tanggal: new Date('2026-08-01T00:00:00+07:00'),
+              jamMulai: new Date('2026-08-01T10:00:00+07:00'),
+              jamSelesai: new Date('2026-08-01T18:00:00+07:00'),
+            },
+            // siteAktif, tanggal 02 (Different date)
+            {
+              karyawanId: karyawan.id,
+              siteId: siteAktif.id,
+              tanggal: new Date('2026-08-02T00:00:00+07:00'),
+              jamMulai: new Date('2026-08-02T08:00:00+07:00'),
+              jamSelesai: new Date('2026-08-02T16:00:00+07:00'),
+            },
+          ],
+        });
+      });
+
+      it('should return all schedules across all supervised sites for the date, sorted by jamMulai', async () => {
+        const token = jwtService.sign({
+          userId: supervisor.id,
+          role: Role.SUPERVISOR,
+        });
+
+        const res = await request(app.getHttpServer() as Server)
+          .get('/schedules?tanggal=2026-08-01')
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(res.status).toBe(200);
+        const body = res.body as SuccessEnvelope<
+          {
+            id: string;
+            jamMulai: string;
+            karyawan: { id: string; nama: string };
+            site: { id: string; nama: string };
+          }[]
+        >;
+        expect(body.success).toBe(true);
+        expect(body.data).toHaveLength(3); // 2 in siteAktif, 1 in siteNonAktif. (siteLain excluded, 02 date excluded)
+
+        const data = body.data;
+        // Check sorting: 08:00 -> 09:00 -> 15:00
+        expect(new Date(data[0].jamMulai).getTime()).toBeLessThan(
+          new Date(data[1].jamMulai).getTime(),
+        );
+        expect(new Date(data[1].jamMulai).getTime()).toBeLessThan(
+          new Date(data[2].jamMulai).getTime(),
+        );
+
+        // Check payload structure
+        expect(data[0].karyawan.id).toBe(karyawan2.id); // the 08:00 one is karyawan2
+        expect(data[0].site.id).toBe(siteAktif.id);
+      });
+
+      it('should return schedules ONLY for the requested siteId if provided', async () => {
+        const token = jwtService.sign({
+          userId: supervisor.id,
+          role: Role.SUPERVISOR,
+        });
+
+        const res = await request(app.getHttpServer() as Server)
+          .get(`/schedules?tanggal=2026-08-01&siteId=${siteAktif.id}`)
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(res.status).toBe(200);
+        const body = res.body as SuccessEnvelope<{ site: { id: string } }[]>;
+        expect(body.success).toBe(true);
+        expect(body.data).toHaveLength(2); // Only the 2 in siteAktif
+        expect(body.data.every((d) => d.site.id === siteAktif.id)).toBe(true);
+      });
+    });
+  });
 });

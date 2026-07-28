@@ -7,7 +7,8 @@ import {
 } from '@nestjs/common';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { Role } from '@prisma/client';
+import { Role, Prisma } from '@prisma/client';
+import { FindSchedulesQueryDto } from './dto/find-schedules-query.dto';
 
 @Injectable()
 export class SchedulesService {
@@ -126,5 +127,66 @@ export class SchedulesService {
     });
 
     return newJadwal;
+  }
+
+  async findAll(callerId: string, query: FindSchedulesQueryDto) {
+    const { tanggal, siteId } = query;
+
+    // 1. Ambil semua site yang diawasi caller
+    const supervisedSites = await this.prisma.supervisorSite.findMany({
+      where: { supervisorId: callerId },
+      select: { siteId: true },
+    });
+
+    if (supervisedSites.length === 0) {
+      return [];
+    }
+
+    const supervisedSiteIds = supervisedSites.map((s) => s.siteId);
+
+    // 2. Rentang waktu tanggal
+    const awal = new Date(`${tanggal}T00:00:00+07:00`);
+    const akhir = new Date(awal.getTime() + 24 * 60 * 60 * 1000);
+
+    // 3. Bangun where filter
+    const whereClause: Prisma.JadwalShiftWhereInput = {
+      siteId: { in: supervisedSiteIds },
+      tanggal: {
+        gte: awal,
+        lt: akhir,
+      },
+    };
+
+    if (siteId) {
+      whereClause.AND = { siteId };
+    }
+
+    // 4. Eksekusi query
+    const schedules = await this.prisma.jadwalShift.findMany({
+      where: whereClause,
+      select: {
+        id: true,
+        tanggal: true,
+        jamMulai: true,
+        jamSelesai: true,
+        karyawan: {
+          select: {
+            id: true,
+            nama: true,
+          },
+        },
+        site: {
+          select: {
+            id: true,
+            nama: true,
+          },
+        },
+      },
+      orderBy: {
+        jamMulai: 'asc',
+      },
+    });
+
+    return schedules;
   }
 }
