@@ -102,3 +102,20 @@
   - `GET /employees` — hasil di-order berdasarkan `nama` ascending (konsisten dengan pola `GET /sites`), field sensitif (`passwordHash`, `resetToken`, dst) di-exclude via blok `select` Prisma di level query DB, bukan disaring manual di layer service.
   - Nilai boolean `wajahTerdaftar` direkayasa (derived) dari kalkulasi `faceEmbedding.length > 0` dan `Array.isArray()`, ini bukan kolom murni dari DB — sama persis seperti respons di endpoint `POST /auth/login`.
   - `PATCH /employees/:id` menggunakan pendekatan penanganan konflik `email` unik secara reaktif: _catch exception error_ `P2002` dan `P2025` tepat setelah perintah `update()` dieksekusi. Ini berbeda dengan pendekatan pada `PATCH /sites/:id` yang sebelumnya menggunakan pengecekan manual (`findUnique` sebelum `update`). Pendekatan reaktif ini dipilih karena lebih efisien (hemat 1 query DB) dan kebal dari kondisi balapan (_race-condition free_) yang krusial untuk menjaga integritas _unique constraint_ email. Saat membentur duplikasi email, respons ditransformasi ke `409 EMAIL_SUDAH_DIPAKAI`.
+
+## [Stage 8] Track A3 - Employees POST
+
+- **File diubah/dibuat:**
+  - `apps/backend/src/modules/employees/dto/create-employee.dto.ts` (baru)
+  - `apps/backend/src/modules/employees/employees.service.ts`
+  - `apps/backend/src/modules/employees/employees.controller.ts`
+  - `apps/backend/src/modules/employees/employees.controller.spec.ts`
+- **Verifikasi:**
+  - `npm run test -- src/modules/employees` lolos 16/16.
+  - Test E2E mengkover: _creation_ sukses (termasuk validasi kembalian _plaintext password_, `createdAt`, ketiadaan `passwordHash`, `wajibGantiPassword: true`), validasi DTO (nama/email kosong, role tak wajar), 409 _conflict email_, dan RBAC 403 `HR_ADMIN`.
+- **Catatan/Penyimpangan:**
+  - _Password_ baru dibuat menggunakan metode yang lebih aman (`crypto.randomBytes(length)` dipetakan ke karakter alfanumerik) ketimbang `Math.random()`. Ini dirangkum dalam _private method_ `generateRandomPassword` di `EmployeesService`.
+  - Metode pemetaan byte→karakter (`randomValues[i] % chars.length`) punya modulo bias kecil karena 256 (rentang byte) bukan kelipatan 62 (jumlah karakter charset) — diterima apa adanya karena password ini cuma dipakai sementara sekali pakai (wajib diganti di login pertama), bukan kredensial permanen.
+  - Hash dieksekusi menggunakan konfigurasi _bcrypt_ standar 10 _salt rounds_. `passwordSementara` (versi _plaintext_) hanya diteruskan ke _response body_ di pemanggilan POST ini saja dan tidak di-_log_.
+  - Properti seperti `faceEmbedding` dan `statusAktif` (disetel `true`) dimasukkan secara mandiri di fase _create()_ demi keamanan.
+  - Konflik `email` juga memakai pola reaktif layaknya PATCH (tangkap `P2002` setelah `create()` → `409 EMAIL_SUDAH_DIPAKAI`).

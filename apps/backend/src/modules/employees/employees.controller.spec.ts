@@ -10,6 +10,7 @@ import { AppModule } from '../../app.module';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { Role, User } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 import { AllExceptionsFilter } from '../../common/filters/all-exceptions.filter';
 import { ResponseInterceptor } from '../../common/interceptors/response.interceptor';
 import { RequestIdMiddleware } from '../../common/middlewares/request-id.middleware';
@@ -25,6 +26,8 @@ interface EmployeeResponse {
   role: string;
   statusAktif: boolean;
   wajahTerdaftar?: boolean;
+  passwordSementara?: string;
+  createdAt?: string;
 }
 
 describe('EmployeesController (e2e)', () => {
@@ -113,6 +116,10 @@ describe('EmployeesController (e2e)', () => {
     if (prisma) {
       await prisma.user.deleteMany({
         where: { id: { in: ['test-hr-id', 'test-emp1-id', 'test-emp2-id'] } },
+      });
+      // Cleanup newly created test user if any
+      await prisma.user.deleteMany({
+        where: { email: 'new-employee@emp-test.com' },
       });
       await prisma.$disconnect();
     }
@@ -335,6 +342,134 @@ describe('EmployeesController (e2e)', () => {
         .patch(`/employees/${karyawan1.id}`)
         .set('Authorization', `Bearer ${token}`)
         .send({ email: karyawan2.email }); // Try to steal karyawan2's email
+
+      expect(res.status).toBe(409);
+      const body = res.body as ErrorEnvelope;
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('EMAIL_SUDAH_DIPAKAI');
+    });
+  });
+
+  describe('POST /employees', () => {
+    it('should forbid non-HR_ADMIN', async () => {
+      const token = jwtService.sign({
+        userId: karyawan1.id,
+        role: Role.KARYAWAN,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .post('/employees')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          nama: 'Test',
+          email: 'test@emp-test.com',
+          role: Role.KARYAWAN,
+        });
+
+      expect(res.status).toBe(403);
+    });
+
+    it('should validate inputs (empty fields)', async () => {
+      const token = jwtService.sign({
+        userId: hrAdmin.id,
+        role: Role.HR_ADMIN,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .post('/employees')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          nama: '', // empty
+          email: 'invalid-email',
+          role: 'INVALID_ROLE',
+        });
+
+      expect(res.status).toBe(400);
+      const body = res.body as ErrorEnvelope;
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('VALIDATION_ERROR');
+
+      const details = body.error.details as Array<{
+        field: string;
+        issue: string;
+      }>;
+      const fields = details?.map((d) => d.field);
+      expect(fields).toContain('nama');
+      expect(fields).toContain('email');
+      expect(fields).toContain('role');
+    });
+
+    it('should successfully create employee and return valid passwordSementara', async () => {
+      const token = jwtService.sign({
+        userId: hrAdmin.id,
+        role: Role.HR_ADMIN,
+      });
+
+      const email = 'new-employee@emp-test.com';
+
+      const res = await request(app.getHttpServer() as Server)
+        .post('/employees')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          nama: 'New Employee',
+          email: email,
+          role: Role.KARYAWAN,
+        });
+
+      expect(res.status).toBe(201);
+      const body = res.body as SuccessEnvelope<EmployeeResponse>;
+      expect(body.success).toBe(true);
+
+      const data = body.data;
+      expect(data.nama).toBe('New Employee');
+      expect(data.email).toBe(email);
+      expect(data.role).toBe(Role.KARYAWAN);
+      expect(data.statusAktif).toBe(true);
+      expect(data).toHaveProperty('createdAt');
+
+      // sensitive field check
+      expect(data).not.toHaveProperty('passwordHash');
+
+      // password check
+      expect(data.passwordSementara).toBeDefined();
+      expect(typeof data.passwordSementara).toBe('string');
+      expect(data.passwordSementara?.length).toBe(8);
+
+      // Verify db user
+      const dbUser = await prisma.user.findUnique({
+        where: { email },
+      });
+      expect(dbUser).toBeDefined();
+      expect(dbUser?.wajibGantiPassword).toBe(true);
+      expect(dbUser?.statusAktif).toBe(true);
+
+      // Verify faceEmbedding is empty array natively
+      expect(dbUser?.faceEmbedding).toEqual([]);
+
+      // Verify hash
+      if (dbUser && data.passwordSementara) {
+        const isMatch = await bcrypt.compare(
+          data.passwordSementara,
+          dbUser.passwordHash,
+        );
+        expect(isMatch).toBe(true);
+      }
+    });
+
+    it('should throw 409 if email is already in use by another user', async () => {
+      const token = jwtService.sign({
+        userId: hrAdmin.id,
+        role: Role.HR_ADMIN,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .post('/employees')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          nama: 'Clone',
+          email: karyawan2.email, // already exists
+          role: Role.SUPERVISOR,
+        });
 
       expect(res.status).toBe(409);
       const body = res.body as ErrorEnvelope;

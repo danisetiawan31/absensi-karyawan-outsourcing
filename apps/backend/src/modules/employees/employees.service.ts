@@ -7,6 +7,9 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { FindEmployeesQueryDto } from './dto/find-employees-query.dto';
 import { Prisma, Role } from '@prisma/client';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
+import { CreateEmployeeDto } from './dto/create-employee.dto';
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 
 type EmployeeSelectData = {
   id: string;
@@ -55,6 +58,55 @@ export class EmployeesService {
     return users.map((u) => this.mapToResponse(u));
   }
 
+  async create(createEmployeeDto: CreateEmployeeDto) {
+    const passwordSementara = this.generateRandomPassword(8);
+    const passwordHash = await bcrypt.hash(passwordSementara, 10);
+
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          nama: createEmployeeDto.nama,
+          email: createEmployeeDto.email,
+          role: createEmployeeDto.role,
+          passwordHash,
+          wajibGantiPassword: true,
+          statusAktif: true,
+          faceEmbedding: [],
+        },
+        select: {
+          id: true,
+          nama: true,
+          email: true,
+          role: true,
+          statusAktif: true,
+          faceEmbedding: true,
+          createdAt: true, // Need createdAt for response
+        },
+      });
+
+      return {
+        id: user.id,
+        nama: user.nama,
+        email: user.email,
+        role: user.role,
+        statusAktif: user.statusAktif,
+        passwordSementara,
+        createdAt: user.createdAt,
+      };
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException({
+          code: 'EMAIL_SUDAH_DIPAKAI',
+          message: 'Email sudah digunakan oleh akun lain',
+        });
+      }
+      throw error;
+    }
+  }
+
   async update(id: string, updateEmployeeDto: UpdateEmployeeDto) {
     try {
       const user = await this.prisma.user.update({
@@ -101,5 +153,16 @@ export class EmployeesService {
       wajahTerdaftar:
         Array.isArray(user.faceEmbedding) && user.faceEmbedding.length > 0,
     };
+  }
+
+  private generateRandomPassword(length: number): string {
+    const chars =
+      'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let password = '';
+    const randomValues = crypto.randomBytes(length);
+    for (let i = 0; i < length; i++) {
+      password += chars[randomValues[i] % chars.length];
+    }
+    return password;
   }
 }
