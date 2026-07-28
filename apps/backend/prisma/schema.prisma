@@ -69,6 +69,7 @@ model User {
   // Diubah lewat PATCH /employees/:id yang sudah ada — tidak perlu
   // endpoint terpisah.
   statusAktif Boolean @default(true)
+  wajibGantiPassword Boolean @default(false)
 
   // Hanya diisi untuk role KARYAWAN. Native Float[] di Postgres,
   // tidak butuh workaround Prisma (beda kasus dengan PostGIS).
