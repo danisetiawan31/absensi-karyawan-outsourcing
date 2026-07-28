@@ -73,3 +73,4 @@ Setelah 1 langkah kecil selesai, test (jika ada) lolos, DAN user sudah approve h
   - Jika struktur data benar-benar tidak diketahui, gunakan `unknown` lalu lakukan pengecekan tipe (*type narrowing/type guarding*).
   - Untuk file test (`*.spec.ts`), pantang menggunakan `res.body.data: any`. Selalu *cast* respons menggunakan `SuccessEnvelope<T>` atau `ErrorEnvelope`.
   - Pengecualian pada linter `unbound-method` untuk pengujian (karena penggunaan mock pada `expect(method)`) kini sudah difasilitasi aman oleh konfigurasi global `eslint-plugin-jest`.
+- **GIT STATUS:** Setiap kali *user* meminta untuk membuat/menyediakan pesan *commit*, Agent **WAJIB** menjalankan perintah `git status` terlebih dahulu untuk melihat kondisi git sebelum memberikan pesan *commit*-nya.

@@ -105,4 +105,23 @@ export class SupervisorSitesService {
 
     return assignments;
   }
+
+  async remove(id: string) {
+    try {
+      await this.prisma.supervisorSite.delete({
+        where: { id },
+      });
+      return { success: true };
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new NotFoundException({
+            code: 'NOT_FOUND',
+            message: 'Assignment tidak ditemukan',
+          });
+        }
+      }
+      throw error;
+    }
+  }
 }

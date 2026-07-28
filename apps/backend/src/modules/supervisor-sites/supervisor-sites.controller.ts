@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  Param,
+  ParseUUIDPipe,
   Post,
   Query,
   Request,
@@ -37,5 +40,11 @@ export class SupervisorSitesController {
     const callerId = req.user.userId;
     const callerRole = req.user.role;
     return this.supervisorSitesService.findAll(callerId, callerRole, query);
+  }
+
+  @Delete(':id')
+  @Roles(Role.HR_ADMIN)
+  async remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.supervisorSitesService.remove(id);
   }
 }

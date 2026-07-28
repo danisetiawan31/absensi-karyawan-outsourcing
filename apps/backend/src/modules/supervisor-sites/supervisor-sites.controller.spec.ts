@@ -427,4 +427,75 @@ describe('SupervisorSitesController (e2e)', () => {
       expect(body.data[0].site.id).toBe(site.id); // Not site2.id
     });
   });
+
+  describe('DELETE /supervisor-sites/:id', () => {
+    let assignmentId: string;
+
+    beforeAll(async () => {
+      // Setup assignment to be deleted
+      const assignment = await prisma.supervisorSite.create({
+        data: {
+          supervisorId: supervisor.id,
+          siteId: site.id,
+        },
+      });
+      assignmentId = assignment.id;
+    });
+
+    it('should return 403 for SUPERVISOR', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+      const res = await request(app.getHttpServer() as Server)
+        .delete(`/supervisor-sites/${assignmentId}`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(403);
+    });
+
+    it('should return 400 for invalid UUID', async () => {
+      const token = jwtService.sign({
+        userId: hrAdmin.id,
+        role: Role.HR_ADMIN,
+      });
+      const res = await request(app.getHttpServer() as Server)
+        .delete('/supervisor-sites/not-a-uuid')
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 404 for non-existent assignment', async () => {
+      const token = jwtService.sign({
+        userId: hrAdmin.id,
+        role: Role.HR_ADMIN,
+      });
+      const nonExistentId = '99999999-9999-4999-a999-999999999999';
+      const res = await request(app.getHttpServer() as Server)
+        .delete(`/supervisor-sites/${nonExistentId}`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(404);
+      const body = res.body as ErrorEnvelope;
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('NOT_FOUND');
+    });
+
+    it('should successfully delete assignment and return 200', async () => {
+      const token = jwtService.sign({
+        userId: hrAdmin.id,
+        role: Role.HR_ADMIN,
+      });
+      const res = await request(app.getHttpServer() as Server)
+        .delete(`/supervisor-sites/${assignmentId}`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(200);
+      const body = res.body as SuccessEnvelope<unknown>;
+      expect(body.success).toBe(true);
+
+      // Verify deletion
+      const check = await prisma.supervisorSite.findUnique({
+        where: { id: assignmentId },
+      });
+      expect(check).toBeNull();
+    });
+  });
 });

@@ -119,3 +119,22 @@
   - Hash dieksekusi menggunakan konfigurasi _bcrypt_ standar 10 _salt rounds_. `passwordSementara` (versi _plaintext_) hanya diteruskan ke _response body_ di pemanggilan POST ini saja dan tidak di-_log_.
   - Properti seperti `faceEmbedding` dan `statusAktif` (disetel `true`) dimasukkan secara mandiri di fase _create()_ demi keamanan.
   - Konflik `email` juga memakai pola reaktif layaknya PATCH (tangkap `P2002` setelah `create()` → `409 EMAIL_SUDAH_DIPAKAI`).
+
+## [Stage 9] Track A4 - Supervisor-Sites POST/GET/DELETE
+
+- **File diubah/dibuat:**
+  - `apps/backend/src/modules/supervisor-sites/dto/create-supervisor-site.dto.ts` (baru)
+  - `apps/backend/src/modules/supervisor-sites/dto/find-supervisor-sites-query.dto.ts` (baru)
+  - `apps/backend/src/modules/supervisor-sites/supervisor-sites.service.ts` (`create`, `findAll`, `remove`)
+  - `apps/backend/src/modules/supervisor-sites/supervisor-sites.controller.ts` (`POST`, `GET`, `DELETE`)
+  - `apps/backend/src/modules/supervisor-sites/supervisor-sites.module.ts` (terdaftar di `app.module.ts`)
+  - Test suite terkait (POST, GET, DELETE) di modul yang sama
+- **Verifikasi:**
+  - `npm run test -- src/modules/supervisor-sites` lolos 17/17 (POST 7, GET 6, DELETE 4) — cover validasi `supervisorId`/`siteId` tidak ditemukan, role bukan `SUPERVISOR`, duplikat assignment (409), scoping `SUPERVISOR` vs `HR_ADMIN` di `GET` (termasuk test kritis: `SUPERVISOR` mengirim `supervisorId` milik orang lain tetap ter-scope ke diri sendiri), `404` di `DELETE` untuk id tak ditemukan, `400` untuk uuid tak valid, dan RBAC 403 di ketiga endpoint sesuai role masing-masing.
+  - Linter & type-check bersih (0 error, 0 warning), zero `any`.
+- **Catatan/Penyimpangan:**
+  - Compound unique constraint `@@unique([supervisorId, siteId])` ternyata **sudah ada** di `schema.prisma` sebelum stage ini dikerjakan — tidak perlu migration baru, duplikat assignment langsung ditolak lewat `P2002` reaktif (pola sama seperti domain lain di project ini).
+  - Ditambahkan validasi bahwa `supervisorId` di `POST` harus merujuk `User` dengan `role: SUPERVISOR` (`400 ROLE_BUKAN_SUPERVISOR`) — ini bukan requirement eksplisit di API Contract awal, melainkan keputusan tambahan hasil diskusi untuk mencegah HR salah assign role yang bukan supervisor sebagai pengawas site.
+  - `GET /supervisor-sites` dual-role (`HR_ADMIN` & `SUPERVISOR`) dengan scoping berbeda: `SUPERVISOR` di-force scope ke `userId` miliknya sendiri dari JWT (query param `supervisorId` yang dikirim diabaikan total — keputusan keamanan disengaja, mencegah supervisor melihat assignment supervisor lain), sedangkan `HR_ADMIN` bebas pakai query param tsb atau kosongkan untuk melihat semua assignment.
+  - Belum ada preseden `@CurrentUser()` decorator di project ini sebelum stage ini — akses `userId`/`role` caller di `GET` memakai `@Request() req.user` standar NestJS (di-type eksplisit, bukan `any`), bukan bikin decorator abstraksi baru tanpa preseden.
+  - `DELETE` konsisten pakai pola reaktif (`delete()` langsung, tangkap `P2025` kalau row tidak ada) — sama seperti pola project ini di endpoint lain, bukan `findUnique` manual sebelum hapus.
