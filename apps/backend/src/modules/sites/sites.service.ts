@@ -9,7 +9,8 @@ export class SitesService {
   constructor(private prisma: PrismaService) {}
 
   async create(createSiteDto: CreateSiteDto) {
-    const { nama, alamat, latitude, longitude, radiusToleransi } = createSiteDto;
+    const { nama, alamat, latitude, longitude, radiusToleransi } =
+      createSiteDto;
 
     const site = await this.prisma.site.create({
       data: {
@@ -26,7 +27,7 @@ export class SitesService {
 
   async findAll(query: FindSitesQueryDto) {
     const { statusAktif } = query;
-    
+
     const where = statusAktif !== undefined ? { statusAktif } : {};
 
     return this.prisma.site.findMany({
@@ -50,28 +51,6 @@ export class SitesService {
     return this.prisma.site.update({
       where: { id },
       data: updateSiteDto,
-    });
-  }
-
-  async remove(id: string) {
-    const site = await this.prisma.site.findUnique({
-      where: { id },
-    });
-
-    if (!site) {
-      throw new NotFoundException({
-        code: 'NOT_FOUND',
-        message: 'Data site tidak ditemukan',
-      });
-    }
-
-    if (site.statusAktif === false) {
-      return; // Idempotent: tidak perlu update lagi
-    }
-
-    await this.prisma.site.update({
-      where: { id },
-      data: { statusAktif: false },
     });
   }
 }

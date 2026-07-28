@@ -86,11 +86,19 @@ describe('SitesService', () => {
       const dto = { alamat: 'Alamat Baru' };
       // mock findUnique to return a site
       (prisma.site.findUnique as jest.Mock).mockResolvedValueOnce({ id: '1' });
-      (prisma.site.update as jest.Mock).mockResolvedValueOnce({ id: '1', ...dto });
+      (prisma.site.update as jest.Mock).mockResolvedValueOnce({
+        id: '1',
+        ...dto,
+      });
 
       const result = await service.update('1', dto);
-      expect(prisma.site.findUnique).toHaveBeenCalledWith({ where: { id: '1' } });
-      expect(prisma.site.update).toHaveBeenCalledWith({ where: { id: '1' }, data: dto });
+      expect(prisma.site.findUnique).toHaveBeenCalledWith({
+        where: { id: '1' },
+      });
+      expect(prisma.site.update).toHaveBeenCalledWith({
+        where: { id: '1' },
+        data: dto,
+      });
       expect(result.alamat).toBe('Alamat Baru');
     });
 
@@ -102,34 +110,43 @@ describe('SitesService', () => {
     });
   });
 
-  describe('remove', () => {
-    it('should throw NotFoundException if site not found', async () => {
-      (prisma.site.findUnique as jest.Mock).mockResolvedValueOnce(null);
-
-      const { NotFoundException } = require('@nestjs/common');
-      await expect(service.remove('1')).rejects.toThrow(NotFoundException);
+  it('should update statusAktif to false if requested (soft-deactivate)', async () => {
+    const dto = { statusAktif: false };
+    (prisma.site.findUnique as jest.Mock).mockResolvedValueOnce({
+      id: '1',
+      statusAktif: true,
+    });
+    (prisma.site.update as jest.Mock).mockResolvedValueOnce({
+      id: '1',
+      statusAktif: false,
     });
 
-    it('should return without updating if site is already non-active (idempotent)', async () => {
-      (prisma.site.findUnique as jest.Mock).mockResolvedValueOnce({ id: '1', statusAktif: false });
-      
-      await service.remove('1');
-      expect(prisma.site.findUnique).toHaveBeenCalledWith({ where: { id: '1' } });
-      expect(prisma.site.update).not.toHaveBeenCalled();
+    const result = await service.update('1', dto);
+    expect(prisma.site.findUnique).toHaveBeenCalledWith({ where: { id: '1' } });
+    expect(prisma.site.update).toHaveBeenCalledWith({
+      where: { id: '1' },
+      data: dto,
+    });
+    expect(result.statusAktif).toBe(false);
+  });
+
+  it('should be idempotent: updating statusAktif to the same value still succeeds', async () => {
+    const dto = { statusAktif: false };
+    // Even if currently false, calling update with false should not fail and pass gracefully
+    (prisma.site.findUnique as jest.Mock).mockResolvedValueOnce({
+      id: '1',
+      statusAktif: false,
+    });
+    (prisma.site.update as jest.Mock).mockResolvedValueOnce({
+      id: '1',
+      statusAktif: false,
     });
 
-    it('should update statusAktif to false if site is active', async () => {
-      (prisma.site.findUnique as jest.Mock).mockResolvedValueOnce({ id: '1', statusAktif: true });
-      (prisma.site.update as jest.Mock).mockResolvedValueOnce({ id: '1', statusAktif: false });
-      
-      await service.remove('1');
-      expect(prisma.site.findUnique).toHaveBeenCalledWith({ where: { id: '1' } });
-      expect(prisma.site.update).toHaveBeenCalledWith({
-        where: { id: '1' },
-        data: { statusAktif: false },
-      });
+    const result = await service.update('1', dto);
+    expect(prisma.site.update).toHaveBeenCalledWith({
+      where: { id: '1' },
+      data: dto,
     });
+    expect(result.statusAktif).toBe(false);
   });
 });
-
-

@@ -1,4 +1,13 @@
-import { Controller, Post, Get, Patch, Delete, Body, Query, Param, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Patch,
+  Body,
+  Query,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
 import { SitesService } from './sites.service';
 import { CreateSiteDto } from './dto/create-site.dto';
 import { FindSitesQueryDto } from './dto/find-sites-query.dto';
@@ -31,12 +40,5 @@ export class SitesController {
   @Roles(Role.HR_ADMIN)
   async update(@Param('id') id: string, @Body() updateSiteDto: UpdateSiteDto) {
     return this.sitesService.update(id, updateSiteDto);
-  }
-
-  @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.HR_ADMIN)
-  async remove(@Param('id') id: string) {
-    await this.sitesService.remove(id);
   }
 }

@@ -23,11 +23,11 @@ describe('SitesController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    
+
     // Setup global pipes/filters/middlewares untuk testing
     const requestIdMiddleware = new RequestIdMiddleware();
     app.use(requestIdMiddleware.use.bind(requestIdMiddleware));
-    
+
     app.useGlobalPipes(
       new ValidationPipe({
         transform: true,
@@ -50,7 +50,7 @@ describe('SitesController (e2e)', () => {
     app.useGlobalFilters(new AllExceptionsFilter());
 
     await app.init();
-    
+
     prisma = app.get<PrismaService>(PrismaService);
     jwtService = app.get<JwtService>(JwtService);
 
@@ -79,7 +79,7 @@ describe('SitesController (e2e)', () => {
   });
 
   afterAll(async () => {
-    // Cleanup 
+    // Cleanup
     if (prisma) {
       await prisma.site.deleteMany({
         where: { nama: 'E2E Test Site' },
@@ -95,7 +95,10 @@ describe('SitesController (e2e)', () => {
   describe('POST /sites', () => {
     it('Sukses: membuat site baru (201) dan return format benar', async () => {
       // Bikin mock token untuk HR_ADMIN (bisa juga pakai user dummy di DB, tapi token cukup untuk role check)
-      const token = jwtService.sign({ userId: dummyHr.id, role: Role.HR_ADMIN });
+      const token = jwtService.sign({
+        userId: dummyHr.id,
+        role: Role.HR_ADMIN,
+      });
 
       const payload = {
         nama: 'E2E Test Site',
@@ -117,7 +120,10 @@ describe('SitesController (e2e)', () => {
     });
 
     it('Gagal validasi: field required (latitude) kosong (400)', async () => {
-      const token = jwtService.sign({ userId: dummyHr.id, role: Role.HR_ADMIN });
+      const token = jwtService.sign({
+        userId: dummyHr.id,
+        role: Role.HR_ADMIN,
+      });
 
       const payload = {
         nama: 'E2E Test Site',
@@ -133,14 +139,19 @@ describe('SitesController (e2e)', () => {
       expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
       expect(res.body.error.code).toBe('VALIDATION_ERROR');
-      
-      const latitudeError = res.body.error.details.find(d => d.field === 'latitude');
+
+      const latitudeError = res.body.error.details.find(
+        (d) => d.field === 'latitude',
+      );
       expect(latitudeError).toBeDefined();
     });
 
     it('Gagal auth: akses ditolak karena bukan HR_ADMIN (403)', async () => {
       // Token untuk role KARYAWAN
-      const token = jwtService.sign({ userId: dummyEmp.id, role: Role.KARYAWAN });
+      const token = jwtService.sign({
+        userId: dummyEmp.id,
+        role: Role.KARYAWAN,
+      });
 
       const payload = {
         nama: 'E2E Test Site',
@@ -181,21 +192,36 @@ describe('SitesController (e2e)', () => {
       // Bikin beberapa site dummy untuk test GET
       await prisma.site.createMany({
         data: [
-          { nama: 'GET Site Active 1', alamat: 'Alamat 1', latitude: -6.1, longitude: 106.1, statusAktif: true },
-          { nama: 'GET Site Inactive 1', alamat: 'Alamat 2', latitude: -6.1, longitude: 106.1, statusAktif: false },
-        ]
+          {
+            nama: 'GET Site Active 1',
+            alamat: 'Alamat 1',
+            latitude: -6.1,
+            longitude: 106.1,
+            statusAktif: true,
+          },
+          {
+            nama: 'GET Site Inactive 1',
+            alamat: 'Alamat 2',
+            latitude: -6.1,
+            longitude: 106.1,
+            statusAktif: false,
+          },
+        ],
       });
     });
 
     afterAll(async () => {
       await prisma.site.deleteMany({
-        where: { nama: { in: ['GET Site Active 1', 'GET Site Inactive 1'] } }
+        where: { nama: { in: ['GET Site Active 1', 'GET Site Inactive 1'] } },
       });
     });
 
     it('Tanpa query param -> return semua site (termasuk yang tidak aktif)', async () => {
-      const token = jwtService.sign({ userId: dummyHr.id, role: Role.HR_ADMIN });
-      
+      const token = jwtService.sign({
+        userId: dummyHr.id,
+        role: Role.HR_ADMIN,
+      });
+
       const res = await request(app.getHttpServer())
         .get('/sites')
         .set('Authorization', `Bearer ${token}`);
@@ -204,16 +230,23 @@ describe('SitesController (e2e)', () => {
       expect(res.body.success).toBe(true);
       expect(Array.isArray(res.body.data)).toBe(true);
 
-      const activeSite = res.body.data.find((s: any) => s.nama === 'GET Site Active 1');
-      const inactiveSite = res.body.data.find((s: any) => s.nama === 'GET Site Inactive 1');
-      
+      const activeSite = res.body.data.find(
+        (s: any) => s.nama === 'GET Site Active 1',
+      );
+      const inactiveSite = res.body.data.find(
+        (s: any) => s.nama === 'GET Site Inactive 1',
+      );
+
       expect(activeSite).toBeDefined();
       expect(inactiveSite).toBeDefined();
     });
 
     it('Dengan ?statusAktif=true -> hanya return site yang statusAktif true', async () => {
-      const token = jwtService.sign({ userId: dummyHr.id, role: Role.HR_ADMIN });
-      
+      const token = jwtService.sign({
+        userId: dummyHr.id,
+        role: Role.HR_ADMIN,
+      });
+
       const res = await request(app.getHttpServer())
         .get('/sites?statusAktif=true')
         .set('Authorization', `Bearer ${token}`);
@@ -221,16 +254,23 @@ describe('SitesController (e2e)', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
 
-      const activeSite = res.body.data.find((s: any) => s.nama === 'GET Site Active 1');
-      const inactiveSite = res.body.data.find((s: any) => s.nama === 'GET Site Inactive 1');
-      
+      const activeSite = res.body.data.find(
+        (s: any) => s.nama === 'GET Site Active 1',
+      );
+      const inactiveSite = res.body.data.find(
+        (s: any) => s.nama === 'GET Site Inactive 1',
+      );
+
       expect(activeSite).toBeDefined();
       expect(inactiveSite).toBeUndefined(); // harus undefined karena difilter
     });
 
     it('Gagal auth: role bukan HR_ADMIN -> 403', async () => {
-      const token = jwtService.sign({ userId: dummyEmp.id, role: Role.KARYAWAN });
-      
+      const token = jwtService.sign({
+        userId: dummyEmp.id,
+        role: Role.KARYAWAN,
+      });
+
       const res = await request(app.getHttpServer())
         .get('/sites')
         .set('Authorization', `Bearer ${token}`);
@@ -246,20 +286,30 @@ describe('SitesController (e2e)', () => {
 
     beforeAll(async () => {
       const site = await prisma.site.create({
-        data: { nama: 'PATCH Site 1', alamat: 'Alamat 1', latitude: -6.1, longitude: 106.1, radiusToleransi: 50, statusAktif: true }
+        data: {
+          nama: 'PATCH Site 1',
+          alamat: 'Alamat 1',
+          latitude: -6.1,
+          longitude: 106.1,
+          radiusToleransi: 50,
+          statusAktif: true,
+        },
       });
       siteId = site.id;
     });
 
     afterAll(async () => {
       await prisma.site.deleteMany({
-        where: { nama: 'PATCH Site 1' }
+        where: { nama: 'PATCH Site 1' },
       });
     });
 
     it('Sukses: Update sebagian field (alamat) -> field lain tidak berubah', async () => {
-      const token = jwtService.sign({ userId: dummyHr.id, role: Role.HR_ADMIN });
-      
+      const token = jwtService.sign({
+        userId: dummyHr.id,
+        role: Role.HR_ADMIN,
+      });
+
       const res = await request(app.getHttpServer())
         .patch(`/sites/${siteId}`)
         .set('Authorization', `Bearer ${token}`)
@@ -272,8 +322,11 @@ describe('SitesController (e2e)', () => {
     });
 
     it('Gagal: Site tidak ditemukan -> 404', async () => {
-      const token = jwtService.sign({ userId: dummyHr.id, role: Role.HR_ADMIN });
-      
+      const token = jwtService.sign({
+        userId: dummyHr.id,
+        role: Role.HR_ADMIN,
+      });
+
       const res = await request(app.getHttpServer())
         .patch('/sites/not-found-id')
         .set('Authorization', `Bearer ${token}`)
@@ -284,24 +337,51 @@ describe('SitesController (e2e)', () => {
       expect(res.body.error.code).toBe('NOT_FOUND');
     });
 
-    it('Sukses: statusAktif di body diabaikan/di-strip', async () => {
-      const token = jwtService.sign({ userId: dummyHr.id, role: Role.HR_ADMIN });
-      
+    it('Sukses: statusAktif di body mengubah status (soft-deactivate)', async () => {
+      const token = jwtService.sign({
+        userId: dummyHr.id,
+        role: Role.HR_ADMIN,
+      });
+
       const res = await request(app.getHttpServer())
         .patch(`/sites/${siteId}`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ statusAktif: false, alamat: 'Alamat Test' });
+        .send({ statusAktif: false });
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      // Di database harusnya tetap true
+
+      // Di database harusnya berubah jadi false
       const site = await prisma.site.findUnique({ where: { id: siteId } });
-      expect(site?.statusAktif).toBe(true); // Tidak berubah
+      expect(site?.statusAktif).toBe(false);
+      expect(res.body.data.statusAktif).toBe(false);
+    });
+
+    it('Idempotent: update statusAktif ke nilai yang sama tetap sukses', async () => {
+      const token = jwtService.sign({
+        userId: dummyHr.id,
+        role: Role.HR_ADMIN,
+      });
+
+      // statusAktif sudah false dari test sebelumnya, kita set false lagi
+      const res = await request(app.getHttpServer())
+        .patch(`/sites/${siteId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ statusAktif: false });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+
+      const site = await prisma.site.findUnique({ where: { id: siteId } });
+      expect(site?.statusAktif).toBe(false);
     });
 
     it('Gagal auth: role bukan HR_ADMIN -> 403', async () => {
-      const token = jwtService.sign({ userId: dummyEmp.id, role: Role.KARYAWAN });
-      
+      const token = jwtService.sign({
+        userId: dummyEmp.id,
+        role: Role.KARYAWAN,
+      });
+
       const res = await request(app.getHttpServer())
         .patch(`/sites/${siteId}`)
         .set('Authorization', `Bearer ${token}`)
@@ -312,79 +392,4 @@ describe('SitesController (e2e)', () => {
       expect(res.body.error.code).toBe('FORBIDDEN');
     });
   });
-
-  describe('DELETE /sites/:id', () => {
-    let siteId: string;
-
-    beforeAll(async () => {
-      const site = await prisma.site.create({
-        data: { nama: 'DELETE Site 1', alamat: 'Alamat 1', latitude: -6.1, longitude: 106.1, radiusToleransi: 50, statusAktif: true }
-      });
-      siteId = site.id;
-    });
-
-    afterAll(async () => {
-      await prisma.site.deleteMany({
-        where: { nama: 'DELETE Site 1' }
-      });
-    });
-
-    it('Sukses: site aktif di-nonaktifkan -> statusAktif jadi false, tidak hilang dari DB', async () => {
-      const token = jwtService.sign({ userId: dummyHr.id, role: Role.HR_ADMIN });
-      
-      const res = await request(app.getHttpServer())
-        .delete(`/sites/${siteId}`)
-        .set('Authorization', `Bearer ${token}`);
-
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      // Di sini tidak ada res.body.data sesuai API Contract
-
-      // Verifikasi di database: data masih ada tapi statusAktif = false
-      const site = await prisma.site.findUnique({ where: { id: siteId } });
-      expect(site).not.toBeNull();
-      expect(site?.statusAktif).toBe(false);
-    });
-
-    it('Idempotent: site yang sudah statusAktif: false di-DELETE lagi -> sukses', async () => {
-      const token = jwtService.sign({ userId: dummyHr.id, role: Role.HR_ADMIN });
-      
-      const res = await request(app.getHttpServer())
-        .delete(`/sites/${siteId}`)
-        .set('Authorization', `Bearer ${token}`);
-
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      
-      const site = await prisma.site.findUnique({ where: { id: siteId } });
-      expect(site?.statusAktif).toBe(false); // Tetap false
-    });
-
-    it('Gagal: Site tidak ditemukan -> 404', async () => {
-      const token = jwtService.sign({ userId: dummyHr.id, role: Role.HR_ADMIN });
-      
-      const res = await request(app.getHttpServer())
-        .delete('/sites/not-found-id')
-        .set('Authorization', `Bearer ${token}`);
-
-      expect(res.status).toBe(404);
-      expect(res.body.success).toBe(false);
-      expect(res.body.error.code).toBe('NOT_FOUND');
-    });
-
-    it('Gagal auth: role bukan HR_ADMIN -> 403', async () => {
-      const token = jwtService.sign({ userId: dummyEmp.id, role: Role.KARYAWAN });
-      
-      const res = await request(app.getHttpServer())
-        .delete(`/sites/${siteId}`)
-        .set('Authorization', `Bearer ${token}`);
-
-      expect(res.status).toBe(403);
-      expect(res.body.success).toBe(false);
-      expect(res.body.error.code).toBe('FORBIDDEN');
-    });
-  });
 });
-
-
-

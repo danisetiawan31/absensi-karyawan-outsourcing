@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsNumber, IsOptional, IsString, IsBoolean } from 'class-validator';
 
 export class UpdateSiteDto {
   @IsString()
@@ -20,4 +20,8 @@ export class UpdateSiteDto {
   @IsNumber({}, { message: 'Radius toleransi harus berupa angka' })
   @IsOptional()
   radiusToleransi?: number;
+
+  @IsBoolean({ message: 'Status aktif harus berupa boolean' })
+  @IsOptional()
+  statusAktif?: boolean;
 }

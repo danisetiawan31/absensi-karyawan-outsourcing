@@ -59,16 +59,15 @@
 ## [Stage 5] Track A1 - Sites CRUD & RolesGuard
 
 - **File diubah/dibuat:**
-  - `apps/backend/prisma/migrations/20260728011415_v3/migration.sql` (Site.statusAktif + perubahan lain dari batch update dokumen sebelumnya)
-  - `apps/backend/src/common/decorators/roles.decorator.ts` & `guards/roles.guard.ts` (baru — kontrol akses role, reusable lintas module)
+  - `apps/backend/prisma/migrations/20260728011415_v3/migration.sql` (`Site.statusAktif` + perubahan lain dari batch update dokumen sebelumnya)
+  - `apps/backend/src/common/decorators/roles.decorator.ts` & `guards/roles.guard.ts` (kontrol akses role, reusable lintas module)
   - `apps/backend/src/modules/sites/dto/*` (`create-site.dto.ts`, `update-site.dto.ts`, `find-sites-query.dto.ts`)
   - `apps/backend/src/modules/sites/sites.service.ts`, `sites.controller.ts`, `sites.module.ts` (terdaftar di `app.module.ts`)
   - `apps/backend/src/modules/sites/sites.service.spec.ts` & `sites.controller.spec.ts`
 - **Verifikasi:**
-  - `npm run test -- src/modules/sites` lolos 24/24 — cover 201 sukses, validasi gagal, filtering aktif/inaktif, update parsial, idempotent delete, 404, 403, 401.
+  - `npm run test -- src/modules/sites` lolos 20/20 — cover 201 sukses, validasi gagal, filtering aktif/inaktif, update parsial (termasuk toggle `statusAktif`), idempotent, 404, 403, 401.
 - **Catatan/Penyimpangan:**
   - `RolesGuard` + `@Roles` decorator adalah keputusan arsitektur baru (belum ada sebelumnya) — ditambahkan sebagai konvensi resmi di `AGENTS.md` section Konvensi Kode, dipakai identik di keempat endpoint Sites.
   - `GET /sites` — hasil di-order berdasarkan `nama` ascending, tidak diminta eksplisit di API-Contract, ditambahkan untuk UX list yang predictable.
   - `GET /sites?statusAktif=` — boolean casting query string ditangani eksplisit via `@Transform` (cek literal `'true'`/`'false'`, bukan `Boolean(value)` mentah yang salah untuk string `"false"`); value invalid ditolak `400` lewat `@IsBoolean()`, bukan silent fallback.
-  - `PATCH`/`DELETE /sites/:id` — field `statusAktif` sengaja tidak didefinisikan di DTO, otomatis ter-strip `ValidationPipe({ whitelist: true })` global (sudah ada sejak Stage 4) — dipertimbangkan `forbidNonWhitelisted` untuk proteksi lebih ketat, ditolak karena berisiko ke endpoint form-data masa depan (check-in/out).
-  - `DELETE /sites/:id` murni soft-deactivate, idempotent — panggilan berulang ke site nonaktif short-circuit sebelum query update kedua, tidak error.
+  - `PATCH /sites/:id` menangani baik koreksi data (nama/alamat/koordinat/radius) maupun nonaktifkan/aktifkan kembali site (`statusAktif`) dalam satu mekanisme — tidak ada endpoint `DELETE` terpisah untuk `Site`, konsisten dengan pola `PATCH /employees/:id` untuk `User`. Idempotent — mengirim `statusAktif` dengan nilai yang sama seperti kondisi saat ini tetap sukses, tidak error.
