@@ -1,0 +1,229 @@
+// ============================================================
+// Schema Prisma — Aplikasi Absensi Karyawan Outsourcing
+// Bagian dari Technical Design Document (ERD Detail)
+// v3 — enum JenisIzin, model Notifikasi, status aktif karyawan,
+// cancel izin (status CANCELLED). Checkout simetris, audit trail
+// percobaan absensi, auto TIDAK_HADIR, reset password self-service
+// dari versi sebelumnya tetap dipertahankan.
+// ============================================================
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  KARYAWAN
+  SUPERVISOR
+  HR_ADMIN
+}
+
+enum JenisIzin {
+  SAKIT
+  IZIN
+  CUTI
+}
+
+enum StatusIzin {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED // dibatalkan sendiri oleh karyawan, hanya valid selama masih PENDING
+}
+
+enum HasilVerifikasi {
+  VALID
+  GAGAL_LOKASI          // GPS di luar radius toleransi site
+  GAGAL_WAJAH           // embedding tidak cocok dengan threshold
+  GAGAL_LIVENESS        // terdeteksi spoofing (foto dari foto, dsb)
+  DI_LUAR_JENDELA_WAKTU // percobaan di luar jendela waktu yang diizinkan
+  TIDAK_HADIR           // tidak ada percobaan check-in sampai jamSelesai (auto, oleh cron)
+}
+
+enum TipeAbsensi {
+  CHECK_IN
+  CHECK_OUT
+}
+
+enum TipeNotifikasi {
+  PERUBAHAN_JADWAL
+  REMINDER_CHECKIN   // T+5 menit, ke karyawan
+  ALERT_SUPERVISOR   // T+15 menit, eskalasi ke supervisor
+}
+
+// ------------------------------------------------------------
+// User — satu model untuk 3 aktor (dibedakan lewat kolom role)
+// ------------------------------------------------------------
+model User {
+  id           String @id @default(uuid())
+  nama         String
+  email        String @unique
+  passwordHash String
+  role         Role
+
+  // Karyawan yang resign/di-nonaktifkan tidak boleh login/check-in.
+  // Diubah lewat PATCH /employees/:id yang sudah ada — tidak perlu
+  // endpoint terpisah.
+  statusAktif Boolean @default(true)
+
+  // Hanya diisi untuk role KARYAWAN. Native Float[] di Postgres,
+  // tidak butuh workaround Prisma (beda kasus dengan PostGIS).
+  faceEmbedding Float[]
+
+  // Reset password self-service — token 1x pakai, overwrite tiap request baru
+  resetToken       String?
+  resetTokenExpiry DateTime?
+
+  createdAt DateTime @default(now())
+
+  jadwalShift      JadwalShift[]      @relation("KaryawanJadwal")
+  pengajuanIzin    PengajuanIzin[]    @relation("KaryawanIzin")
+  approvalIzin     PengajuanIzin[]    @relation("SupervisorApproval")
+  logKehadiran     LogKehadiran[]
+  supervisorSite   SupervisorSite[]
+  percobaanAbsensi PercobaanAbsensi[]
+  notifikasi       Notifikasi[]
+}
+
+// ------------------------------------------------------------
+// Site — master lokasi klien
+// ------------------------------------------------------------
+model Site {
+  id              String @id @default(uuid())
+  nama            String
+  alamat          String
+  latitude        Float
+  longitude       Float
+  radiusToleransi Int    @default(75) // meter, akomodasi drift GPS indoor
+
+  // Site yang sudah tidak jadi klien dinonaktifkan, bukan hard delete
+  // histori JadwalShift/LogKehadiran yang merujuk ke site ini tetap utuh.
+  statusAktif Boolean @default(true)
+
+  jadwalShift    JadwalShift[]
+  supervisorSite SupervisorSite[]
+}
+
+// ------------------------------------------------------------
+// SupervisorSite — mapping supervisor ke site yang diawasi.
+// Assignment/un-assignment lewat endpoint sendiri (POST/DELETE
+// /supervisor-sites) — sifatnya bisa berubah (rotasi coverage,
+// kontrak klien berakhir), bukan konstanta yang cukup diseed sekali.
+// ------------------------------------------------------------
+model SupervisorSite {
+  id           String @id @default(uuid())
+  supervisorId String
+  siteId       String
+
+  supervisor User @relation(fields: [supervisorId], references: [id])
+  site       Site @relation(fields: [siteId], references: [id])
+
+  @@unique([supervisorId, siteId])
+}
+
+// ------------------------------------------------------------
+// JadwalShift — SUMBER KEBENARAN penempatan harian karyawan.
+// ------------------------------------------------------------
+model JadwalShift {
+  id         String   @id @default(uuid())
+  karyawanId String
+  siteId     String
+  tanggal    DateTime
+  jamMulai   DateTime
+  jamSelesai DateTime
+
+  karyawan         User               @relation("KaryawanJadwal", fields: [karyawanId], references: [id])
+  site             Site               @relation(fields: [siteId], references: [id])
+  logKehadiran     LogKehadiran?
+  percobaanAbsensi PercobaanAbsensi[]
+
+  @@unique([karyawanId, tanggal, jamMulai])
+}
+
+// ------------------------------------------------------------
+// PengajuanIzin — approval oleh Supervisor. `jenis` pakai enum
+// (bukan String bebas) untuk validasi ketat di level tipe data.
+// ------------------------------------------------------------
+model PengajuanIzin {
+  id             String     @id @default(uuid())
+  karyawanId     String
+  tanggalMulai   DateTime
+  tanggalSelesai DateTime
+  jenis          JenisIzin
+  alasan         String?
+
+  // Wajib diisi jika jenis=SAKIT & durasi > 1 hari (divalidasi di
+  // API layer, bukan constraint DB — lihat API-Contract.md §2)
+  dokumenPendukungUrl String?
+
+  status       StatusIzin @default(PENDING)
+  approvedById String?
+  createdAt    DateTime   @default(now())
+
+  karyawan   User  @relation("KaryawanIzin", fields: [karyawanId], references: [id])
+  approvedBy User? @relation("SupervisorApproval", fields: [approvedById], references: [id])
+}
+
+// ------------------------------------------------------------
+// LogKehadiran — 1:1 dengan JadwalShift, HASIL AKHIR (bukan
+// histori percobaan — itu di PercobaanAbsensi). Checkout kini
+// simetris dengan check-in: foto+GPS masing-masing, sehingga
+// hasil verifikasi dipisah per event (check-in vs check-out).
+// ------------------------------------------------------------
+model LogKehadiran {
+  id                      String            @id @default(uuid())
+  jadwalId                String            @unique
+  karyawanId              String
+  waktuCheckIn            DateTime?
+  waktuCheckOut           DateTime?
+  latitudeCheckIn         Float?
+  longitudeCheckIn        Float?
+  latitudeCheckOut        Float?
+  longitudeCheckOut       Float?
+  hasilVerifikasiCheckIn  HasilVerifikasi?
+  hasilVerifikasiCheckOut HasilVerifikasi?
+
+  jadwal   JadwalShift @relation(fields: [jadwalId], references: [id])
+  karyawan User        @relation(fields: [karyawanId], references: [id])
+}
+
+// ------------------------------------------------------------
+// PercobaanAbsensi — audit trail SETIAP percobaan check-in/out,
+// baik gagal maupun berhasil (beda dengan LogKehadiran yang
+// cuma simpan hasil akhir). Menjawab pain point HR yang butuh
+// bukti konkret saat ada dispute dengan klien/karyawan.
+// ------------------------------------------------------------
+model PercobaanAbsensi {
+  id         String          @id @default(uuid())
+  jadwalId   String
+  karyawanId String
+  tipe       TipeAbsensi
+  waktu      DateTime        @default(now())
+  latitude   Float
+  longitude  Float
+  hasil      HasilVerifikasi
+
+  jadwal   JadwalShift @relation(fields: [jadwalId], references: [id])
+  karyawan User        @relation(fields: [karyawanId], references: [id])
+}
+
+// ------------------------------------------------------------
+// Notifikasi — sumber data untuk GET /notifications. Ditulis
+// oleh cron job (reminder T+5, alert T+15) dan oleh event
+// perubahan jadwal. Tanpa tabel ini, /notifications tidak
+// punya sumber data sama sekali.
+// ------------------------------------------------------------
+model Notifikasi {
+  id        String         @id @default(uuid())
+  userId    String
+  tipe      TipeNotifikasi
+  pesan     String
+  dibaca    Boolean        @default(false)
+  createdAt DateTime       @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}

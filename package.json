@@ -1,0 +1,9 @@
+{
+  "name": "absensi-karyawan",
+  "version": "1.0.0",
+  "description": "Monorepo untuk aplikasi absensi karyawan",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ]
+}
