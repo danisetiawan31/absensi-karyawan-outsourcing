@@ -1,3 +1,5 @@
+process.env.TZ = 'Asia/Jakarta'; // Set default timezone to WIB
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import {
