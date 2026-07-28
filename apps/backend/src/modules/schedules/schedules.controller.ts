@@ -6,6 +6,9 @@ import {
   Request,
   Get,
   Query,
+  Patch,
+  Param,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { SchedulesService } from './schedules.service';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
@@ -14,6 +17,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '@prisma/client';
 import { FindSchedulesQueryDto } from './dto/find-schedules-query.dto';
+import { UpdateScheduleDto } from './dto/update-schedule.dto';
 
 @Controller('schedules')
 export class SchedulesController {
@@ -37,5 +41,16 @@ export class SchedulesController {
     @Query() query: FindSchedulesQueryDto,
   ) {
     return this.schedulesService.findAll(req.user.userId, query);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERVISOR)
+  @Patch(':id')
+  async update(
+    @Request() req: { user: { userId: string; role: Role } },
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateScheduleDto: UpdateScheduleDto,
+  ) {
+    return this.schedulesService.update(req.user.userId, id, updateScheduleDto);
   }
 }

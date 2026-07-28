@@ -82,6 +82,7 @@ describe('SchedulesController (e2e)', () => {
             '44444444-4444-4444-a444-444444444444',
             '55555555-5555-4555-a555-555555555555',
             '66666666-6666-4666-a666-666666666666',
+            '88888888-8888-4888-a888-888888888888',
           ],
         },
       },
@@ -93,6 +94,7 @@ describe('SchedulesController (e2e)', () => {
             '44444444-4444-4444-a444-444444444444',
             '55555555-5555-4555-a555-555555555555',
             '66666666-6666-4666-a666-666666666666',
+            '88888888-8888-8888-8888-888888888888',
           ],
         },
       },
@@ -219,10 +221,28 @@ describe('SchedulesController (e2e)', () => {
         where: { karyawanId: { in: [karyawan.id, karyawan2.id] } },
       });
       await prisma.supervisorSite.deleteMany({
-        where: { siteId: { in: [siteAktif.id, siteNonAktif.id, siteLain.id] } },
+        where: {
+          siteId: {
+            in: [
+              siteAktif.id,
+              siteNonAktif.id,
+              siteLain.id,
+              '88888888-8888-4888-a888-888888888888',
+            ],
+          },
+        },
       });
       await prisma.site.deleteMany({
-        where: { id: { in: [siteAktif.id, siteNonAktif.id, siteLain.id] } },
+        where: {
+          id: {
+            in: [
+              siteAktif.id,
+              siteNonAktif.id,
+              siteLain.id,
+              '88888888-8888-4888-a888-888888888888',
+            ],
+          },
+        },
       });
       await prisma.user.deleteMany({
         where: {
@@ -425,6 +445,28 @@ describe('SchedulesController (e2e)', () => {
         tanggal: '2026-08-01',
         jamMulai: '15:00',
         jamSelesai: '14:00', // +24h = 23 hours duration
+      };
+
+      const res = await request(app.getHttpServer() as Server)
+        .post('/schedules')
+        .set('Authorization', `Bearer ${token}`)
+        .send(payload);
+
+      expect(res.status).toBe(400);
+      const body = res.body as ErrorEnvelope;
+      expect(body.error.code).toBe('DURASI_SHIFT_TIDAK_VALID');
+    });
+    it('should return 400 if shift duration is 0 (start time === end time)', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+      const payload: CreateScheduleDto = {
+        karyawanId: karyawan.id,
+        siteId: siteAktif.id,
+        tanggal: '2026-08-01',
+        jamMulai: '15:00',
+        jamSelesai: '15:00', // 0 duration
       };
 
       const res = await request(app.getHttpServer() as Server)
@@ -710,6 +752,332 @@ describe('SchedulesController (e2e)', () => {
         expect(body.data).toHaveLength(2); // Only the 2 in siteAktif
         expect(body.data.every((d) => d.site.id === siteAktif.id)).toBe(true);
       });
+    });
+  });
+
+  describe('PATCH /schedules/:id', () => {
+    let testJadwalId: string;
+    let testJadwalSiteNonAktifId: string;
+
+    beforeEach(async () => {
+      const j1 = await prisma.jadwalShift.create({
+        data: {
+          karyawanId: karyawan.id,
+          siteId: siteAktif.id,
+          tanggal: new Date('2026-08-01T00:00:00+07:00'),
+          jamMulai: new Date('2026-08-01T10:00:00+07:00'),
+          jamSelesai: new Date('2026-08-01T18:00:00+07:00'),
+        },
+      });
+      testJadwalId = j1.id;
+
+      const j2 = await prisma.jadwalShift.create({
+        data: {
+          karyawanId: karyawan.id,
+          siteId: siteNonAktif.id,
+          tanggal: new Date('2026-08-02T00:00:00+07:00'),
+          jamMulai: new Date('2026-08-02T10:00:00+07:00'),
+          jamSelesai: new Date('2026-08-02T18:00:00+07:00'),
+        },
+      });
+      testJadwalSiteNonAktifId = j2.id;
+    });
+
+    it('should return 403 for HR_ADMIN', async () => {
+      const token = jwtService.sign({
+        userId: hrAdmin.id,
+        role: Role.HR_ADMIN,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/schedules/${testJadwalId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ jamMulai: '11:00' });
+
+      expect(res.status).toBe(403);
+    });
+
+    it('should return 404 if :id not found', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      const fakeId = '00000000-0000-0000-0000-000000000000';
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/schedules/${fakeId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ jamMulai: '11:00' });
+
+      expect(res.status).toBe(404);
+      expect((res.body as ErrorEnvelope).error.code).toBe(
+        'JADWAL_TIDAK_DITEMUKAN',
+      );
+    });
+
+    it('should return 403 if caller does not supervise the OLD site', async () => {
+      // Supervisor 2 does not supervise siteAktif
+      const token = jwtService.sign({
+        userId: supervisor2.id,
+        role: Role.SUPERVISOR,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/schedules/${testJadwalId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ jamMulai: '11:00' });
+
+      expect(res.status).toBe(403);
+      expect((res.body as ErrorEnvelope).error.code).toBe(
+        'SITE_DI_LUAR_PENGAWASAN',
+      );
+    });
+
+    it('should return 400 if updated shift duration exceeds 16 hours', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      // Original is 10:00 to 18:00
+      // Change jamMulai to 15:00 and jamSelesai to 14:00 (durasi 23 jam)
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/schedules/${testJadwalId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ jamMulai: '15:00', jamSelesai: '14:00' });
+
+      expect(res.status).toBe(400);
+      expect((res.body as ErrorEnvelope).error.code).toBe(
+        'DURASI_SHIFT_TIDAK_VALID',
+      );
+    });
+
+    it('should return 400 if updated shift duration is 0', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/schedules/${testJadwalId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ jamMulai: '15:00', jamSelesai: '15:00' });
+
+      expect(res.status).toBe(400);
+      expect((res.body as ErrorEnvelope).error.code).toBe(
+        'DURASI_SHIFT_TIDAK_VALID',
+      );
+    });
+
+    it('should return 400 if changing siteId to an inactive site', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/schedules/${testJadwalId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ siteId: siteNonAktif.id });
+
+      expect(res.status).toBe(400);
+      expect((res.body as ErrorEnvelope).error.code).toBe('SITE_TIDAK_AKTIF');
+    });
+
+    it('should return 403 if changing siteId to an active site but not supervised by caller', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/schedules/${testJadwalId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ siteId: siteLain.id }); // siteLain is active but not supervised by this supervisor
+
+      expect(res.status).toBe(403);
+      expect((res.body as ErrorEnvelope).error.code).toBe(
+        'SITE_DI_LUAR_PENGAWASAN',
+      );
+    });
+
+    it('should return 400 if changing karyawanId to non-KARYAWAN role', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/schedules/${testJadwalId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ karyawanId: supervisor.id }); // Supervisor is not a KARYAWAN
+
+      expect(res.status).toBe(400);
+      expect((res.body as ErrorEnvelope).error.code).toBe(
+        'ROLE_BUKAN_KARYAWAN',
+      );
+    });
+
+    it('should return 200 and allow partial update of times, leaving other fields unchanged', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/schedules/${testJadwalId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ jamMulai: '12:00', jamSelesai: '20:00' });
+
+      expect(res.status).toBe(200);
+      const body = res.body as SuccessEnvelope<{
+        id: string;
+        jamMulai: string;
+        jamSelesai: string;
+        karyawan: { id: string };
+        site: { id: string };
+        tanggal: string;
+      }>;
+      expect(body.success).toBe(true);
+
+      const tzOffset = 7 * 60 * 60 * 1000;
+      const getWibHour = (dStr: string) =>
+        new Date(new Date(dStr).getTime() + tzOffset).getUTCHours();
+
+      expect(getWibHour(body.data.jamMulai)).toBe(12);
+      expect(getWibHour(body.data.jamSelesai)).toBe(20);
+      expect(body.data.karyawan.id).toBe(karyawan.id); // unchanged
+      expect(body.data.site.id).toBe(siteAktif.id); // unchanged
+    });
+
+    it('should allow updating schedule in an INACTIVE site if siteId is NOT changed (exception 3c)', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/schedules/${testJadwalSiteNonAktifId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ jamMulai: '11:00' });
+
+      expect(res.status).toBe(200);
+      const body = res.body as SuccessEnvelope<{ jamMulai: string }>;
+
+      const tzOffset = 7 * 60 * 60 * 1000;
+      const getWibHour = (dStr: string) =>
+        new Date(new Date(dStr).getTime() + tzOffset).getUTCHours();
+      expect(getWibHour(body.data.jamMulai)).toBe(11);
+    });
+
+    it('should allow updating schedule in an INACTIVE site if siteId IS sent but IDENTICAL to existing (exception 3c)', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/schedules/${testJadwalSiteNonAktifId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ siteId: siteNonAktif.id, jamMulai: '11:00' });
+
+      expect(res.status).toBe(200);
+    });
+
+    it('should return 409 if new time overlaps with another schedule of the same karyawan', async () => {
+      // First create another schedule for the same karyawan
+      await prisma.jadwalShift.create({
+        data: {
+          karyawanId: karyawan.id,
+          siteId: siteAktif.id,
+          tanggal: new Date('2026-08-01T00:00:00+07:00'),
+          jamMulai: new Date('2026-08-01T20:00:00+07:00'),
+          jamSelesai: new Date('2026-08-01T23:00:00+07:00'),
+        },
+      });
+
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      // Try to extend testJadwalId from 10:00-18:00 to 10:00-21:00 (overlaps with 20:00-23:00)
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/schedules/${testJadwalId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ jamSelesai: '21:00' });
+
+      expect(res.status).toBe(409);
+      expect((res.body as ErrorEnvelope).error.code).toBe('JADWAL_BENTROK');
+    });
+
+    it('should NOT return 409 when updating its own time even if it "overlaps" with its own old time', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      // TestJadwal is 10:00 - 18:00. We change it to 12:00 - 18:00
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/schedules/${testJadwalId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ jamMulai: '12:00' });
+
+      expect(res.status).toBe(200);
+    });
+
+    it('should allow changing siteId to another supervised active site', async () => {
+      // First create another active site supervised by caller
+      const activeSite2 = await prisma.site.create({
+        data: {
+          id: '88888888-8888-4888-a888-888888888888',
+          nama: 'Active Site 2',
+          alamat: 'Test Address',
+          latitude: 0,
+          longitude: 0,
+          statusAktif: true,
+        },
+      });
+      await prisma.supervisorSite.create({
+        data: {
+          supervisorId: supervisor.id,
+          siteId: activeSite2.id,
+        },
+      });
+
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      let res: request.Response;
+      try {
+        res = await request(app.getHttpServer() as Server)
+          .patch(`/schedules/${testJadwalId}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({ siteId: activeSite2.id });
+
+        if (res.status !== 200) {
+          console.log('TEST FAILED. BODY:', res.body);
+        }
+        expect(res.status).toBe(200);
+        const body = res.body as SuccessEnvelope<{ site: { id: string } }>;
+        expect(body.data.site.id).toBe(activeSite2.id);
+      } finally {
+        await prisma.jadwalShift.update({
+          where: { id: testJadwalId },
+          data: { siteId: siteAktif.id },
+        });
+        await prisma.supervisorSite.delete({
+          where: {
+            supervisorId_siteId: {
+              supervisorId: supervisor.id,
+              siteId: activeSite2.id,
+            },
+          },
+        });
+        await prisma.site.delete({ where: { id: activeSite2.id } });
+      }
     });
   });
 });

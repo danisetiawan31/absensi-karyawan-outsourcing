@@ -187,6 +187,8 @@ Buat jadwal shift per karyawan per site — _PP1_
 
 **Catatan implementasi:** `jamMulai`/`jamSelesai` di request bertipe `time`, tapi `JadwalShift.jamMulai`/`jamSelesai` di schema bertipe `DateTime` penuh — service layer wajib menggabungkan `tanggal` + `jamMulai`/`jamSelesai` menjadi satu `DateTime` lengkap sebelum disimpan. Ini konversi mekanis, bukan ambiguitas requirement.
 
+**Validasi durasi shift:** durasi (`jamSelesai` − `jamMulai`, dihitung setelah penyesuaian shift yang melewati tengah malam) harus **lebih dari 0** dan **tidak boleh melebihi 16 jam** — di luar rentang itu ditolak, `error.code: "DURASI_SHIFT_TIDAK_VALID"`. Batas bawah (>0) mencegah `jamMulai` yang persis sama dengan `jamSelesai` lolos sebagai shift berdurasi nol; batas atas (16 jam) mencegah kesalahan input jam yang tertukar menghasilkan shift dengan durasi tidak wajar tanpa peringatan ke supervisor.
+
 ### GET /schedules?siteId=&tanggal=
 
 Jadwal untuk site yang diawasi supervisor ini (dibatasi lewat `SupervisorSite`).
@@ -195,6 +197,8 @@ Jadwal untuk site yang diawasi supervisor ini (dibatasi lewat `SupervisorSite`).
 
 Koreksi/batalkan jadwal (salah input karyawan/jam, atau site berhenti kontrak mendadak).
 **`DELETE` ditolak** (`error.code: "SUDAH_ADA_AKTIVITAS"`) kalau jadwal itu sudah punya `LogKehadiran` atau `PercobaanAbsensi` — data historis tidak boleh hilang begitu saja. Kalau perlu dibatalkan setelah ada aktivitas, gunakan `PATCH` untuk mengubah jam/site, bukan hapus.
+
+**Validasi durasi shift** (lihat `POST /schedules` di atas, batas 0–16 jam) berlaku juga di `PATCH` — kalau kombinasi akhir `jamMulai`/`jamSelesai` (baik yang diubah lewat request maupun yang tetap dari data existing) berada di luar rentang itu, ditolak dengan `error.code: "DURASI_SHIFT_TIDAK_VALID"` yang sama.
 
 ### GET /leave-requests?status=PENDING
 
