@@ -1,7 +1,14 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Role } from '@prisma/client';
+import { Request } from 'express';
 import { ROLES_KEY } from '../decorators/roles.decorator';
+import { JwtPayload } from '../types/jwt-payload.type';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -12,14 +19,16 @@ export class RolesGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    
+
     // Kalau tidak ada decorator @Roles, izinkan akses
     if (!requiredRoles) {
       return true;
     }
 
-    const { user } = context.switchToHttp().getRequest();
-    
+    const { user } = context
+      .switchToHttp()
+      .getRequest<Request & { user: JwtPayload }>();
+
     if (!user || !requiredRoles.includes(user.role)) {
       throw new ForbiddenException({
         code: 'FORBIDDEN',

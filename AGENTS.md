@@ -67,3 +67,9 @@ Setelah 1 langkah kecil selesai, test (jika ada) lolos, DAN user sudah approve h
 ### 9. KEPUTUSAN LINTAS
 
 - Role-based access pakai @Roles(...) decorator + RolesGuard (common/guards/roles.guard.ts), selalu dipasang setelah JwtAuthGuard: @UseGuards(JwtAuthGuard, RolesGuard).
+- **STRICT TYPE-SAFETY (ZERO `any`):** DILARANG KERAS menggunakan tipe `any` (baik eksplisit maupun implisit) saat menulis atau memodifikasi kode. 
+  - Gunakan tipe bawaan Prisma (`User`, `Site`, dll).
+  - Gunakan tipe *Generic* (`<T>`) untuk membuat fungsi/interceptor yang dinamis.
+  - Jika struktur data benar-benar tidak diketahui, gunakan `unknown` lalu lakukan pengecekan tipe (*type narrowing/type guarding*).
+  - Untuk file test (`*.spec.ts`), pantang menggunakan `res.body.data: any`. Selalu *cast* respons menggunakan `SuccessEnvelope<T>` atau `ErrorEnvelope`.
+  - Pengecualian pada linter `unbound-method` untuk pengujian (karena penggunaan mock pada `expect(method)`) kini sudah difasilitasi aman oleh konfigurasi global `eslint-plugin-jest`.

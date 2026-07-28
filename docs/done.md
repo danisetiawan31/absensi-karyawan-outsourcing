@@ -71,3 +71,21 @@
   - `GET /sites` — hasil di-order berdasarkan `nama` ascending, tidak diminta eksplisit di API-Contract, ditambahkan untuk UX list yang predictable.
   - `GET /sites?statusAktif=` — boolean casting query string ditangani eksplisit via `@Transform` (cek literal `'true'`/`'false'`, bukan `Boolean(value)` mentah yang salah untuk string `"false"`); value invalid ditolak `400` lewat `@IsBoolean()`, bukan silent fallback.
   - `PATCH /sites/:id` menangani baik koreksi data (nama/alamat/koordinat/radius) maupun nonaktifkan/aktifkan kembali site (`statusAktif`) dalam satu mekanisme — tidak ada endpoint `DELETE` terpisah untuk `Site`, konsisten dengan pola `PATCH /employees/:id` untuk `User`. Idempotent — mengirim `statusAktif` dengan nilai yang sama seperti kondisi saat ini tetap sukses, tidak error.
+
+## [Stage 6] Pembersihan Type-Safety & Linter (Zero 'any')
+
+- **File diubah/dibuat:**
+  - `apps/backend/src/common/types/jwt-payload.type.ts` (baru)
+  - `apps/backend/src/common/types/api-envelope.type.ts` (baru, `SuccessEnvelope` & `ErrorEnvelope`)
+  - `apps/backend/eslint.config.mjs` (konfigurasi eslint-plugin-jest untuk membasmi false-positive unbound-method)
+  - `apps/backend/src/modules/sites/sites.controller.spec.ts` & `sites.service.spec.ts` (Pembersihan any)
+  - `apps/backend/src/main.ts` (perbaikan exceptionFactory)
+  - File inti lainnya: `roles.guard.ts`, `jwt.strategy.ts`, `find-sites-query.dto.ts`, `all-exceptions.filter.ts`
+- **Verifikasi:**
+  - `npx tsc --noEmit` lolos 100% (0 error).
+  - `npm run lint` turun drastis dari 96 problem menjadi **0 problem (0 error, 0 warning)** — codebase benar-benar bersih 100% dari celah keamanan tipe.
+  - `npm run test` untuk auth dan sites tetap PASS 100%.
+- **Catatan/Penyimpangan:**
+  - Melakukan instalasi `eslint-plugin-jest` khusus untuk menengahi aturan linter TypeScript `unbound-method` yang tidak kompatibel dengan perilaku Jest secara bawaan saat melakukan _mocking_.
+  - Mendefinisikan aturan baru anti-any di AGENTS.md untuk mengikat pengerjaan fitur ke depannya.
+  - Alih-alih memakai `eslint-disable` untuk menghiraukan *warning* dari parameter default NestJS, kita menangani masalah tersebut secara elegan menggunakan *type-casting* `app.getHttpServer() as Server` dan menangkap *floating promise* di `main.ts`.

@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { SitesService } from './sites.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
@@ -105,7 +106,6 @@ describe('SitesService', () => {
     it('should throw NotFoundException if site not found', async () => {
       (prisma.site.findUnique as jest.Mock).mockResolvedValueOnce(null);
 
-      const { NotFoundException } = require('@nestjs/common');
       await expect(service.update('1', {})).rejects.toThrow(NotFoundException);
     });
   });

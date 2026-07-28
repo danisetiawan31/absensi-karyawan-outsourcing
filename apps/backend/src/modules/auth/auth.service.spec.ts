@@ -9,7 +9,7 @@ import { UnauthorizedException } from '@nestjs/common';
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: PrismaService;
-  
+
   const testEmail = 'test_auth_service@test.local';
   const testPassword = 'password123';
 
@@ -82,7 +82,7 @@ describe('AuthService', () => {
           password: testPassword,
         }),
       ).rejects.toThrow(UnauthorizedException);
-      
+
       await expect(
         service.login({
           email: 'notfound@test.local',
@@ -100,7 +100,7 @@ describe('AuthService', () => {
           password: 'wrongpassword',
         }),
       ).rejects.toThrow(UnauthorizedException);
-      
+
       await expect(
         service.login({
           email: testEmail,

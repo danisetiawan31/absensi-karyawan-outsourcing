@@ -1,6 +1,10 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { BadRequestException, ValidationError, ValidationPipe } from '@nestjs/common';
+import {
+  BadRequestException,
+  ValidationError,
+  ValidationPipe,
+} from '@nestjs/common';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { RequestIdMiddleware } from './common/middlewares/request-id.middleware';
@@ -39,4 +43,7 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3000);
 }
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('Error starting server:', err);
+  process.exit(1);
+});

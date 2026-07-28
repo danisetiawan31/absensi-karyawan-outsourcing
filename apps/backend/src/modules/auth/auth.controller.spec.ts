@@ -37,7 +37,7 @@ describe('AuthController', () => {
     it('should return login response from AuthService', async () => {
       const loginDto = { email: 'test@test.local', password: 'password123' };
       const result = await controller.login(loginDto);
-      
+
       expect(service.login).toHaveBeenCalledWith(loginDto);
       expect(result).toEqual({
         accessToken: 'mock-token',

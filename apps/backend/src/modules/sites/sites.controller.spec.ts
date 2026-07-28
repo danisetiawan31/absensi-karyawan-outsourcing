@@ -1,21 +1,30 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
-const request = require('supertest');
+import { Server } from 'http';
+import {
+  INestApplication,
+  ValidationPipe,
+  BadRequestException,
+} from '@nestjs/common';
+import request from 'supertest';
 import { AppModule } from '../../app.module';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
-import { Role } from '@prisma/client';
+import { Role, User } from '@prisma/client';
 import { AllExceptionsFilter } from '../../common/filters/all-exceptions.filter';
 import { ResponseInterceptor } from '../../common/interceptors/response.interceptor';
 import { RequestIdMiddleware } from '../../common/middlewares/request-id.middleware';
+import {
+  SuccessEnvelope,
+  ErrorEnvelope,
+} from '../../common/types/api-envelope.type';
 
 describe('SitesController (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let jwtService: JwtService;
 
-  let dummyHr: any;
-  let dummyEmp: any;
+  let dummyHr: User;
+  let dummyEmp: User;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -37,7 +46,6 @@ describe('SitesController (e2e)', () => {
             field: error.property,
             issue: Object.values(error.constraints || {}).join(', '),
           }));
-          const { BadRequestException } = require('@nestjs/common');
           return new BadRequestException({
             code: 'VALIDATION_ERROR',
             message: 'Validasi gagal',
@@ -107,16 +115,21 @@ describe('SitesController (e2e)', () => {
         longitude: 106.8,
       };
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as Server)
         .post('/sites')
         .set('Authorization', `Bearer ${token}`)
         .send(payload);
 
       expect(res.status).toBe(201);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.nama).toBe(payload.nama);
-      expect(res.body.data.radiusToleransi).toBe(75);
-      expect(res.body.data.statusAktif).toBe(true);
+      const body = res.body as SuccessEnvelope<{
+        nama: string;
+        radiusToleransi: number;
+        statusAktif: boolean;
+      }>;
+      expect(body.success).toBe(true);
+      expect(body.data.nama).toBe(payload.nama);
+      expect(body.data.radiusToleransi).toBe(75);
+      expect(body.data.statusAktif).toBe(true);
     });
 
     it('Gagal validasi: field required (latitude) kosong (400)', async () => {
@@ -131,18 +144,19 @@ describe('SitesController (e2e)', () => {
         longitude: 106.8,
       };
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as Server)
         .post('/sites')
         .set('Authorization', `Bearer ${token}`)
         .send(payload);
 
       expect(res.status).toBe(400);
-      expect(res.body.success).toBe(false);
-      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      const body = res.body as ErrorEnvelope;
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('VALIDATION_ERROR');
 
-      const latitudeError = res.body.error.details.find(
-        (d) => d.field === 'latitude',
-      );
+      const latitudeError = (
+        body.error.details as Array<{ field: string }>
+      ).find((d) => d.field === 'latitude');
       expect(latitudeError).toBeDefined();
     });
 
@@ -160,14 +174,15 @@ describe('SitesController (e2e)', () => {
         longitude: 106.8,
       };
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as Server)
         .post('/sites')
         .set('Authorization', `Bearer ${token}`)
         .send(payload);
 
       expect(res.status).toBe(403);
-      expect(res.body.success).toBe(false);
-      expect(res.body.error.code).toBe('FORBIDDEN');
+      const body = res.body as ErrorEnvelope;
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('FORBIDDEN');
     });
 
     it('Gagal auth: akses tanpa token (401)', async () => {
@@ -178,12 +193,13 @@ describe('SitesController (e2e)', () => {
         longitude: 106.8,
       };
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as Server)
         .post('/sites')
         .send(payload);
 
       expect(res.status).toBe(401);
-      expect(res.body.success).toBe(false);
+      const body = res.body as ErrorEnvelope;
+      expect(body.success).toBe(false);
     });
   });
 
@@ -222,19 +238,20 @@ describe('SitesController (e2e)', () => {
         role: Role.HR_ADMIN,
       });
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as Server)
         .get('/sites')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(Array.isArray(res.body.data)).toBe(true);
+      const body = res.body as SuccessEnvelope<Array<{ nama: string }>>;
+      expect(body.success).toBe(true);
+      expect(Array.isArray(body.data)).toBe(true);
 
-      const activeSite = res.body.data.find(
-        (s: any) => s.nama === 'GET Site Active 1',
+      const activeSite = body.data.find(
+        (s: { nama: string }) => s.nama === 'GET Site Active 1',
       );
-      const inactiveSite = res.body.data.find(
-        (s: any) => s.nama === 'GET Site Inactive 1',
+      const inactiveSite = body.data.find(
+        (s: { nama: string }) => s.nama === 'GET Site Inactive 1',
       );
 
       expect(activeSite).toBeDefined();
@@ -247,18 +264,19 @@ describe('SitesController (e2e)', () => {
         role: Role.HR_ADMIN,
       });
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as Server)
         .get('/sites?statusAktif=true')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
+      const body = res.body as SuccessEnvelope<Array<{ nama: string }>>;
+      expect(body.success).toBe(true);
 
-      const activeSite = res.body.data.find(
-        (s: any) => s.nama === 'GET Site Active 1',
+      const activeSite = body.data.find(
+        (s: { nama: string }) => s.nama === 'GET Site Active 1',
       );
-      const inactiveSite = res.body.data.find(
-        (s: any) => s.nama === 'GET Site Inactive 1',
+      const inactiveSite = body.data.find(
+        (s: { nama: string }) => s.nama === 'GET Site Inactive 1',
       );
 
       expect(activeSite).toBeDefined();
@@ -271,13 +289,14 @@ describe('SitesController (e2e)', () => {
         role: Role.KARYAWAN,
       });
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as Server)
         .get('/sites')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(403);
-      expect(res.body.success).toBe(false);
-      expect(res.body.error.code).toBe('FORBIDDEN');
+      const body = res.body as ErrorEnvelope;
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('FORBIDDEN');
     });
   });
 
@@ -310,15 +329,19 @@ describe('SitesController (e2e)', () => {
         role: Role.HR_ADMIN,
       });
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as Server)
         .patch(`/sites/${siteId}`)
         .set('Authorization', `Bearer ${token}`)
         .send({ alamat: 'Alamat Baru' });
 
       expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.alamat).toBe('Alamat Baru');
-      expect(res.body.data.nama).toBe('PATCH Site 1'); // tetap
+      const body = res.body as SuccessEnvelope<{
+        alamat: string;
+        nama: string;
+      }>;
+      expect(body.success).toBe(true);
+      expect(body.data.alamat).toBe('Alamat Baru');
+      expect(body.data.nama).toBe('PATCH Site 1'); // tetap
     });
 
     it('Gagal: Site tidak ditemukan -> 404', async () => {
@@ -327,14 +350,15 @@ describe('SitesController (e2e)', () => {
         role: Role.HR_ADMIN,
       });
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as Server)
         .patch('/sites/not-found-id')
         .set('Authorization', `Bearer ${token}`)
         .send({ alamat: 'Alamat Baru' });
 
       expect(res.status).toBe(404);
-      expect(res.body.success).toBe(false);
-      expect(res.body.error.code).toBe('NOT_FOUND');
+      const body = res.body as ErrorEnvelope;
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('NOT_FOUND');
     });
 
     it('Sukses: statusAktif di body mengubah status (soft-deactivate)', async () => {
@@ -343,18 +367,19 @@ describe('SitesController (e2e)', () => {
         role: Role.HR_ADMIN,
       });
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as Server)
         .patch(`/sites/${siteId}`)
         .set('Authorization', `Bearer ${token}`)
         .send({ statusAktif: false });
 
       expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
+      const body = res.body as SuccessEnvelope<{ statusAktif: boolean }>;
+      expect(body.success).toBe(true);
 
       // Di database harusnya berubah jadi false
       const site = await prisma.site.findUnique({ where: { id: siteId } });
       expect(site?.statusAktif).toBe(false);
-      expect(res.body.data.statusAktif).toBe(false);
+      expect(body.data.statusAktif).toBe(false);
     });
 
     it('Idempotent: update statusAktif ke nilai yang sama tetap sukses', async () => {
@@ -364,13 +389,14 @@ describe('SitesController (e2e)', () => {
       });
 
       // statusAktif sudah false dari test sebelumnya, kita set false lagi
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as Server)
         .patch(`/sites/${siteId}`)
         .set('Authorization', `Bearer ${token}`)
         .send({ statusAktif: false });
 
       expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
+      const body = res.body as SuccessEnvelope<unknown>;
+      expect(body.success).toBe(true);
 
       const site = await prisma.site.findUnique({ where: { id: siteId } });
       expect(site?.statusAktif).toBe(false);
@@ -382,14 +408,15 @@ describe('SitesController (e2e)', () => {
         role: Role.KARYAWAN,
       });
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as Server)
         .patch(`/sites/${siteId}`)
         .set('Authorization', `Bearer ${token}`)
         .send({ alamat: 'Alamat Baru' });
 
       expect(res.status).toBe(403);
-      expect(res.body.success).toBe(false);
-      expect(res.body.error.code).toBe('FORBIDDEN');
+      const body = res.body as ErrorEnvelope;
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('FORBIDDEN');
     });
   });
 });

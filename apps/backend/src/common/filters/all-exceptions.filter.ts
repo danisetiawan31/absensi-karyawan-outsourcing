@@ -8,26 +8,34 @@ import {
 import { Request, Response } from 'express';
 import { RequestWithId } from '../middlewares/request-id.middleware';
 
+interface HttpExceptionResponseBody {
+  code?: string;
+  error?: string;
+  message?: string;
+  details?: unknown;
+}
+
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<RequestWithId>();
-    
+
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let code = 'INTERNAL_SERVER_ERROR';
     let message = 'Internal server error';
-    let details = undefined;
+    let details: unknown = undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
-      const exceptionResponse = exception.getResponse() as any;
-      
+      const exceptionResponse = exception.getResponse();
+
       if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
-        code = exceptionResponse.code || exceptionResponse.error || 'ERROR';
-        message = exceptionResponse.message || exception.message;
-        details = exceptionResponse.details;
+        const resObj = exceptionResponse as HttpExceptionResponseBody;
+        code = resObj.code || resObj.error || 'ERROR';
+        message = resObj.message || exception.message;
+        details = resObj.details;
       } else {
         message = exception.message;
       }
