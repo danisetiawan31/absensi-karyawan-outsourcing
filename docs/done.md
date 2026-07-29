@@ -275,3 +275,36 @@
   - `PATCH approve/reject`: `HR_ADMIN` yang mencoba proses pengajuan yang TERNYATA punya supervisor sah → `403 BUKAN_FALLBACK_HR` (bukan 404) — beda perlakuan disengaja dari `SUPERVISOR` yang di luar scope (dapat `404` generik demi menyembunyikan keberadaan data, pola existing dari Stage 13). Beda ini bukan inkonsistensi — HR memang berhak tahu pengajuan itu ada, cuma bukan jalurnya untuk memprosesnya.
   - `processBySupervisor` di-rename `processRequest()`, sekarang generic terhadap role pemanggil — field `approvedById`/`catatanSupervisor` dipakai apa adanya untuk kedua role (tidak di-rename jadi lebih role-spesifik), karena secara semantik itu tetap "siapa yang memproses & catatan pemroses", terlepas rolenya SUPERVISOR atau HR_ADMIN.
   - **Non-blocking, boleh dioptimasi nanti:** `isOrphaned()` query ulang daftar `siteId` yang disupervisi di setiap pemanggilan (dipanggil per-pengajuan di loop `findPendingOrphaned()`) — belum di-cache/diambil sekali di luar loop. Gak signifikan di skala project ini, dicatat sebagai potential improvement, bukan bug.
+
+## [Stage 17] Track B1 — POST /auth/forgot-password
+
+- **File diubah/dibuat:**
+  - `apps/backend/src/modules/auth/dto/forgot-password.dto.ts` (DTO baru)
+  - `apps/backend/src/modules/auth/auth.controller.ts` (endpoint `POST /forgot-password`)
+  - `apps/backend/src/modules/auth/auth.service.ts` (metode `forgotPassword` dengan integrasi Resend)
+  - `apps/backend/package.json` (instalasi `resend` spesifik di backend workspace)
+- **Verifikasi:**
+  - `npm run test -- src/modules/auth` — **PASS 100%**.
+  - `npx tsc --noEmit` & `npm run lint` — **PASS** tanpa `any` liar.
+- **Catatan/Penyimpangan:**
+  - **Anti-Enumeration:** Endpoint selalu mengembalikan `{ success: true }` tanpa melihat apakah email terdaftar, atau `statusAktif === false`, agar attacker tidak bisa melakukan scanning email.
+  - **OTP 6 Digit:** Kita meng-generate angka acak `crypto.randomInt(100000, 1000000)`, kemudian menyimpan hasil _hash_ SHA-256 nya di kolom `resetToken`. Kode plain dikirim ke email karyawan. Token akan otomatis kedaluwarsa setelah 15 menit, dan akan selalu tertimpa jika ada permohonan baru.
+  - **Resend Error Handling:** Dikarenakan ini integrasi eksternal, error pengiriman email ditangkap menggunakan `try-catch` (ditulis ke _logger_) agar endpoint tidak return `500` dan tidak membocorkan error pihak ketiga ke klien.
+
+## [Stage 18] Track B1 (Lanjutan) — POST /auth/reset-password & Penutupan Track B
+
+- **File diubah/dibuat:**
+  - `apps/backend/src/modules/auth/dto/reset-password.dto.ts` (DTO baru)
+  - `apps/backend/src/modules/auth/auth.controller.ts` (endpoint `POST /reset-password`)
+  - `apps/backend/src/modules/auth/auth.service.ts` (metode `resetPassword` beserta validasi hash SHA-256)
+  - `docs/API-Contract.md` (update dokumentasi reset-password: parameter `email`, error `TOKEN_TIDAK_VALID`, efek samping `wajibGantiPassword`)
+  - `docs/backlog.md` (status `B1`: `READY` → `DONE`) — **tolong konfirmasi ini sudah dieksekusi atau belum, belum kelihatan di diff yang dilaporkan**
+- **Verifikasi:**
+  - `npm run test -- src/modules/auth` — PASS 100%.
+  - `npx tsc --noEmit` & `npm run lint` — PASS, 0 `any` baru.
+  - **FULL suite** (`npm run test`, `--runInBand`, tanpa scope module) — **148/148 PASS** (10 suites) — dijalankan khusus karena ini menutup Track B secara keseluruhan (`login`, `forgot-password`, `reset-password`), memastikan tidak ada regresi ke module `employees`, `schedules`, maupun `leave-requests`.
+- **Catatan/Penyimpangan:**
+  - **Penambahan parameter `email`:** wajib ditambahkan ke payload untuk disambiguasi kode 6 digit yang rentan kolisi antar pengguna — konsekuensi dari keputusan token pendek (demi UX mobile, ganti dari token panjang unik di draft awal).
+  - **Validasi gabungan (anti-enumeration):** kombinasi email tidak ditemukan, token null, token salah, atau token kedaluwarsa disatukan ke satu pesan error `400 TOKEN_TIDAK_VALID` — mencegah attacker membedakan jenis kegagalan lewat respons.
+  - **Reset otomatis `wajibGantiPassword`:** kalau sebelumnya `true`, endpoint ini ikut men-set `false` — konsisten dengan efek samping `POST /auth/change-password`, mencegah karyawan nyangkut di redirect ganti password meski sudah reset lewat jalur ini, bukan jalur `change-password`.
+  - **Asumsi panjang password (perlu disinkronkan nanti):** karena `change-password.dto.ts` belum ada di project ini, dipakai `@MinLength(8)` di sini sebagai default wajar. **Catatan untuk implementasi `change-password` mendatang:** aturan validasinya wajib disamakan ke DTO ini, bukan sebaliknya — supaya tidak ada 2 standar panjang password berbeda untuk 2 endpoint yang sama-sama fungsinya ganti password.

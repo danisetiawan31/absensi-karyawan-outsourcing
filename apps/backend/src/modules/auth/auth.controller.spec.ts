@@ -20,6 +20,8 @@ describe('AuthController', () => {
               userId: 'user-id',
               nama: 'Test User',
             }),
+            forgotPassword: jest.fn().mockResolvedValue(undefined),
+            resetPassword: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],
@@ -45,6 +47,20 @@ describe('AuthController', () => {
         userId: 'user-id',
         nama: 'Test User',
       });
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('should return { success: true } and call service.resetPassword', async () => {
+      const dto = {
+        email: 'test@test.com',
+        token: '123456',
+        passwordBaru: 'newpass123',
+      };
+      const result = await controller.resetPassword(dto);
+
+      expect(service.resetPassword).toHaveBeenCalledWith(dto);
+      expect(result).toEqual({ success: true });
     });
   });
 });

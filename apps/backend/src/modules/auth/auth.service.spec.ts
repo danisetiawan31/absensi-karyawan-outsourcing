@@ -4,7 +4,8 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException, BadRequestException } from '@nestjs/common';
+import * as crypto from 'crypto';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -108,6 +109,94 @@ describe('AuthService', () => {
         }),
       ).rejects.toMatchObject({
         response: { code: 'UNAUTHORIZED' },
+      });
+    });
+  });
+
+  describe('resetPassword', () => {
+    const validToken = '123456';
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(validToken)
+      .digest('hex');
+
+    beforeEach(async () => {
+      await prisma.user.update({
+        where: { email: testEmail },
+        data: {
+          resetToken: hashedToken,
+          resetTokenExpiry: new Date(Date.now() + 15 * 60 * 1000), // 15 mins future
+          wajibGantiPassword: true,
+        },
+      });
+    });
+
+    it('sukses reset password, nullifikasi token, & unflag wajib ganti', async () => {
+      await service.resetPassword({
+        email: testEmail,
+        token: validToken,
+        passwordBaru: 'newpassword123',
+      });
+
+      const updatedUser = await prisma.user.findUnique({
+        where: { email: testEmail },
+      });
+
+      expect(updatedUser).toBeDefined();
+      expect(updatedUser!.resetToken).toBeNull();
+      expect(updatedUser!.resetTokenExpiry).toBeNull();
+      expect(updatedUser!.wajibGantiPassword).toBe(false);
+
+      const isMatch = await bcrypt.compare(
+        'newpassword123',
+        updatedUser!.passwordHash,
+      );
+      expect(isMatch).toBe(true);
+    });
+
+    it('gagal (400) jika email tidak ditemukan (pesan error identik TOKEN_TIDAK_VALID)', async () => {
+      const call = service.resetPassword({
+        email: 'invalid@test.local',
+        token: validToken,
+        passwordBaru: 'newpassword123',
+      });
+      await expect(call).rejects.toThrow(BadRequestException);
+      await expect(call).rejects.toMatchObject({
+        response: {
+          code: 'TOKEN_TIDAK_VALID',
+          message: 'Kode reset tidak valid atau sudah kedaluwarsa',
+        },
+      });
+    });
+
+    it('gagal (400) jika token salah', async () => {
+      const call = service.resetPassword({
+        email: testEmail,
+        token: '000000',
+        passwordBaru: 'newpassword123',
+      });
+      await expect(call).rejects.toThrow(BadRequestException);
+      await expect(call).rejects.toMatchObject({
+        response: { code: 'TOKEN_TIDAK_VALID' },
+      });
+    });
+
+    it('gagal (400) jika token kedaluwarsa', async () => {
+      await prisma.user.update({
+        where: { email: testEmail },
+        data: {
+          resetTokenExpiry: new Date(Date.now() - 15 * 60 * 1000), // past
+        },
+      });
+
+      const call = service.resetPassword({
+        email: testEmail,
+        token: validToken,
+        passwordBaru: 'newpassword123',
+      });
+      await expect(call).rejects.toThrow(BadRequestException);
+      await expect(call).rejects.toMatchObject({
+        response: { code: 'TOKEN_TIDAK_VALID' },
       });
     });
   });

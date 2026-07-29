@@ -33,7 +33,7 @@ karena tiap step butuh data dari step sebelumnya buat bisa ditest manual secara 
 
 | #   | Task                                                                         | Kenapa urutan                                                                                                                                                                                         | Status  |
 | --- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| B1  | `POST /auth/forgot-password`, `POST /auth/reset-password` (integrasi Resend) | Dependency eksternal baru (API key Resend) — perlu di-flag ke Antigravity kalau mau nambah package. Gak ada endpoint lain yang depend ke ini, jadi fleksibel dikerjakan kapan saja relatif ke Track A | `READY` |
+| B1  | `POST /auth/forgot-password`, `POST /auth/reset-password` (integrasi Resend) | Dependency eksternal baru (API key Resend) — perlu di-flag ke Antigravity kalau mau nambah package. Gak ada endpoint lain yang depend ke ini, jadi fleksibel dikerjakan kapan saja relatif ke Track A | `DONE` |
 
 ---
 
