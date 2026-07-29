@@ -7,6 +7,7 @@ import { SitesModule } from './modules/sites/sites.module';
 import { EmployeesModule } from './modules/employees/employees.module';
 import { SupervisorSitesModule } from './modules/supervisor-sites/supervisor-sites.module';
 import { SchedulesModule } from './modules/schedules/schedules.module';
+import { LeaveRequestsModule } from './modules/leave-requests/leave-requests.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { SchedulesModule } from './modules/schedules/schedules.module';
     EmployeesModule,
     SupervisorSitesModule,
     SchedulesModule,
+    LeaveRequestsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

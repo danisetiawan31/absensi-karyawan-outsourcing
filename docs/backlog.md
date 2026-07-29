@@ -18,14 +18,14 @@ buat hampir semua endpoint lain di app ini (schedules butuh siteId+karyawanId va
 butuh SupervisorSite terisi, check-in butuh JadwalShift ada). Urutan internal track ini sequential
 karena tiap step butuh data dari step sebelumnya buat bisa ditest manual secara realistis.
 
-| #   | Task                                                                                                  | Kenapa urutan segini                                                                                                                                     | Status                                               |
-| --- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| A0  | Migration: tambah `Site.statusAktif` ke schema                                                        | Prasyarat `DELETE /sites/:id` — tanpa ini endpoint itu gak bisa diimplementasi sesuai kontrak ("nonaktifkan", bukan hard delete)                         | `READY`                                              |
-| A1  | `POST /sites`, `GET /sites`, `PATCH /sites/:id`, `DELETE /sites/:id`                                  | Depend ke A0 (khusus DELETE). Gak depend ke apapun lain — bisa duluan                                                                                    | `READY` (setelah A0)                                 |
-| A2  | `GET /employees`, `PATCH /employees/:id`                                                              | Gak butuh field password, jadi gak kena Gap 2. Independen dari A1 tapi digabung 1 domain (Employees) buat efisiensi konteks                              | `READY`                                              |
-| A3  | `POST /employees`                                                                                     | Migration `wajibGantiPassword` sudah selesai. Field password sekarang jelas: sistem generate, ditampilkan sekali di response, tidak diterima dari client | `READY`                                              |
-| A4  | `POST /supervisor-sites`, `GET /supervisor-sites`, `DELETE /supervisor-sites/:id`                     | Butuh existing user (supervisor) & site — testing manual bisa pakai 3 akun dummy dari `seed.ts`, gak harus nunggu A3 selesai                             | `READY` (setelah A1 selesai, boleh mulai sebelum A3) |
-| A5  | `POST /schedules`, `GET /schedules?siteId=&tanggal=`, `PATCH /schedules/:id`, `DELETE /schedules/:id` | Butuh Site (A1), karyawan (seed cukup, gak wajib A3), dan SupervisorSite (A4) buat scoping `GET /schedules` yang valid                                   | `READY` (setelah A1 & A4 selesai)                    |
+| #   | Task                                                                                                  | Kenapa urutan segini                                                                                                                                     | Status |
+| --- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| A0  | Migration: tambah `Site.statusAktif` ke schema                                                        | Prasyarat `PATCH /sites/:id` (nonaktifkan site)                                                                                                          | `DONE` |
+| A1  | `POST /sites`, `GET /sites`, `PATCH /sites/:id`                                                       | Depend ke A0. Gak depend ke apapun lain — bisa duluan                                                                                                    | `DONE` |
+| A2  | `GET /employees`, `PATCH /employees/:id`                                                              | Gak butuh field password, jadi gak kena Gap 2. Independen dari A1 tapi digabung 1 domain (Employees) buat efisiensi konteks                              | `DONE` |
+| A3  | `POST /employees`                                                                                     | Migration `wajibGantiPassword` sudah selesai. Field password sekarang jelas: sistem generate, ditampilkan sekali di response, tidak diterima dari client | `DONE` |
+| A4  | `POST /supervisor-sites`, `GET /supervisor-sites`, `DELETE /supervisor-sites/:id`                     | Butuh existing user (supervisor) & site — testing manual bisa pakai 3 akun dummy dari `seed.ts`, gak harus nunggu A3 selesai                             | `DONE` |
+| A5  | `POST /schedules`, `GET /schedules?siteId=&tanggal=`, `PATCH /schedules/:id`, `DELETE /schedules/:id` | Butuh Site (A1), karyawan (seed cukup, gak wajib A3), dan SupervisorSite (A4) buat scoping `GET /schedules` yang valid                                   | `DONE` |
 
 ---
 
@@ -42,15 +42,51 @@ karena tiap step butuh data dari step sebelumnya buat bisa ditest manual secara 
 Kenapa boleh paralel: microservice ini stateless, satu-satunya endpoint-nya (`/internal/embed`)
 gak nyentuh Postgres/JadwalShift/Site sama sekali — beda dari endpoint NestJS yang _manggil_ dia.
 
-| #   | Task                                                                        | Kenapa urutan segini                                                                                   | Status                     |
-| --- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------- |
-| C1  | Python microservice: `POST /internal/embed` (DeepFace embedding + liveness) | Gak depend ke apapun di Track A/B — boleh dikerjakan kapan saja, termasuk bersamaan dengan Track A     | `READY`                    |
-| C2  | `POST /users/me/face-registration` (NestJS, manggil `/internal/embed`)      | Butuh C1 jadi dulu, kalau enggak endpoint ini selalu gagal saat ditest                                 | `BLOCKED` — nunggu C1      |
-| C3  | `POST /attendance/check-in`, `POST /attendance/check-out`                   | Butuh C1 (face verification) **dan** A5 (JadwalShift buat `jadwalId` valid) — dua dependency sekaligus | `BLOCKED` — nunggu C1 & A5 |
+| #   | Task                                                                        | Kenapa urutan segini                                                                               | Status                |
+| --- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------- |
+| C1  | Python microservice: `POST /internal/embed` (DeepFace embedding + liveness) | Gak depend ke apapun di Track A/B — boleh dikerjakan kapan saja, termasuk bersamaan dengan Track A | `READY`               |
+| C2  | `POST /users/me/face-registration` (NestJS, manggil `/internal/embed`)      | Butuh C1 jadi dulu, kalau enggak endpoint ini selalu gagal saat ditest                             | `BLOCKED` — nunggu C1 |
+| C3  | `POST /attendance/check-in`, `POST /attendance/check-out`                   | Butuh C1 (face verification) dan jadwal shift yang sudah ready di A5                               | `BLOCKED` — nunggu C1 |
 
 ---
 
-## Gap tertunda (belum masuk task konkret manapun di atas)
+## Track D — Pengajuan Izin (Leave Requests)
 
-- **Gap 3** — endpoint "riwayat penempatan site" (PRD 5.3) belum ada representasi di API Contract. Belum di-assign ke task manapun sampai diputuskan: endpoint baru, atau reuse endpoint existing.
-- Domain leave-requests, dashboard/unfilled-shifts, notifications (cron), reports — belum dibahas sama sekali, sengaja belum masuk backlog.
+| #   | Task                                                                              | Kenapa urutan seginis                                                                                                                                                                                                                                                                       | Status                |
+| --- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------- |
+| D1  | `POST /leave-requests`, `GET /leave-requests` (Karyawan — milik sendiri)          | Cuma butuh `User` (sudah ada). Independen total, gak nunggu apapun.                                                                                                                                                                                                                        | `READY`               |
+| D2  | `PATCH /leave-requests/:id/cancel`                                                | Butuh data `PengajuanIzin` buat ditest realistis — perlu D1 selesai duluan biar ada row `PENDING` yang bisa dibatalin.                                                                                                                                                                     | `BLOCKED` — nunggu D1 |
+| D3  | `GET /leave-requests?status=PENDING`, `PATCH /leave-requests/:id/approve\|reject` | Butuh D1 (data izin harus ada). **Perlu sesi discovery dulu sebelum eksekusi**: karyawan gak punya kolom site statis (`TDD.md` §3 poin 2) — scoping approval ke Supervisor kemungkinan besar butuh cross-reference ke `JadwalShift` di rentang tanggal izin, belum dibahas gimana caranya. | `BLOCKED` — nunggu D1 |
+| D4  | `GET /leave-requests/history` (HR)                                                | Butuh D1 (data harus ada buat ditampilin). Gak perlu nunggu D2/D3 — ini view read-only, hasilnya tetap valid meski belum ada yang di-cancel/approve/reject.                                                                                                                                | `BLOCKED` — nunggu D1 |
+
+---
+
+## Track E — Notifikasi & Cron
+
+| #   | Task                                                                               | Kenapa urutan segini                                                                                                                                                                                          | Status                    |
+| --- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| E1  | `GET /notifications` (shared Karyawan+Supervisor), `PATCH /notifications/:id/read` | Model `Notifikasi` independen secara struktur. Tapi TANPA trigger yang nulis ke tabel ini (lihat E2/E3), endpoint ini bakal selalu kosong — bisa dibangun sekarang tapi manfaatnya baru kerasa setelah E2/E3. | `READY` (secara struktur) |
+| E2  | Cron: reminder T+5 menit belum check-in (ke Karyawan)                              | Butuh data check-in beneran buat tau siapa yang "belum check-in" — depend ke Track C3 (belum ada).                                                                                                            | `BLOCKED` — nunggu C3     |
+| E3  | Cron: alert T+15 menit (ke Supervisor) + auto-mark `TIDAK_HADIR`                   | Sama kayak E2, butuh data `LogKehadiran`/`PercobaanAbsensi` real — depend ke C3.                                                                                                                              | `BLOCKED` — nunggu C3     |
+
+---
+
+## Track F — Dashboard & Laporan
+
+| #   | Task                                                              | Kenapa urutan segini                                                                                                                               | Status                |
+| --- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| F1  | `GET /employees/available?tanggal=&siteId=`                       | Cuma butuh `JadwalShift` (A5, `DONE`) — nyari karyawan yang BELUM ada jadwal di tanggal itu. Gak nyentuh data kehadiran sama sekali.               | `READY`               |
+| F2  | `GET /employees/:id/schedules?tanggalMulai=&tanggalSelesai=` (HR) | Cuma butuh `JadwalShift` (A5, `DONE`) — ini eks-Gap 3 lama, kontraknya udah resmi, tinggal dieksekusi.                                             | `READY`               |
+| F3  | `GET /schedules/today` (Karyawan)                                 | Bagian jadwalnya siap (A5), tapi field `statusKehadiran` butuh `LogKehadiran` buat akurat — depend ke C3 biar gak selalu nampilin `BELUM_CHECKIN`. | `BLOCKED` — nunggu C3 |
+| F4  | `GET /dashboard/attendance?tanggal=`                              | Butuh `SupervisorSite` (A4, `DONE`) buat scoping, DAN `LogKehadiran` buat status real-time — depend ke C3.                                         | `BLOCKED` — nunggu C3 |
+| F5  | `GET /dashboard/unfilled-shifts?tanggal=`                         | Sama kayak F4, "belum ter-cover T+15" butuh data check-in real — depend ke C3.                                                                     | `BLOCKED` — nunggu C3 |
+| F6  | `GET /attendance/summary`, `GET /attendance/attempts` (HR)        | Butuh `LogKehadiran`/`PercobaanAbsensi` beneran ada isinya — depend ke C3.                                                                         | `BLOCKED` — nunggu C3 |
+| F7  | `GET /reports/export?format=pdf\|xlsx`                            | Butuh data dari F6 buat digenerate — depend ke C3 (tidak langsung, lewat F6).                                                                      | `BLOCKED` — nunggu C3 |
+
+---
+
+## Track G — Aksi Manual HR (independen penuh)
+
+| #   | Task                                          | Kenapa urutan segini                                                                                                                         | Status  |
+| --- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| G1  | `POST /employees/:id/reset-face-registration` | Cuma nge-reset `faceEmbedding` jadi array kosong — TIDAK manggil Python microservice sama sekali, jadi TIDAK depend ke C1 (beda dari C2/C3). | `READY` |

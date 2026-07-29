@@ -132,7 +132,9 @@ Ajukan izin/sakit/cuti — _PP1_
 
 **Request:** `multipart/form-data` → `tanggalMulai: date`, `tanggalSelesai: date`, `jenis: SAKIT | IZIN | CUTI`, `alasan: string`, `dokumen: file (opsional)`
 
-**Validasi khusus:** kalau `jenis === SAKIT` dan durasi (`tanggalSelesai` − `tanggalMulai`) **> 1 hari** dan `dokumen` tidak disertakan → ditolak, `error.code: "DOKUMEN_WAJIB"`. Untuk `IZIN`/`CUTI`, dokumen selalu opsional (basisnya kepercayaan/kuota, bukan validasi medis).
+**Validasi khusus:** kalau `jenis === SAKIT` dan `tanggalSelesai` berbeda dari `tanggalMulai` (durasi sakit mencakup lebih dari 1 hari kalender — mis. Senin **dan** Selasa, bukan cuma Senin saja) dan `dokumen` tidak disertakan → ditolak, `error.code: "DOKUMEN_WAJIB"`. Untuk `IZIN`/`CUTI`, dokumen selalu opsional (basisnya kepercayaan/kuota, bukan validasi medis).
+
+_(Klarifikasi: formula sebelumnya — "durasi > 1 hari" dibaca sebagai selisih matematis `tanggalSelesai − tanggalMulai` — ambigu dan berpotensi meloloskan sakit 2 hari kalender tanpa dokumen. Sudah diperjelas mengikuti praktik HR standar: sakit lebih dari 1 hari kalender (2 hari kalender ke atas) selalu wajib dokumen.)_"
 
 **Response (sukses):** `{ "id": "uuid", "status": "PENDING" }`
 **Response (gagal validasi):** `{ "success": false, "error": { "code": "DOKUMEN_WAJIB", "message": "Surat keterangan dokter wajib dilampirkan untuk sakit lebih dari 1 hari" } }`
