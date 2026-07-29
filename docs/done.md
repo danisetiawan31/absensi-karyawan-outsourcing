@@ -177,15 +177,51 @@
   - `apps/backend/src/modules/leave-requests/leave-requests.controller.ts` (`POST`, `GET`)
   - `apps/backend/src/modules/leave-requests/leave-requests.controller.spec.ts` (baru, 15 e2e test)
   - `apps/backend/src/modules/leave-requests/leave-requests.module.ts` (terdaftar di `app.module.ts`)
-  - `apps/backend/prisma/schema.prisma` (tambah field `catatanSupervisor` di `PengajuanIzin` via migration)
-  - `docs/API-Contract.md` (klarifikasi durasi SAKIT)
+  - `apps/backend/prisma/schema.prisma` (tambah field `catatanSupervisor` di `PengajuanIzin` via migration terpisah `add_catatan_supervisor_to_izin`)
+  - `docs/API-Contract.md` (klarifikasi durasi SAKIT; **diedit lagi belakangan** untuk meresmikan validasi overlap `IZIN_BENTROK` — lihat catatan penyimpangan di bawah)
 - **Verifikasi:**
   - `npm run test -- src/modules/leave-requests` lolos **15/15** total.
   - Test mencakup: upload file dengan Multer (5MB limit memory storage), validasi overlap PENDING/APPROVED, aturan khusus SAKIT >= 2 hari kalender wajib dokumen, urutan output DESC, dan scoping strict GET data milik diri sendiri.
   - Test memastikan field `catatanSupervisor` terekspos (`null` untuk status PENDING).
-  - Linter & type-check bersih (termasuk *strict typing* pada `req.user`).
+  - Linter & type-check bersih (termasuk _strict typing_ pada `req.user`).
 - **Catatan/Penyimpangan:**
-  - `FileInterceptor` menggunakan parameter `limits: { fileSize: 5 * 1024 * 1024 }` di level dekorator demi mencegah serangan DoS (alokasi memori berlebih) sebelum file sampai ke *service layer*.
-  - Field `catatanSupervisor` ditambahkan ke `schema.prisma` saat ini (walaupun fitur Supervisor di Track D3 belum dibuat), agar `response shape` Karyawan langsung lengkap tanpa harus merombak *select* Prisma nanti.
+  - `FileInterceptor` menggunakan parameter `limits: { fileSize: 5 * 1024 * 1024 }` di level dekorator demi mencegah serangan DoS (alokasi memori berlebih) sebelum file sampai ke _service layer_.
+  - Field `catatanSupervisor` ditambahkan ke `schema.prisma` saat ini (walaupun fitur Supervisor di Track D3 belum dibuat), agar `response shape` Karyawan langsung lengkap tanpa harus merombak _select_ Prisma nanti.
   - Memperjelas definisi "sakit > 1 hari" di `API-Contract.md` menjadi "2 hari kalender atau lebih (tanggalSelesai berbeda dari tanggalMulai)".
-  - **Keputusan penamaan (Domain internal vs API):** Awalnya direncanakan agar API menerima `catatan` sementara DB menyimpan `catatanSupervisor`. Namun diputuskan untuk **menyamakan penamaan menjadi `catatanSupervisor` di seluruh layer** (API Contract, DTO, Database). Tujuannya agar ada *1:1 mapping* mutlak dari frontend ke backend, menghapus ambiguitas dengan field `alasan` milik karyawan, dan menghilangkan kebutuhan *mapping* manual di *service layer* saat eksekusi Track D3 nanti.
+  - **Keputusan penamaan (Domain internal vs API):** Awalnya direncanakan agar API menerima `catatan` sementara DB menyimpan `catatanSupervisor`. Namun diputuskan untuk **menyamakan penamaan menjadi `catatanSupervisor` di seluruh layer** (API Contract, DTO, Database). Tujuannya agar ada _1:1 mapping_ mutlak dari frontend ke backend, menghapus ambiguitas dengan field `alasan` milik karyawan, dan menghilangkan kebutuhan _mapping_ manual di _service layer_ saat eksekusi Track D3 nanti.
+  - **Gap ditemukan & diperbaiki (retroaktif):** validasi overlap (`error.code: "IZIN_BENTROK"`, memblokir pengajuan baru yang tanggalnya tumpang tindih dengan pengajuan `PENDING`/`APPROVED` milik sendiri, berlaku lintas semua `jenis` izin) sudah diimplementasi & di-test sejak Stage 11 awal, tapi **sempat tidak terdokumentasi** di `API-Contract.md`. Ketahuan saat review checkpoint, langsung diresmikan ke `API-Contract.md` §2 (`POST /leave-requests`) setelah Stage 11 "selesai" secara kode.
+
+## [Stage 12] Track D2 - PATCH /leave-requests/:id/cancel
+
+- **File diubah/dibuat:**
+  - `apps/backend/src/modules/leave-requests/leave-requests.service.ts` (method `cancel`)
+  - `apps/backend/src/modules/leave-requests/leave-requests.controller.ts` (endpoint `PATCH :id/cancel`, konsolidasi tipe `req.user` ke `JwtPayload` shared type di `findAll` & `cancel`)
+  - `apps/backend/src/modules/leave-requests/leave-requests.controller.spec.ts` (+6 e2e test baru)
+  - `apps/backend/src/modules/auth/strategies/jwt.strategy.ts` (perbaikan lintas-stage, lihat Catatan/Penyimpangan)
+- **Verifikasi:**
+  - `npm run test -- src/modules/leave-requests` lolos **21/21** total (15 test lama D1 + 6 test baru D2).
+  - Test mencakup: sukses cancel milik sendiri (PENDING → CANCELLED), 404 (id tidak eksis maupun milik karyawan lain — pesan disamakan, tidak membocorkan status kepemilikan), 409 (`TIDAK_BISA_DIBATALKAN` untuk status non-PENDING), 403 (role bukan KARYAWAN), 401 (tanpa token).
+  - `npx tsc --noEmit` & `npm run lint` bersih 100%, tidak ada `any` baru.
+- **Catatan/Penyimpangan:**
+  - **Bug ditemukan saat review (diperbaiki sebelum ditutup):** `NotFoundException` di method `cancel` awalnya dilempar dengan string polos (`throw new NotFoundException('...')`), bukan object `{ code, message }`. Akibatnya `all-exceptions.filter.ts` fallback ke `error` bawaan NestJS (`"Not Found"`) alih-alih `error.code: "NOT_FOUND"` yang konsisten `SCREAMING_SNAKE_CASE` dengan error code lain di project. Sudah diperbaiki.
+  - **Audit sistemik (dipicu temuan di atas):** ditemukan pola yang sama di `jwt.strategy.ts` (`UnauthorizedException` tanpa `code`) — sudah diperbaiki jadi `{ code: 'UNAUTHORIZED', message: 'Unauthorized' }`, konsisten dengan seluruh exception lain di project.
+  - **Gap fungsional ditemukan & diperbaiki (retroaktif ke Stage 4/5), bukan sekadar format:** `JwtStrategy.validate()` sebelumnya hanya mengecek keberadaan user (`!user`), tidak mengecek `user.statusAktif`. Karena `validate()` berjalan di **setiap** request ke endpoint terproteksi (bukan cuma saat login), karyawan yang baru dinonaktifkan HR (resign/PHK) tetap bisa memakai token lama yang belum expired untuk mengakses endpoint — bertentangan dengan requirement PRD §5.3 ("mencegah login/check-in setelah tidak aktif"). `POST /auth/login` sudah menolak `statusAktif: false` sejak awal, tapi re-validasi per-request belum ada sampai ditemukan di tahap ini. Fix: tambah kondisi `!user.statusAktif` ke pengecekan yang sama di `validate()`.
+  - Konsolidasi tipe `req.user` di `leave-requests.controller.ts` dari didefinisikan inline menjadi reuse `JwtPayload` shared type (`common/types/jwt-payload.type.ts`) — konsistensi, bukan perubahan behavior.
+
+## [Stage 13] Track D3 - Supervisor Approval (GET Pending, PATCH Approve/Reject)
+
+- **File diubah/dibuat:**
+  - `docs/API-Contract.md` (Pembaruan dokumentasi untuk `GET /leave-requests?status=PENDING` (Supervisor), endpoint `PATCH approve/reject`, penegasan error code & response)
+  - `apps/backend/src/modules/leave-requests/dto/process-leave-request.dto.ts` (DTO baru dengan `catatanSupervisor` opsional, maks 255 karakter)
+  - `apps/backend/src/modules/leave-requests/leave-requests.service.ts` (Metode `findPendingForSupervisor` (GET) dan `processBySupervisor` (PATCH), ekstraksi _shared private method_ `checkOverlap`)
+  - `apps/backend/src/modules/leave-requests/leave-requests.controller.ts` (Endpoint `GET /leave-requests` diperluas untuk Supervisor, tambah endpoint `PATCH :id/approve` & `PATCH :id/reject`)
+  - `apps/backend/src/modules/leave-requests/leave-requests.controller.spec.ts` (+12 e2e test baru untuk listing, approve, reject, dan cross-midnight shift)
+- **Verifikasi:**
+  - `npm run test -- src/modules/leave-requests` lolos **33/33** total.
+  - Test mencakup: filter scoping berdasarkan site supervisor, penanganan cross-midnight shift, pencegahan race-condition (409 `IZIN_SUDAH_DIPROSES`), pesan 404 disamakan untuk out-of-scope, validasi token, penolakan role, dan pengisian null pada catatan opsional.
+  - `npx tsc --noEmit` & `npm run lint` bersih 100%, tidak ada `any` unsafe.
+- **Catatan/Penyimpangan:**
+  - **Bug ditemukan saat review (diperbaiki sebelum ditutup):** Filter rentang izin terhadap shift (`JadwalShift`) diubah dari sekadar membandingkan `tanggal` (label hari) menjadi perbandingan rentang penuh `jamMulai`–`jamSelesai` melawan `tanggalMulai` (awal hari)–`tanggalSelesai` (akhir hari, 23:59:59). Ini memperbaiki isu shift malam (cross-midnight) yang lewat jam 00:00, yang seharusnya tetap dianggap bertabrakan dengan izin di hari tersebut.
+  - **Keputusan arsitektural & performa:** Logic overlap-checking diekstrak ke shared private method `checkOverlap()` murni (sinkron, tanpa query DB tambahan), dipakai baik oleh `findPendingForSupervisor` (list) maupun `processBySupervisor` (single record) — dievaluasi di memori aplikasi, bukan query berulang, untuk menghindari N+1.
+  - `updateMany` (bukan `update` biasa) dipakai di `processBySupervisor` sebagai conditional update (`where: { id, status: 'PENDING' }`) — mencegah race condition kalau 2 supervisor approve/reject bersamaan untuk pengajuan yang sama (karyawan dengan jadwal lintas site bisa masuk scope lebih dari 1 supervisor, sesuai desain Stage 1).
+  - **Known limitation, disengaja belum diselesaikan:** kalau karyawan mengajukan izin untuk rentang tanggal yang sama sekali belum punya `JadwalShift` (di site manapun), pengajuan itu tidak akan muncul untuk supervisor manapun — karena seluruh scoping (baik listing maupun approve/reject) berbasis cross-reference ke `JadwalShift`. Ini gap yang disadari sejak perencanaan Stage 1, belum ada resolusi (butuh keputusan bisnis tambahan yang belum ada di PRD), didokumentasikan di sini supaya tidak hilang dari histori project.

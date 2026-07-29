@@ -56,6 +56,7 @@ Setelah 1 langkah kecil selesai, test (jika ada) lolos, DAN user sudah approve h
 - Field JSON/nama variabel domain bisnis: Bahasa Indonesia (`jadwalId`, `karyawanId`, `hasilVerifikasi`) — konsisten dengan seluruh dokumen desain
 - Istilah teknis generik: Bahasa Inggris (`accessToken`, `requestId`, `success`)
 - Response envelope WAJIB ikut format di `API-Contract.md` (`{ success, data/error, meta }`) — jangan bikin format baru
+- Validasi statusAktif bukan cuma soal login. `JwtStrategy.validate()` WAJIB selalu cek `user.statusAktif` di setiap request (bukan cuma `!user`), karena method ini jalan di semua endpoint terproteksi, bukan cuma saat login. Kalau ada guard/strategy baru yang menggantikan atau menambah cara autentikasi lain di masa depan, aturan yang sama berlaku — user nonaktif harus ditolak di titik re-validasi manapun, bukan cuma di `POST /auth/login`.
 
 ## 8. Larangan
 

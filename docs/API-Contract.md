@@ -134,10 +134,13 @@ Ajukan izin/sakit/cuti — _PP1_
 
 **Validasi khusus:** kalau `jenis === SAKIT` dan `tanggalSelesai` berbeda dari `tanggalMulai` (durasi sakit mencakup lebih dari 1 hari kalender — mis. Senin **dan** Selasa, bukan cuma Senin saja) dan `dokumen` tidak disertakan → ditolak, `error.code: "DOKUMEN_WAJIB"`. Untuk `IZIN`/`CUTI`, dokumen selalu opsional (basisnya kepercayaan/kuota, bukan validasi medis).
 
-_(Klarifikasi: formula sebelumnya — "durasi > 1 hari" dibaca sebagai selisih matematis `tanggalSelesai − tanggalMulai` — ambigu dan berpotensi meloloskan sakit 2 hari kalender tanpa dokumen. Sudah diperjelas mengikuti praktik HR standar: sakit lebih dari 1 hari kalender (2 hari kalender ke atas) selalu wajib dokumen.)_"
+_(Klarifikasi: formula sebelumnya — "durasi > 1 hari" dibaca sebagai selisih matematis `tanggalSelesai − tanggalMulai` — ambigu dan berpotensi meloloskan sakit 2 hari kalender tanpa dokumen. Sudah diperjelas mengikuti praktik HR standar: sakit lebih dari 1 hari kalender (2 hari kalender ke atas) selalu wajib dokumen.)_
+
+**Validasi overlap (tumpang tindih):** Karyawan tidak boleh mengajukan izin baru yang rentang tanggalnya tumpang tindih dengan pengajuan izin miliknya yang bersatus `PENDING` atau `APPROVED` (apapun `jenis` izinnya — karena secara logis tidak mungkin CUTI bersamaan dengan SAKIT). Jika tumpang tindih → ditolak, `error.code: "IZIN_BENTROK"`.
 
 **Response (sukses):** `{ "id": "uuid", "status": "PENDING" }`
 **Response (gagal validasi):** `{ "success": false, "error": { "code": "DOKUMEN_WAJIB", "message": "Surat keterangan dokter wajib dilampirkan untuk sakit lebih dari 1 hari" } }`
+**Response (gagal bentrok):** `{ "success": false, "error": { "code": "IZIN_BENTROK", "message": "Anda sudah punya pengajuan izin lain yang tumpang tindih di rentang tanggal ini" } }`
 
 ### GET /leave-requests
 
@@ -204,12 +207,64 @@ Koreksi/batalkan jadwal (salah input karyawan/jam, atau site berhenti kontrak me
 
 ### GET /leave-requests?status=PENDING
 
-Daftar pengajuan izin yang perlu diapprove, dibatasi ke karyawan di site yang diawasi.
+Daftar pengajuan izin yang perlu diapprove, dibatasi ke karyawan di site yang diawasi pada rentang tanggal tersebut.
+**Validasi:** Wajib menyertakan parameter `status=PENDING` (hanya bisa melihat yang belum diproses). Jika tidak ada atau status selain PENDING, kembalikan `400 Bad Request`.
+**Response:** Sama seperti response Karyawan, ditambah objek `karyawan: { id: "uuid", nama: "string" }` agar supervisor tahu ini pengajuan milik siapa.
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "tanggalMulai": "date",
+      "tanggalSelesai": "date",
+      "jenis": "SAKIT | IZIN | CUTI",
+      "alasan": "string",
+      "dokumenPendukungUrl": "string | null",
+      "status": "PENDING",
+      "catatanSupervisor": "string | null",
+      "createdAt": "datetime",
+      "karyawan": {
+        "id": "uuid",
+        "nama": "string"
+      }
+    }
+  ],
+  "meta": { ... }
+}
+```
 
 ### PATCH /leave-requests/:id/approve · PATCH /leave-requests/:id/reject
 
-**Request:** `{ "catatanSupervisor": "string (opsional)" }`
-**Response:** `{ "id": "uuid", "status": "APPROVED | REJECTED" }`
+Endpoint untuk menyetujui atau menolak pengajuan izin oleh Supervisor.
+Hanya dapat dilakukan jika: (a) status pengajuan adalah PENDING, dan (b) karyawan memiliki jadwal shift di site yang diawasi supervisor ini pada rentang tanggal izin tersebut.
+**Penting:** Karena karyawan bisa memiliki jadwal di lintas site, 1 pengajuan bisa dilihat oleh beberapa supervisor. Supervisor yang memproses pertama akan mengubah status, dan percobaan proses oleh supervisor lain (walaupun dalam scope) akan mengembalikan 409 (siapa cepat dia dapat).
+
+**Role:** SUPERVISOR
+
+**Request Body:**
+```json
+{
+  "catatanSupervisor": "string (opsional, maks 255 karakter)"
+}
+```
+
+**Response Success (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "status": "APPROVED | REJECTED"
+  },
+  "meta": { ... }
+}
+```
+
+**Error Responses:**
+- `404 Not Found`: Jika ID pengajuan tidak ditemukan, ATAU pengajuan tersebut berada di luar scope site yang diawasi supervisor ini (pesan error sama persis untuk menjaga privasi data).
+- `409 Conflict` (code: `IZIN_SUDAH_DIPROSES`): Jika pengajuan ditemukan dan berada di dalam scope, tetapi statusnya BUKAN PENDING (misal: sudah disetujui/ditolak oleh supervisor lain, atau dibatalkan karyawan).
 
 ### GET /employees/available?tanggal=&siteId=
 

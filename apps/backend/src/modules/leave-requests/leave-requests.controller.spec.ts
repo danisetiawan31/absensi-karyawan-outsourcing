@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import request from 'supertest';
 import { Server } from 'http';
-import { Role, User } from '@prisma/client';
+import { Role, User, PengajuanIzin } from '@prisma/client';
 import { AllExceptionsFilter } from '../../common/filters/all-exceptions.filter';
 import { ResponseInterceptor } from '../../common/interceptors/response.interceptor';
 import {
@@ -354,16 +354,16 @@ describe('LeaveRequestsController (e2e)', () => {
   });
 
   describe('GET /leave-requests', () => {
-    it('should return 403 for SUPERVISOR', async () => {
+    it('should return 400 for SUPERVISOR without status=PENDING', async () => {
       const token = getAuthToken(supervisor);
       const res = await request(app.getHttpServer() as Server)
         .get('/leave-requests')
         .set('Authorization', `Bearer ${token}`);
 
       const body = res.body as ErrorEnvelope;
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(400);
       expect(body.success).toBe(false);
-      expect(body.error.code).toBe('FORBIDDEN');
+      expect(body.error.code).toBe('STATUS_WAJIB_PENDING');
     });
 
     it('should return 403 for HR_ADMIN', async () => {
@@ -486,6 +486,573 @@ describe('LeaveRequestsController (e2e)', () => {
       );
       expect(secondData.catatanSupervisor).toBeNull();
       expect(secondData.approvedBy).toBeNull();
+    });
+  });
+
+  describe('GET /leave-requests?status=PENDING (SUPERVISOR)', () => {
+    let siteA: import('@prisma/client').Site;
+    let siteB: import('@prisma/client').Site;
+    let siteC: import('@prisma/client').Site;
+    let karyawan2: import('@prisma/client').User;
+    let karyawan3: import('@prisma/client').User;
+
+    beforeAll(async () => {
+      // Clean up previous runs if any
+      await prisma.jadwalShift.deleteMany({});
+      await prisma.supervisorSite.deleteMany({});
+      await prisma.site.deleteMany({
+        where: { id: { in: ['site-a-id', 'site-b-id', 'site-c-id'] } },
+      });
+      await prisma.pengajuanIzin.deleteMany({
+        where: { karyawanId: { in: ['karyawan2-id', 'karyawan3-id'] } },
+      });
+      await prisma.user.deleteMany({
+        where: { id: { in: ['karyawan2-id', 'karyawan3-id'] } },
+      });
+
+      // Setup Users
+      karyawan2 = await prisma.user.create({
+        data: {
+          id: 'karyawan2-id',
+          nama: 'Karyawan Dua',
+          email: 'karyawan2@test.local',
+          passwordHash: 'hash',
+          role: 'KARYAWAN',
+        },
+      });
+      karyawan3 = await prisma.user.create({
+        data: {
+          id: 'karyawan3-id',
+          nama: 'Karyawan Tiga',
+          email: 'karyawan3@test.local',
+          passwordHash: 'hash',
+          role: 'KARYAWAN',
+        },
+      });
+
+      // Setup Sites
+      siteA = await prisma.site.create({
+        data: {
+          id: 'site-a-id',
+          nama: 'Site A',
+          alamat: 'Alamat A',
+          latitude: -6.2,
+          longitude: 106.8,
+          radiusToleransi: 50,
+        },
+      });
+      siteB = await prisma.site.create({
+        data: {
+          id: 'site-b-id',
+          nama: 'Site B',
+          alamat: 'Alamat B',
+          latitude: -6.2,
+          longitude: 106.8,
+          radiusToleransi: 50,
+        },
+      });
+      siteC = await prisma.site.create({
+        data: {
+          id: 'site-c-id',
+          nama: 'Site C',
+          alamat: 'Alamat C',
+          latitude: -6.2,
+          longitude: 106.8,
+          radiusToleransi: 50,
+        },
+      });
+
+      // Assign Supervisor to Site A & B (NOT C)
+      await prisma.supervisorSite.createMany({
+        data: [
+          { supervisorId: supervisor.id, siteId: siteA.id },
+          { supervisorId: supervisor.id, siteId: siteB.id },
+        ],
+      });
+
+      // Schedules:
+      // Karyawan 1 di Site A tanggal 10 Agu
+      // Karyawan 2 di Site B tanggal 15 Agu
+      // Karyawan 3 di Site C tanggal 20 Agu
+      await prisma.jadwalShift.createMany({
+        data: [
+          {
+            karyawanId: karyawan.id,
+            siteId: siteA.id,
+            tanggal: new Date('2026-08-10T00:00:00Z'),
+            jamMulai: new Date('2026-08-10T08:00:00Z'),
+            jamSelesai: new Date('2026-08-10T17:00:00Z'),
+          },
+          {
+            karyawanId: karyawan2.id,
+            siteId: siteB.id,
+            tanggal: new Date('2026-08-15T00:00:00Z'),
+            jamMulai: new Date('2026-08-15T08:00:00Z'),
+            jamSelesai: new Date('2026-08-15T17:00:00Z'),
+          },
+          {
+            karyawanId: karyawan3.id,
+            siteId: siteC.id,
+            tanggal: new Date('2026-08-20T00:00:00Z'),
+            jamMulai: new Date('2026-08-20T08:00:00Z'),
+            jamSelesai: new Date('2026-08-20T17:00:00Z'),
+          },
+          {
+            karyawanId: karyawan.id,
+            siteId: siteA.id,
+            tanggal: new Date('2026-08-29T00:00:00Z'),
+            jamMulai: new Date('2026-08-29T20:00:00Z'),
+            jamSelesai: new Date('2026-08-30T04:00:00Z'), // cross midnight
+          },
+        ],
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.jadwalShift.deleteMany({});
+      await prisma.supervisorSite.deleteMany({});
+      await prisma.site.deleteMany({});
+      await prisma.pengajuanIzin.deleteMany({
+        where: { karyawanId: { in: ['karyawan2-id', 'karyawan3-id'] } },
+      });
+      await prisma.user.deleteMany({
+        where: { id: { in: ['karyawan2-id', 'karyawan3-id'] } },
+      });
+    });
+
+    it('should return 400 if supervisor accesses without status=PENDING', async () => {
+      const token = getAuthToken(supervisor);
+      const res = await request(app.getHttpServer() as Server)
+        .get('/leave-requests')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(400);
+      expect((res.body as ErrorEnvelope).error.code).toBe(
+        'STATUS_WAJIB_PENDING',
+      );
+    });
+
+    it('should return 400 if supervisor accesses with status=APPROVED', async () => {
+      const token = getAuthToken(supervisor);
+      const res = await request(app.getHttpServer() as Server)
+        .get('/leave-requests?status=APPROVED')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(400);
+      expect((res.body as ErrorEnvelope).error.code).toBe(
+        'STATUS_WAJIB_PENDING',
+      );
+    });
+
+    it('should return only PENDING requests for employees in supervised sites overlapping with leave dates', async () => {
+      // Pengajuan Karyawan 1 (overlap dengan jadwal Site A pada 10 Agu)
+      const req1 = await prisma.pengajuanIzin.create({
+        data: {
+          karyawanId: karyawan.id,
+          tanggalMulai: new Date('2026-08-09T00:00:00Z'),
+          tanggalSelesai: new Date('2026-08-11T00:00:00Z'),
+          jenis: 'SAKIT',
+          alasan: 'Demam',
+          status: 'PENDING',
+        },
+      });
+
+      // Pengajuan Karyawan 2 (overlap dengan jadwal Site B pada 15 Agu)
+      const req2 = await prisma.pengajuanIzin.create({
+        data: {
+          karyawanId: karyawan2.id,
+          tanggalMulai: new Date('2026-08-15T00:00:00Z'),
+          tanggalSelesai: new Date('2026-08-15T00:00:00Z'),
+          jenis: 'IZIN',
+          alasan: 'Urusan keluarga',
+          status: 'PENDING',
+        },
+      });
+
+      // Pengajuan Karyawan 3 (overlap dengan jadwal Site C pada 20 Agu) -> JANGAN muncul, beda site
+      await prisma.pengajuanIzin.create({
+        data: {
+          karyawanId: karyawan3.id,
+          tanggalMulai: new Date('2026-08-20T00:00:00Z'),
+          tanggalSelesai: new Date('2026-08-20T00:00:00Z'),
+          jenis: 'CUTI',
+          alasan: 'Liburan',
+          status: 'PENDING',
+        },
+      });
+
+      // Pengajuan Karyawan 1 (TIDAK overlap dengan jadwal Site A manapun) -> JANGAN muncul
+      await prisma.pengajuanIzin.create({
+        data: {
+          karyawanId: karyawan.id,
+          tanggalMulai: new Date('2026-09-01T00:00:00Z'),
+          tanggalSelesai: new Date('2026-09-02T00:00:00Z'),
+          jenis: 'IZIN',
+          alasan: 'Tidak ada jadwal',
+          status: 'PENDING',
+        },
+      });
+
+      const token = getAuthToken(supervisor);
+      const res = await request(app.getHttpServer() as Server)
+        .get('/leave-requests?status=PENDING')
+        .set('Authorization', `Bearer ${token}`);
+
+      type LeaveResponse = {
+        id: string;
+        karyawan: { id: string; nama: string };
+        [key: string]: unknown;
+      };
+
+      const body = res.body as SuccessEnvelope<LeaveResponse[]>;
+      expect(res.status).toBe(200);
+      expect(body.success).toBe(true);
+      expect(body.data.length).toBe(2);
+
+      // Verify returned requests are exactly req1 and req2
+      const ids = body.data.map((d) => d.id);
+      expect(ids).toContain(req1.id);
+      expect(ids).toContain(req2.id);
+
+      // Verify karyawan object is populated
+      const d1 = body.data.find((d) => d.id === req1.id);
+      expect(d1).toBeDefined();
+      if (d1) {
+        expect(d1.karyawan).toBeDefined();
+        expect(d1.karyawan.nama).toBe('Karyawan Leave');
+        expect(d1.karyawan.id).toBe(karyawan.id);
+      }
+    });
+
+    it('should include leave request if it overlaps with a cross-midnight shift on H-1', async () => {
+      // Shift is 29 Aug 20:00 to 30 Aug 04:00.
+      // Leave request is on 30 Aug 00:00 to 30 Aug 00:00.
+      // They should overlap.
+      const reqCross = await prisma.pengajuanIzin.create({
+        data: {
+          karyawanId: karyawan.id,
+          tanggalMulai: new Date('2026-08-30T00:00:00Z'),
+          tanggalSelesai: new Date('2026-08-30T00:00:00Z'),
+          jenis: 'SAKIT',
+          alasan: 'Demam pagi',
+          status: 'PENDING',
+        },
+      });
+
+      const token = getAuthToken(supervisor);
+      const res = await request(app.getHttpServer() as Server)
+        .get('/leave-requests?status=PENDING')
+        .set('Authorization', `Bearer ${token}`);
+
+      const body = res.body as SuccessEnvelope<{ id: string }[]>;
+      expect(res.status).toBe(200);
+      expect(body.success).toBe(true);
+
+      const ids = body.data.map((d) => d.id);
+      expect(ids).toContain(reqCross.id);
+    });
+  });
+
+  describe('PATCH /leave-requests/:id/cancel', () => {
+    let pendingRequest: PengajuanIzin;
+    let approvedRequest: PengajuanIzin;
+    let otherUser: User;
+    let otherPendingRequest: PengajuanIzin;
+
+    beforeAll(async () => {
+      otherUser = await prisma.user.create({
+        data: {
+          nama: 'Other User',
+          email: 'other@example.com',
+          passwordHash: 'password',
+          role: 'KARYAWAN',
+        },
+      });
+    });
+
+    beforeEach(async () => {
+      pendingRequest = await prisma.pengajuanIzin.create({
+        data: {
+          karyawanId: karyawan.id,
+          tanggalMulai: new Date('2026-10-01T00:00:00Z'),
+          tanggalSelesai: new Date('2026-10-02T00:00:00Z'),
+          jenis: 'IZIN',
+          alasan: 'Urusan keluarga',
+          status: 'PENDING',
+        },
+      });
+
+      approvedRequest = await prisma.pengajuanIzin.create({
+        data: {
+          karyawanId: karyawan.id,
+          tanggalMulai: new Date('2026-11-01T00:00:00Z'),
+          tanggalSelesai: new Date('2026-11-02T00:00:00Z'),
+          jenis: 'CUTI',
+          alasan: 'Liburan',
+          status: 'APPROVED',
+          approvedById: supervisor.id,
+        },
+      });
+
+      otherPendingRequest = await prisma.pengajuanIzin.create({
+        data: {
+          karyawanId: otherUser.id,
+          tanggalMulai: new Date('2026-12-01T00:00:00Z'),
+          tanggalSelesai: new Date('2026-12-02T00:00:00Z'),
+          jenis: 'IZIN',
+          alasan: 'Urusan',
+          status: 'PENDING',
+        },
+      });
+    });
+
+    afterEach(async () => {
+      await prisma.pengajuanIzin.deleteMany({
+        where: {
+          id: {
+            in: [
+              pendingRequest?.id,
+              approvedRequest?.id,
+              otherPendingRequest?.id,
+            ].filter(Boolean),
+          },
+        },
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.user.delete({ where: { id: otherUser.id } });
+    });
+
+    it('should return 401 if without token', async () => {
+      const res = await request(app.getHttpServer() as Server).patch(
+        `/leave-requests/${pendingRequest.id}/cancel`,
+      );
+
+      expect(res.status).toBe(401);
+    });
+
+    it('should return 403 if accessed by HR_ADMIN', async () => {
+      const token = getAuthToken(hrAdmin);
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/leave-requests/${pendingRequest.id}/cancel`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(403);
+    });
+
+    it('should return 404 for non-existent ID', async () => {
+      const token = getAuthToken(karyawan);
+      const fakeId = '00000000-0000-0000-0000-000000000000';
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/leave-requests/${fakeId}/cancel`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(404);
+      expect((res.body as ErrorEnvelope).success).toBe(false);
+    });
+
+    it('should return 404 if trying to cancel other user request', async () => {
+      const token = getAuthToken(karyawan);
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/leave-requests/${otherPendingRequest.id}/cancel`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(404);
+    });
+
+    it('should return 409 if status is not PENDING', async () => {
+      const token = getAuthToken(karyawan);
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/leave-requests/${approvedRequest.id}/cancel`)
+        .set('Authorization', `Bearer ${token}`);
+
+      const body = res.body as ErrorEnvelope;
+      expect(res.status).toBe(409);
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('TIDAK_BISA_DIBATALKAN');
+    });
+
+    it('should cancel PENDING request successfully', async () => {
+      const token = getAuthToken(karyawan);
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/leave-requests/${pendingRequest.id}/cancel`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      const body = res.body as SuccessEnvelope<{
+        id: string;
+        status: string;
+      }>;
+      expect(body.success).toBe(true);
+      expect(body.data.id).toBe(pendingRequest.id);
+      expect(body.data.status).toBe('CANCELLED');
+
+      // Verify DB
+      const dbReq = await prisma.pengajuanIzin.findUnique({
+        where: { id: pendingRequest.id },
+      });
+      expect(dbReq?.status).toBe('CANCELLED');
+    });
+  });
+
+  describe('PATCH /leave-requests/:id/approve and reject', () => {
+    let scopePendingRequest: PengajuanIzin;
+    let outOfScopeRequest: PengajuanIzin;
+    let processedRequest: PengajuanIzin;
+
+    beforeEach(async () => {
+      // 1. In scope (overlaps with 2026-08-10 shift on site A)
+      scopePendingRequest = await prisma.pengajuanIzin.create({
+        data: {
+          karyawanId: karyawan.id,
+          tanggalMulai: new Date('2026-08-10T00:00:00Z'),
+          tanggalSelesai: new Date('2026-08-10T00:00:00Z'),
+          jenis: 'IZIN',
+          alasan: 'Urusan keluarga',
+          status: 'PENDING',
+        },
+      });
+
+      // 2. Out of scope (overlaps with no shift, e.g., 2027)
+      outOfScopeRequest = await prisma.pengajuanIzin.create({
+        data: {
+          karyawanId: karyawan.id,
+          tanggalMulai: new Date('2027-01-01T00:00:00Z'),
+          tanggalSelesai: new Date('2027-01-01T00:00:00Z'),
+          jenis: 'IZIN',
+          alasan: 'Tahun baru',
+          status: 'PENDING',
+        },
+      });
+
+      // 3. Processed request
+      processedRequest = await prisma.pengajuanIzin.create({
+        data: {
+          karyawanId: karyawan.id,
+          tanggalMulai: new Date('2026-08-10T00:00:00Z'), // in scope
+          tanggalSelesai: new Date('2026-08-10T00:00:00Z'),
+          jenis: 'CUTI',
+          alasan: 'Liburan',
+          status: 'APPROVED',
+          approvedById: supervisor.id,
+        },
+      });
+    });
+
+    afterEach(async () => {
+      await prisma.pengajuanIzin.deleteMany({
+        where: {
+          id: {
+            in: [
+              scopePendingRequest.id,
+              outOfScopeRequest.id,
+              processedRequest.id,
+            ],
+          },
+        },
+      });
+    });
+
+    it('should return 401 if without token', async () => {
+      const res = await request(app.getHttpServer() as Server).patch(
+        `/leave-requests/${scopePendingRequest.id}/approve`,
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it('should return 403 if accessed by KARYAWAN', async () => {
+      const token = getAuthToken(karyawan);
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/leave-requests/${scopePendingRequest.id}/approve`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(403);
+    });
+
+    it('should return 403 if accessed by HR_ADMIN', async () => {
+      const token = getAuthToken(hrAdmin);
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/leave-requests/${scopePendingRequest.id}/approve`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(403);
+    });
+
+    it('should return 404 for non-existent ID', async () => {
+      const token = getAuthToken(supervisor);
+      const fakeId = '00000000-0000-0000-0000-000000000000';
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/leave-requests/${fakeId}/approve`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(404);
+      expect((res.body as ErrorEnvelope).error.message).toBe(
+        'Pengajuan izin tidak ditemukan',
+      );
+    });
+
+    it('should return 404 if request is out of scope (not matching schedule)', async () => {
+      const token = getAuthToken(supervisor);
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/leave-requests/${outOfScopeRequest.id}/approve`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(404);
+      expect((res.body as ErrorEnvelope).error.message).toBe(
+        'Pengajuan izin tidak ditemukan',
+      );
+    });
+
+    it('should return 409 IZIN_SUDAH_DIPROSES if status is not PENDING', async () => {
+      const token = getAuthToken(supervisor);
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/leave-requests/${processedRequest.id}/approve`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(409);
+      expect((res.body as ErrorEnvelope).error.code).toBe(
+        'IZIN_SUDAH_DIPROSES',
+      );
+    });
+
+    it('should approve successfully WITH catatanSupervisor', async () => {
+      const token = getAuthToken(supervisor);
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/leave-requests/${scopePendingRequest.id}/approve`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ catatanSupervisor: 'Silakan beristirahat' });
+
+      expect(res.status).toBe(200);
+      const body = res.body as SuccessEnvelope<{ id: string; status: string }>;
+      expect(body.success).toBe(true);
+      expect(body.data.id).toBe(scopePendingRequest.id);
+      expect(body.data.status).toBe('APPROVED');
+
+      // Verify DB
+      const dbReq = await prisma.pengajuanIzin.findUnique({
+        where: { id: scopePendingRequest.id },
+      });
+      expect(dbReq?.status).toBe('APPROVED');
+      expect(dbReq?.catatanSupervisor).toBe('Silakan beristirahat');
+      expect(dbReq?.approvedById).toBe(supervisor.id);
+    });
+
+    it('should reject successfully WITHOUT catatanSupervisor', async () => {
+      const token = getAuthToken(supervisor);
+
+      // we need a new request to reject because scopePendingRequest is already approved in previous test if it ran (wait, jest cleans up in afterEach and recreates in beforeEach)
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/leave-requests/${scopePendingRequest.id}/reject`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      const body = res.body as SuccessEnvelope<{ id: string; status: string }>;
+      expect(body.success).toBe(true);
+      expect(body.data.status).toBe('REJECTED');
+
+      // Verify DB
+      const dbReq = await prisma.pengajuanIzin.findUnique({
+        where: { id: scopePendingRequest.id },
+      });
+      expect(dbReq?.status).toBe('REJECTED');
+      expect(dbReq?.catatanSupervisor).toBeNull();
+      expect(dbReq?.approvedById).toBe(supervisor.id);
     });
   });
 });

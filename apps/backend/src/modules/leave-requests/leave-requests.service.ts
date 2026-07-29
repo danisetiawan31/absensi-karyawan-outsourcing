@@ -2,9 +2,11 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateLeaveRequestDto } from './dto/create-leave-request.dto';
+import { ProcessLeaveRequestDto } from './dto/process-leave-request.dto';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -123,5 +125,211 @@ export class LeaveRequestsService {
         },
       },
     });
+  }
+
+  async findPendingForSupervisor(supervisorId: string) {
+    // 1. Ambil daftar siteId yang diawasi supervisor ini
+    const supervisedSites = await this.prisma.supervisorSite.findMany({
+      where: { supervisorId },
+      select: { siteId: true },
+    });
+
+    if (supervisedSites.length === 0) {
+      return [];
+    }
+
+    const siteIds = supervisedSites.map((s) => s.siteId);
+
+    // 2. Ambil semua JadwalShift di site-site tsb (scoping kasar)
+    const jadwalShifts = await this.prisma.jadwalShift.findMany({
+      where: { siteId: { in: siteIds } },
+      select: {
+        siteId: true,
+        karyawanId: true,
+        jamMulai: true,
+        jamSelesai: true,
+      },
+    });
+
+    if (jadwalShifts.length === 0) {
+      return [];
+    }
+
+    const karyawanIdsWithSchedules = [
+      ...new Set(jadwalShifts.map((j) => j.karyawanId)),
+    ];
+
+    // 3. Ambil PengajuanIzin dengan status=PENDING
+    const candidates = await this.prisma.pengajuanIzin.findMany({
+      where: {
+        status: 'PENDING',
+        karyawanId: { in: karyawanIdsWithSchedules },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        karyawanId: true,
+        tanggalMulai: true,
+        tanggalSelesai: true,
+        jenis: true,
+        alasan: true,
+        dokumenPendukungUrl: true,
+        status: true,
+        catatanSupervisor: true,
+        createdAt: true,
+        karyawan: {
+          select: {
+            id: true,
+            nama: true,
+          },
+        },
+      },
+    });
+
+    // 4. Filter kandidat di application code
+    const validRequests = candidates.filter((izin) => {
+      return jadwalShifts.some((j) => {
+        if (j.karyawanId !== izin.karyawanId) return false;
+
+        return this.checkOverlap(
+          j.jamMulai,
+          j.jamSelesai,
+          izin.tanggalMulai,
+          izin.tanggalSelesai,
+        );
+      });
+    });
+
+    return validRequests;
+  }
+
+  private checkOverlap(
+    shiftMulai: Date,
+    shiftSelesai: Date,
+    izinMulai: Date,
+    izinSelesai: Date,
+  ): boolean {
+    const mulai = izinMulai.getTime();
+    const selesai = izinSelesai.getTime() + 24 * 60 * 60 * 1000 - 1;
+
+    const sMulai = shiftMulai.getTime();
+    const sSelesai = shiftSelesai.getTime();
+
+    return sMulai <= selesai && sSelesai >= mulai;
+  }
+
+  async processBySupervisor(
+    id: string,
+    supervisorId: string,
+    action: 'APPROVED' | 'REJECTED',
+    dto: ProcessLeaveRequestDto,
+  ) {
+    // a. Cari PengajuanIzin
+    const leaveRequest = await this.prisma.pengajuanIzin.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        karyawanId: true,
+        tanggalMulai: true,
+        tanggalSelesai: true,
+        status: true,
+      },
+    });
+
+    // b. Kalau tidak ketemu -> 404 NOT_FOUND
+    if (!leaveRequest) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Pengajuan izin tidak ditemukan',
+      });
+    }
+
+    // c. Cek scope
+    const supervisedSites = await this.prisma.supervisorSite.findMany({
+      where: { supervisorId },
+      select: { siteId: true },
+    });
+    const siteIds = supervisedSites.map((s) => s.siteId);
+
+    const jadwalShifts = await this.prisma.jadwalShift.findMany({
+      where: { siteId: { in: siteIds }, karyawanId: leaveRequest.karyawanId },
+      select: { jamMulai: true, jamSelesai: true },
+    });
+
+    const isInScope = jadwalShifts.some((j) =>
+      this.checkOverlap(
+        j.jamMulai,
+        j.jamSelesai,
+        leaveRequest.tanggalMulai,
+        leaveRequest.tanggalSelesai,
+      ),
+    );
+
+    if (!isInScope) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Pengajuan izin tidak ditemukan', // SAMA PERSIS dengan 404
+      });
+    }
+
+    // d. Kalau ketemu & dalam scope tapi status BUKAN PENDING -> 409
+    if (leaveRequest.status !== 'PENDING') {
+      throw new ConflictException({
+        code: 'IZIN_SUDAH_DIPROSES',
+        message: 'Pengajuan sudah diproses, tidak bisa diubah lagi',
+      });
+    }
+
+    // e. Eksekusi update PAKAI CONDITIONAL UPDATE
+    const updatedCount = await this.prisma.pengajuanIzin.updateMany({
+      where: { id, status: 'PENDING' },
+      data: {
+        status: action,
+        catatanSupervisor: dto.catatanSupervisor,
+        approvedById: supervisorId,
+      },
+    });
+
+    // f. Kalau hasil updateMany count === 0 -> kalah race
+    if (updatedCount.count === 0) {
+      throw new ConflictException({
+        code: 'IZIN_SUDAH_DIPROSES',
+        message: 'Pengajuan sudah diproses, tidak bisa diubah lagi',
+      });
+    }
+
+    // g. Return
+    return {
+      id,
+      status: action,
+    };
+  }
+
+  async cancel(userId: string, id: string) {
+    const leaveRequest = await this.prisma.pengajuanIzin.findUnique({
+      where: { id },
+    });
+
+    if (!leaveRequest || leaveRequest.karyawanId !== userId) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Pengajuan izin tidak ditemukan',
+      });
+    }
+
+    if (leaveRequest.status !== 'PENDING') {
+      throw new ConflictException({
+        code: 'TIDAK_BISA_DIBATALKAN',
+        message: 'Pengajuan sudah diproses, tidak bisa dibatalkan',
+      });
+    }
+
+    const updated = await this.prisma.pengajuanIzin.update({
+      where: { id },
+      data: { status: 'CANCELLED' },
+      select: { id: true, status: true },
+    });
+
+    return updated;
   }
 }
