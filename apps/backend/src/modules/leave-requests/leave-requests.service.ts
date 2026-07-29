@@ -7,6 +7,8 @@ import {
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateLeaveRequestDto } from './dto/create-leave-request.dto';
 import { ProcessLeaveRequestDto } from './dto/process-leave-request.dto';
+import { FindLeaveRequestsHistoryQueryDto } from './dto/find-leave-requests-history-query.dto';
+import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -331,5 +333,54 @@ export class LeaveRequestsService {
     });
 
     return updated;
+  }
+
+  async getHistory(query: FindLeaveRequestsHistoryQueryDto) {
+    const where: Prisma.PengajuanIzinWhereInput = {};
+
+    if (query.karyawanId) {
+      where.karyawanId = query.karyawanId;
+    }
+
+    if (query.periodeMulai || query.periodeSelesai) {
+      where.tanggalMulai = {};
+      const tzSuffix = '+07:00';
+      if (query.periodeMulai) {
+        // Start of the given date in local tz
+        const mulaiDate = new Date(`${query.periodeMulai}T00:00:00${tzSuffix}`);
+        where.tanggalMulai.gte = mulaiDate;
+      }
+      if (query.periodeSelesai) {
+        // End of the given date in local tz
+        const selesaiDate = new Date(
+          new Date(`${query.periodeSelesai}T00:00:00${tzSuffix}`).getTime() +
+            24 * 60 * 60 * 1000 -
+            1,
+        );
+        where.tanggalMulai.lte = selesaiDate;
+      }
+    }
+
+    const results = await this.prisma.pengajuanIzin.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        karyawanId: true,
+        karyawan: { select: { id: true, nama: true } },
+        tanggalMulai: true,
+        tanggalSelesai: true,
+        jenis: true,
+        alasan: true,
+        dokumenPendukungUrl: true,
+        status: true,
+        catatanSupervisor: true,
+        approvedById: true,
+        approvedBy: { select: { id: true, nama: true } },
+        createdAt: true,
+      },
+    });
+
+    return results;
   }
 }

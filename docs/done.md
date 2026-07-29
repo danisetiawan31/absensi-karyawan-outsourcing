@@ -225,3 +225,19 @@
   - **Keputusan arsitektural & performa:** Logic overlap-checking diekstrak ke shared private method `checkOverlap()` murni (sinkron, tanpa query DB tambahan), dipakai baik oleh `findPendingForSupervisor` (list) maupun `processBySupervisor` (single record) — dievaluasi di memori aplikasi, bukan query berulang, untuk menghindari N+1.
   - `updateMany` (bukan `update` biasa) dipakai di `processBySupervisor` sebagai conditional update (`where: { id, status: 'PENDING' }`) — mencegah race condition kalau 2 supervisor approve/reject bersamaan untuk pengajuan yang sama (karyawan dengan jadwal lintas site bisa masuk scope lebih dari 1 supervisor, sesuai desain Stage 1).
   - **Known limitation, disengaja belum diselesaikan:** kalau karyawan mengajukan izin untuk rentang tanggal yang sama sekali belum punya `JadwalShift` (di site manapun), pengajuan itu tidak akan muncul untuk supervisor manapun — karena seluruh scoping (baik listing maupun approve/reject) berbasis cross-reference ke `JadwalShift`. Ini gap yang disadari sejak perencanaan Stage 1, belum ada resolusi (butuh keputusan bisnis tambahan yang belum ada di PRD), didokumentasikan di sini supaya tidak hilang dari histori project.
+
+## [Stage 14] Track D4 - GET /leave-requests/history (HR/Admin)
+
+- **File diubah/dibuat:**
+  - `apps/backend/src/modules/leave-requests/dto/find-leave-requests-history-query.dto.ts` (baru — `karyawanId` opsional `@IsUUID('4')`, `periodeMulai`/`periodeSelesai` opsional `@IsDateString()`)
+  - `apps/backend/src/modules/leave-requests/leave-requests.service.ts` (method `getHistory`)
+  - `apps/backend/src/modules/leave-requests/leave-requests.controller.ts` (endpoint `GET /leave-requests/history`, role `HR_ADMIN`)
+  - `apps/backend/src/modules/leave-requests/leave-requests.controller.spec.ts` (+7 e2e test baru)
+  - `docs/API-Contract.md` (dokumentasi endpoint ini di section 4)
+- **Verifikasi:**
+  - `npm run test -- src/modules/leave-requests` lolos **40/40** total (seluruh Track D1-D4).
+  - Test mencakup: HR akses tanpa filter (semua histori lintas status), filter `karyawanId`, filter `periodeMulai`/`periodeSelesai`, `approvedBy: null` untuk status belum diproses vs terisi untuk yang sudah, 403 untuk role selain HR_ADMIN, 401 tanpa token.
+  - `npx tsc --noEmit` & `npm run lint` bersih 100%, tidak ada `any`.
+- **Catatan/Penyimpangan:**
+  - **Keputusan filter periode:** `periodeMulai`/`periodeSelesai` difilter terhadap `tanggalMulai` pengajuan (bukan overlap ke `tanggalSelesai` juga) — menjawab pertanyaan "izin yang dimulai di rentang ini", konsisten pola timezone-safe (`+07:00`) yang sudah dipakai di Stage 10 (`schedules`). Endpoint bersifat one-sided range friendly (boleh isi salah satu saja).
+  - Perbaikan isolasi test environment di blok `describe` `PATCH /approve` sebelumnya (cleanup `testSite`/`JadwalShift` per-scope) — dilakukan supaya penambahan test `history` tidak mengganggu test lama saat dijalankan berurutan.

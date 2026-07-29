@@ -394,7 +394,30 @@ Generate laporan untuk payroll & pelaporan ke klien.
 
 ### GET /leave-requests/history?karyawanId=&periodeMulai=&periodeSelesai=
 
-Audit trail approval izin — _PP1_
+Audit trail persetujuan izin secara lengkap (read-only) untuk HR/Admin lintas seluruh site dan karyawan.
+
+**Request:** `karyawanId` (uuid, opsional), `periodeMulai` (ISO-8601 date, opsional), `periodeSelesai` (ISO-8601 date, opsional). Jika parameter periode hanya diisi satu sisi, sistem akan tetap memprosesnya sebagai range terbuka. Filter tanggal diterapkan terhadap `tanggalMulai` pengajuan (konsep: melihat karyawan yang izin mulai dari tanggal tertentu).
+
+**Response:**
+```json
+[
+  {
+    "id": "uuid",
+    "karyawanId": "uuid",
+    "karyawan": { "id": "uuid", "nama": "string" },
+    "tanggalMulai": "date",
+    "tanggalSelesai": "date",
+    "jenis": "SAKIT | IZIN | CUTI",
+    "alasan": "string",
+    "dokumenPendukungUrl": "string | null",
+    "status": "PENDING | APPROVED | REJECTED | CANCELLED",
+    "catatanSupervisor": "string | null",
+    "approvedById": "uuid | null",
+    "approvedBy": { "id": "uuid", "nama": "string" } | null,
+    "createdAt": "datetime"
+  }
+]
+```
 
 ---
 

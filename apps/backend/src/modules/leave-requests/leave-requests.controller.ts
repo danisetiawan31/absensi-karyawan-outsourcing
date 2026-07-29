@@ -22,6 +22,7 @@ import { Role } from '@prisma/client';
 import { LeaveRequestsService } from './leave-requests.service';
 import { CreateLeaveRequestDto } from './dto/create-leave-request.dto';
 import { ProcessLeaveRequestDto } from './dto/process-leave-request.dto';
+import { FindLeaveRequestsHistoryQueryDto } from './dto/find-leave-requests-history-query.dto';
 import { JwtPayload } from '../../common/types/jwt-payload.type';
 
 @Controller('leave-requests')
@@ -64,6 +65,13 @@ export class LeaveRequestsController {
 
     // Role KARYAWAN
     return this.leaveRequestsService.findAll(req.user.userId);
+  }
+
+  @Get('history')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.HR_ADMIN)
+  async getHistory(@Query() query: FindLeaveRequestsHistoryQueryDto) {
+    return this.leaveRequestsService.getHistory(query);
   }
 
   @Patch(':id/cancel')

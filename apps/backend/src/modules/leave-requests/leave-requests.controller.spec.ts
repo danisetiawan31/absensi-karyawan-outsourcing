@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import request from 'supertest';
 import { Server } from 'http';
-import { Role, User, PengajuanIzin } from '@prisma/client';
+import { Role, User, PengajuanIzin, Site } from '@prisma/client';
 import { AllExceptionsFilter } from '../../common/filters/all-exceptions.filter';
 import { ResponseInterceptor } from '../../common/interceptors/response.interceptor';
 import {
@@ -900,6 +900,42 @@ describe('LeaveRequestsController (e2e)', () => {
     let scopePendingRequest: PengajuanIzin;
     let outOfScopeRequest: PengajuanIzin;
     let processedRequest: PengajuanIzin;
+    let testSite: Site;
+
+    beforeAll(async () => {
+      testSite = await prisma.site.create({
+        data: {
+          id: 'test-site-approve-id',
+          nama: 'Test Site Approve',
+          alamat: 'Alamat',
+          latitude: 0,
+          longitude: 0,
+          radiusToleransi: 50,
+        },
+      });
+
+      await prisma.supervisorSite.create({
+        data: { supervisorId: supervisor.id, siteId: testSite.id },
+      });
+
+      await prisma.jadwalShift.create({
+        data: {
+          karyawanId: karyawan.id,
+          siteId: testSite.id,
+          tanggal: new Date('2026-08-10T00:00:00Z'),
+          jamMulai: new Date('2026-08-10T08:00:00Z'),
+          jamSelesai: new Date('2026-08-10T17:00:00Z'),
+        },
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.jadwalShift.deleteMany({ where: { siteId: testSite.id } });
+      await prisma.supervisorSite.deleteMany({
+        where: { siteId: testSite.id },
+      });
+      await prisma.site.delete({ where: { id: testSite.id } });
+    });
 
     beforeEach(async () => {
       // 1. In scope (overlaps with 2026-08-10 shift on site A)
@@ -1053,6 +1089,205 @@ describe('LeaveRequestsController (e2e)', () => {
       expect(dbReq?.status).toBe('REJECTED');
       expect(dbReq?.catatanSupervisor).toBeNull();
       expect(dbReq?.approvedById).toBe(supervisor.id);
+    });
+  });
+
+  describe('GET /leave-requests/history', () => {
+    let pendingRequest: PengajuanIzin;
+    let approvedRequest: PengajuanIzin;
+    let otherUser: User;
+    let otherRequest: PengajuanIzin;
+
+    beforeAll(async () => {
+      otherUser = await prisma.user.create({
+        data: {
+          nama: 'Other History User',
+          email: 'other_history@example.com',
+          passwordHash: 'password',
+          role: 'KARYAWAN',
+        },
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.user.delete({ where: { id: otherUser.id } });
+    });
+
+    beforeEach(async () => {
+      // Clean up first to be safe
+      await prisma.pengajuanIzin.deleteMany({});
+
+      pendingRequest = await prisma.pengajuanIzin.create({
+        data: {
+          karyawanId: karyawan.id,
+          tanggalMulai: new Date('2026-05-01T00:00:00Z'),
+          tanggalSelesai: new Date('2026-05-01T00:00:00Z'),
+          jenis: 'IZIN',
+          alasan: 'Pending History',
+          status: 'PENDING',
+        },
+      });
+
+      approvedRequest = await prisma.pengajuanIzin.create({
+        data: {
+          karyawanId: karyawan.id,
+          tanggalMulai: new Date('2026-06-01T00:00:00Z'),
+          tanggalSelesai: new Date('2026-06-02T00:00:00Z'),
+          jenis: 'CUTI',
+          alasan: 'Approved History',
+          status: 'APPROVED',
+          approvedById: supervisor.id,
+        },
+      });
+
+      otherRequest = await prisma.pengajuanIzin.create({
+        data: {
+          karyawanId: otherUser.id,
+          tanggalMulai: new Date('2026-07-01T00:00:00Z'),
+          tanggalSelesai: new Date('2026-07-01T00:00:00Z'),
+          jenis: 'SAKIT',
+          alasan: 'Other History',
+          status: 'REJECTED',
+          approvedById: supervisor.id,
+        },
+      });
+    });
+
+    afterEach(async () => {
+      await prisma.pengajuanIzin.deleteMany({
+        where: {
+          id: {
+            in: [pendingRequest.id, approvedRequest.id, otherRequest.id],
+          },
+        },
+      });
+    });
+
+    it('should return 401 if without token', async () => {
+      const res = await request(app.getHttpServer() as Server).get(
+        '/leave-requests/history',
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it('should return 403 if accessed by KARYAWAN', async () => {
+      const token = getAuthToken(karyawan);
+      const res = await request(app.getHttpServer() as Server)
+        .get('/leave-requests/history')
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(403);
+    });
+
+    it('should return 403 if accessed by SUPERVISOR', async () => {
+      const token = getAuthToken(supervisor);
+      const res = await request(app.getHttpServer() as Server)
+        .get('/leave-requests/history')
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(403);
+    });
+
+    it('should return all history across all statuses and users when no filter is applied', async () => {
+      const token = getAuthToken(hrAdmin);
+      const res = await request(app.getHttpServer() as Server)
+        .get('/leave-requests/history')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      const body = res.body as SuccessEnvelope<
+        {
+          id: string;
+          status: string;
+          approvedBy: { id: string; nama: string } | null;
+        }[]
+      >;
+      expect(body.success).toBe(true);
+
+      const ids = body.data.map((d) => d.id);
+      expect(ids).toContain(pendingRequest.id);
+      expect(ids).toContain(approvedRequest.id);
+      expect(ids).toContain(otherRequest.id);
+
+      const approvedItem = body.data.find((d) => d.id === approvedRequest.id);
+      expect(approvedItem).toBeDefined();
+      expect(approvedItem!.status).toBe('APPROVED');
+      expect(approvedItem!.approvedBy).toBeDefined();
+      expect(approvedItem!.approvedBy!.id).toBe(supervisor.id);
+      expect(approvedItem!.approvedBy!.nama).toBe(supervisor.nama);
+
+      const pendingItem = body.data.find((d) => d.id === pendingRequest.id);
+      expect(pendingItem).toBeDefined();
+      expect(pendingItem!.status).toBe('PENDING');
+      expect(pendingItem!.approvedBy).toBeNull();
+    });
+
+    it('should filter by karyawanId', async () => {
+      const token = getAuthToken(hrAdmin);
+      const res = await request(app.getHttpServer() as Server)
+        .get(`/leave-requests/history?karyawanId=${otherUser.id}`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      const body = res.body as SuccessEnvelope<
+        {
+          id: string;
+          status: string;
+          approvedBy: { id: string; nama: string } | null;
+        }[]
+      >;
+      expect(body.success).toBe(true);
+
+      const ids = body.data.map((d) => d.id);
+      expect(ids).toContain(otherRequest.id);
+      expect(ids).not.toContain(pendingRequest.id);
+      expect(ids).not.toContain(approvedRequest.id);
+    });
+
+    it('should filter by periodeMulai and periodeSelesai (range)', async () => {
+      const token = getAuthToken(hrAdmin);
+      // Filter for June (only approvedRequest is in June)
+      const res = await request(app.getHttpServer() as Server)
+        .get(
+          '/leave-requests/history?periodeMulai=2026-06-01&periodeSelesai=2026-06-30',
+        )
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      const body = res.body as SuccessEnvelope<
+        {
+          id: string;
+          status: string;
+          approvedBy: { id: string; nama: string } | null;
+        }[]
+      >;
+      expect(body.success).toBe(true);
+
+      const ids = body.data.map((d) => d.id);
+      expect(ids).toContain(approvedRequest.id);
+      expect(ids).not.toContain(pendingRequest.id);
+      expect(ids).not.toContain(otherRequest.id);
+    });
+
+    it('should filter by periodeMulai only (open-ended range)', async () => {
+      const token = getAuthToken(hrAdmin);
+      // Filter from June onwards (approvedRequest and otherRequest)
+      const res = await request(app.getHttpServer() as Server)
+        .get('/leave-requests/history?periodeMulai=2026-06-01')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      const body = res.body as SuccessEnvelope<
+        {
+          id: string;
+          status: string;
+          approvedBy: { id: string; nama: string } | null;
+        }[]
+      >;
+      expect(body.success).toBe(true);
+
+      const ids = body.data.map((d) => d.id);
+      expect(ids).toContain(approvedRequest.id);
+      expect(ids).toContain(otherRequest.id);
+      expect(ids).not.toContain(pendingRequest.id);
     });
   });
 });
