@@ -208,8 +208,12 @@ Koreksi/batalkan jadwal (salah input karyawan/jam, atau site berhenti kontrak me
 ### GET /leave-requests?status=PENDING
 
 Daftar pengajuan izin yang perlu diapprove, dibatasi ke karyawan di site yang diawasi pada rentang tanggal tersebut.
+**Role:** SUPERVISOR, HR_ADMIN (Dual-role)
+- **SUPERVISOR**: Hanya melihat pengajuan dari karyawan di site yang diawasi (scoping normal).
+- **HR_ADMIN**: Hanya melihat pengajuan yang **orphaned** (tidak ter-cover supervisor manapun). Bukan akses penuh ke semua pengajuan.
+
 **Validasi:** Wajib menyertakan parameter `status=PENDING` (hanya bisa melihat yang belum diproses). Jika tidak ada atau status selain PENDING, kembalikan `400 Bad Request`.
-**Response:** Sama seperti response Karyawan, ditambah objek `karyawan: { id: "uuid", nama: "string" }` agar supervisor tahu ini pengajuan milik siapa.
+**Response:** Sama seperti response Karyawan, ditambah objek `karyawan: { id: "uuid", nama: "string" }` agar supervisor/HR tahu ini pengajuan milik siapa.
 
 ```json
 {
@@ -237,11 +241,13 @@ Daftar pengajuan izin yang perlu diapprove, dibatasi ke karyawan di site yang di
 
 ### PATCH /leave-requests/:id/approve · PATCH /leave-requests/:id/reject
 
-Endpoint untuk menyetujui atau menolak pengajuan izin oleh Supervisor.
-Hanya dapat dilakukan jika: (a) status pengajuan adalah PENDING, dan (b) karyawan memiliki jadwal shift di site yang diawasi supervisor ini pada rentang tanggal izin tersebut.
-**Penting:** Karena karyawan bisa memiliki jadwal di lintas site, 1 pengajuan bisa dilihat oleh beberapa supervisor. Supervisor yang memproses pertama akan mengubah status, dan percobaan proses oleh supervisor lain (walaupun dalam scope) akan mengembalikan 409 (siapa cepat dia dapat).
+Endpoint untuk menyetujui atau menolak pengajuan izin oleh Supervisor atau HR Admin.
 
-**Role:** SUPERVISOR
+**Role:** SUPERVISOR, HR_ADMIN (Dual-role)
+- **SUPERVISOR**: Hanya dapat memproses jika pengajuan berada di dalam scope (karyawan memiliki jadwal shift di site yang diawasi supervisor ini pada rentang tanggal izin).
+- **HR_ADMIN**: Hanya dapat memproses jika pengajuan bersifat **orphaned** (tidak ter-cover supervisor manapun). Jika pengajuan ternyata masih dalam cakupan supervisor, sistem akan menolak dengan `403 Forbidden` (`BUKAN_FALLBACK_HR`).
+
+**Penting:** Karena karyawan bisa memiliki jadwal di lintas site, 1 pengajuan bisa dilihat oleh beberapa supervisor. Supervisor/HR yang memproses pertama akan mengubah status, dan percobaan proses oleh aktor lain akan mengembalikan 409 (siapa cepat dia dapat).
 
 **Request Body:**
 ```json
@@ -395,6 +401,11 @@ Generate laporan untuk payroll & pelaporan ke klien.
 ### GET /leave-requests/history?karyawanId=&periodeMulai=&periodeSelesai=
 
 Audit trail persetujuan izin secara lengkap (read-only) untuk HR/Admin lintas seluruh site dan karyawan.
+
+**Catatan Integrasi Fallback HR:** HR_ADMIN juga memiliki peran sekunder sebagai **fallback approver** untuk izin yang berstatus *orphaned*. Endpoint operasionalnya di-share di Bagian 3:
+- `GET /leave-requests?status=PENDING`
+- `PATCH /leave-requests/:id/approve` dan `/reject`
+*(Lihat Bagian 3 untuk detail batasan dual-role tersebut).*
 
 **Request:** `karyawanId` (uuid, opsional), `periodeMulai` (ISO-8601 date, opsional), `periodeSelesai` (ISO-8601 date, opsional). Jika parameter periode hanya diisi satu sisi, sistem akan tetap memprosesnya sebagai range terbuka. Filter tanggal diterapkan terhadap `tanggalMulai` pengajuan (konsep: melihat karyawan yang izin mulai dari tanggal tertentu).
 

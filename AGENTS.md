@@ -45,6 +45,7 @@ Instruksi kerja untuk AI coding agent (Antigravity). Dibaca otomatis sebelum mel
 - Setiap endpoint/service backend yang selesai di 1 langkah wajib disertai test Jest untuk skenario yang disebutkan di rencana langkah tersebut — bukan sekadar boilerplate `should be defined` bawaan `nest generate resource`, tapi test yang benar-benar meng-assert behavior (mis. `GAGAL_LOKASI`, `GAGAL_LIVENESS`, `DI_LUAR_JENDELA_WAKTU`).
 - Kalau ada test gagal, boleh coba perbaiki maksimal **2x percobaan**.
 - Kalau masih gagal setelah 2x — STOP. Laporkan ke user: test mana yang gagal, pesan error, dugaan penyebab. Jangan lanjut ke langkah berikutnya, jangan update `done.md`.
+- Test scope default per-tahap cukup domain-scoped (npm run test -- src/modules/X). WAJIB jalanin FULL suite (npm run test, tanpa scope) kalau: (a) tahap itu mengubah file common/ atau apapun yang dipakai lintas-module (guard, interceptor, filter, strategy, main.ts); atau (b) sebelum 1 Track resmi ditutup (sebelum entry done.md gabungan ditulis).
 
 ## 6. Update done.md
 
@@ -57,6 +58,11 @@ Setelah 1 langkah kecil selesai, test (jika ada) lolos, DAN user sudah approve h
 - Istilah teknis generik: Bahasa Inggris (`accessToken`, `requestId`, `success`)
 - Response envelope WAJIB ikut format di `API-Contract.md` (`{ success, data/error, meta }`) — jangan bikin format baru
 - Validasi statusAktif bukan cuma soal login. `JwtStrategy.validate()` WAJIB selalu cek `user.statusAktif` di setiap request (bukan cuma `!user`), karena method ini jalan di semua endpoint terproteksi, bukan cuma saat login. Kalau ada guard/strategy baru yang menggantikan atau menambah cara autentikasi lain di masa depan, aturan yang sama berlaku — user nonaktif harus ditolak di titik re-validasi manapun, bukan cuma di `POST /auth/login`.
+- **Test cleanup WAJIB di-scope ke data yang dibuat test itu sendiri** (track ID atau marker unik) — JANGAN PERNAH `deleteMany({})` tanpa where filter, karena seluruh test suite share 1 database fisik yang sama. Hardcoded ID/UUID di test data WAJIB unik per file, jangan dipakai ulang persis sama di file test lain.
+- **Fixture (user/data) yang dipakai bareng di banyak `describe` block WAJIB direset ke state awal** di block yang butuh state itu, ATAU pakai fixture terpisah per block — jangan asumsikan state fixture masih sama seperti waktu dibuat kalau ada block LAIN (bahkan dalam 1 file yang sama) yang mungkin mengubahnya (contoh nyata: test `PATCH /employees/:id` mengubah `statusAktif` user yang di-reuse test `POST /employees` setelahnya, bikin auth gagal duluan sebelum sempat ke-cek role — Stage 15).
+- File upload disimpan LOCAL DISK di storage/{domain}/ (bukan cloud storage), nama file {crypto.randomUUID()}{ekstensi_asli}. Validasi tipe & ukuran file WAJIB di level FileInterceptor (limits: { fileSize }) — BUKAN cuma dicek manual setelah file selesai di-buffer ke memory (itu celah DoS yang pernah ketemu di Leave Requests: validasi manual doang gak nyegah buffer kegedean masuk RAM duluan).
+- Semua path param :id WAJIB pakai ParseUUIDPipe (@Param('id', ParseUUIDPipe)) — tanpa ini, id bukan-UUID bisa nembus ke Prisma dan jadi 500 gak terkontrol alih-alih 400 yang rapi.
+- Untuk endpoint yang scoped ke kepemilikan/cakupan (mis. supervisor cuma boleh akses site yang diawasi): endpoint READ (GET) yang query-nya di luar cakupan caller → silently narrow ke hasil kosong ([]), JANGAN error. Endpoint WRITE (POST/PATCH/DELETE) yang target-nya di luar cakupan caller → WAJIB ditolak eksplisit (403 atau sesuai konteks), JANGAN dibiarkan lolos.
 
 ## 8. Larangan
 
@@ -64,6 +70,7 @@ Setelah 1 langkah kecil selesai, test (jika ada) lolos, DAN user sudah approve h
 - JANGAN menambah dependency/library baru tanpa menyebutkan alasan & minta konfirmasi dulu
 - JANGAN ubah `schema.prisma` tanpa konfirmasi eksplisit — perubahan schema butuh migration dan berdampak ke API contract juga
 - JANGAN mengubah isi folder `docs/`
+- jangan bikin format baru. Controller WAJIB return data mentah dari service — JANGAN bungkus manual {success, data}, itu tugas ResponseInterceptor global. Membungkus manual di controller menghasilkan double-wrap (data.data.id) — pernah jadi regresi nyata di Schedules.
 
 ### 9. KEPUTUSAN LINTAS
 

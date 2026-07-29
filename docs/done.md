@@ -241,3 +241,37 @@
 - **Catatan/Penyimpangan:**
   - **Keputusan filter periode:** `periodeMulai`/`periodeSelesai` difilter terhadap `tanggalMulai` pengajuan (bukan overlap ke `tanggalSelesai` juga) — menjawab pertanyaan "izin yang dimulai di rentang ini", konsisten pola timezone-safe (`+07:00`) yang sudah dipakai di Stage 10 (`schedules`). Endpoint bersifat one-sided range friendly (boleh isi salah satu saja).
   - Perbaikan isolasi test environment di blok `describe` `PATCH /approve` sebelumnya (cleanup `testSite`/`JadwalShift` per-scope) — dilakukan supaya penambahan test `history` tidak mengganggu test lama saat dijalankan berurutan.
+
+## [Stage 15] Tech Debt — Isolasi & Keandalan Full Test Suite
+
+- **File diubah/dibuat:**
+  - `apps/backend/package.json` (script `test` → `jest --runInBand`, eksekusi sekuensial)
+  - `apps/backend/src/modules/schedules/schedules.controller.spec.ts` (scoped cleanup `LogKehadiran`/`PercobaanAbsensi` via `where: { jadwalId: testJadwalId }`)
+  - `apps/backend/src/modules/leave-requests/leave-requests.controller.spec.ts` (scoped cleanup via array ID eksplisit, bukan `deleteMany({})` polos)
+  - `apps/backend/src/modules/supervisor-sites/supervisor-sites.controller.spec.ts` (hardcoded UUID diganti prefix unik, `1...`→`b...`, menghindari collision dengan `schedules`)
+  - `apps/backend/src/modules/employees/employees.controller.spec.ts` (fix state leakage — reset `statusAktif = true` di awal block yang butuh)
+  - `AGENTS.md` (2 aturan baru di Konvensi Kode — scoped test cleanup & fixture reset antar describe block)
+- **Verifikasi:**
+  - `npm run test` (FULL suite, tanpa scope module) — **140/140 PASS** (10 suites, ~5 detik), dijalankan sebagai satu kesatuan, bukan per-module.
+- **Catatan/Penyimpangan:**
+  - **Latar belakang temuan:** dipicu kekhawatiran bahwa fix `JwtStrategy.validate()` (penambahan cek `statusAktif`, Stage 12) berpotensi jadi regresi lintas-module. Setelah investigasi, **`statusAktif` TERBUKTI BUKAN penyebab** kegagalan full-suite — akar masalahnya independen: (1) `deleteMany({})` tanpa `where` filter di beberapa file test (`schedules`, `leave-requests`) yang menghapus seluruh isi tabel, bukan cuma data milik test itu; (2) hardcoded UUID yang collide antar file (`schedules` vs `supervisor-sites`). Audit lengkap ke 6 module (termasuk konfirmasi eksplisit `auth`/`sites`/`employees` bersih dari 2 pola ini).
+  - **Namun investigasi ini JUSTRU menemukan bug ketiga yang berbeda kategori**, dalam 1 file yang sama (`employees.controller.spec.ts`): test `PATCH /employees/:id` mengubah `statusAktif` user yang di-**reuse** oleh test `POST /employees` setelahnya — begitu cek `statusAktif` aktif (Stage 12), auth gagal (401) duluan sebelum sempat tervalidasi role (harusnya 403). Ini bukan soal `deleteMany`/UUID, tapi **shared mutable fixture antar describe block** — kategori bug baru, sudah ditambahkan sebagai aturan terpisah di `AGENTS.md` (bukan digabung ke aturan `deleteMany`/UUID yang sudah ada).
+  - **Keputusan sengaja: ID test statis (prefix-swap) dipertahankan, BUKAN diganti `crypto.randomUUID()`** meski itu opsi yang sempat direkomendasikan di rencana awal — alasan: (a) predictability buat debugging (ID yang berubah tiap run bikin tracing error lebih sulit); (b) beberapa test butuh ID yang **dijamin tidak ada** di DB (skenario 404), yang tetap harus di-hardcode terlepas ID lain di-generate atau tidak — jadi konsistensi format (semua statis) lebih aman daripada campur (sebagian statis, sebagian random); (c) minim _code churn_, resiko efek samping mendekati nol dibanding refactor konstruksi variabel.
+  - Tidak ada satupun `expect()`/assertion yang berubah nilainya akibat task ini (dikonfirmasi eksplisit) — task ini murni perbaikan isolasi data, bukan perubahan behavior yang divalidasi.
+
+## [Stage 16] Track D3 (lanjutan) — Fallback HR_ADMIN untuk Leave Requests Orphaned
+
+- **File diubah/dibuat:**
+  - `apps/backend/src/modules/leave-requests/leave-requests.service.ts` (method baru `isOrphaned()`, `findPendingOrphaned()`; `processBySupervisor` di-generalize jadi `processRequest()` menerima parameter `role`)
+  - `apps/backend/src/modules/leave-requests/leave-requests.controller.ts` (`GET /leave-requests?status=PENDING` & `PATCH :id/approve|reject` extend guard jadi dual-role `SUPERVISOR`+`HR_ADMIN`)
+  - `docs/API-Contract.md` (section 3: dual-role GET pending & approve/reject; section 4: cross-reference dari `history` HR ke fallback ini)
+- **Verifikasi:**
+  - `npm run test` (FULL suite, `--runInBand`) — **143/143 PASS** (10 suites).
+  - Breakdown 7 skenario yang diminta terverifikasi eksplisit per `it()` block: 4 baru (HR lihat hanya orphaned, HR approve orphaned sukses, HR approve non-orphaned → 403, HR reject orphaned sukses) + 3 di-reuse dari test existing tanpa perubahan (supervisor tidak lihat orphaned punya HR, KARYAWAN tetap 403, race condition via `updateMany` conditional tetap terproteksi).
+- **Catatan/Penyimpangan:**
+  - **Latar belakang:** menutup known limitation yang didokumentasikan sejak Stage 13 — `PengajuanIzin` yang scoping-nya (cross-reference `JadwalShift` × `SupervisorSite`) tidak match supervisor manapun sebelumnya stuck `PENDING` selamanya, gak pernah muncul ke siapapun untuk diproses.
+  - `isOrphaned(karyawanId, tanggalMulai, tanggalSelesai)`: generalisasi dari query scoping supervisor yang sudah ada (Stage 13) — bedanya, cek ke SEMUA `siteId` yang punya minimal 1 `SupervisorSite` (bukan di-filter ke 1 `supervisorId` tertentu). Kalau karyawan sama sekali gak punya `JadwalShift` yang overlap tanggal izin di site manapun yang disupervisi — orphaned = `true`.
+  - `GET /leave-requests?status=PENDING` untuk `HR_ADMIN`: WAJIB sertakan `status=PENDING` eksplisit (400 kalau tidak) — hasilnya HANYA pengajuan yang orphaned, BUKAN semua pending (HR tetap gak lihat pengajuan yang punya supervisor sah lewat jalur ini — itu tetap murni jalur supervisor).
+  - `PATCH approve/reject`: `HR_ADMIN` yang mencoba proses pengajuan yang TERNYATA punya supervisor sah → `403 BUKAN_FALLBACK_HR` (bukan 404) — beda perlakuan disengaja dari `SUPERVISOR` yang di luar scope (dapat `404` generik demi menyembunyikan keberadaan data, pola existing dari Stage 13). Beda ini bukan inkonsistensi — HR memang berhak tahu pengajuan itu ada, cuma bukan jalurnya untuk memprosesnya.
+  - `processBySupervisor` di-rename `processRequest()`, sekarang generic terhadap role pemanggil — field `approvedById`/`catatanSupervisor` dipakai apa adanya untuk kedua role (tidak di-rename jadi lebih role-spesifik), karena secara semantik itu tetap "siapa yang memproses & catatan pemroses", terlepas rolenya SUPERVISOR atau HR_ADMIN.
+  - **Non-blocking, boleh dioptimasi nanti:** `isOrphaned()` query ulang daftar `siteId` yang disupervisi di setiap pemanggilan (dipanggil per-pengajuan di loop `findPendingOrphaned()`) — belum di-cache/diambil sekali di luar loop. Gak signifikan di skala project ini, dicatat sebagai potential improvement, bukan bug.

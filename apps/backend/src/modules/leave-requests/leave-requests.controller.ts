@@ -45,7 +45,7 @@ export class LeaveRequestsController {
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.KARYAWAN, Role.SUPERVISOR)
+  @Roles(Role.KARYAWAN, Role.SUPERVISOR, Role.HR_ADMIN)
   async findAll(
     @Request() req: { user: JwtPayload },
     @Query('status') status?: string,
@@ -61,6 +61,17 @@ export class LeaveRequestsController {
       return this.leaveRequestsService.findPendingForSupervisor(
         req.user.userId,
       );
+    }
+
+    if (req.user.role === Role.HR_ADMIN) {
+      if (status !== 'PENDING') {
+        throw new BadRequestException({
+          code: 'STATUS_WAJIB_PENDING',
+          message:
+            'HR Admin hanya boleh melihat pengajuan izin dengan status PENDING untuk fallback',
+        });
+      }
+      return this.leaveRequestsService.findPendingOrphaned();
     }
 
     // Role KARYAWAN
@@ -86,14 +97,15 @@ export class LeaveRequestsController {
 
   @Patch(':id/approve')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.SUPERVISOR)
+  @Roles(Role.SUPERVISOR, Role.HR_ADMIN)
   async approve(
     @Request() req: { user: JwtPayload },
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ProcessLeaveRequestDto,
   ) {
-    return this.leaveRequestsService.processBySupervisor(
+    return this.leaveRequestsService.processRequest(
       id,
+      req.user.role,
       req.user.userId,
       'APPROVED',
       dto,
@@ -102,14 +114,15 @@ export class LeaveRequestsController {
 
   @Patch(':id/reject')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.SUPERVISOR)
+  @Roles(Role.SUPERVISOR, Role.HR_ADMIN)
   async reject(
     @Request() req: { user: JwtPayload },
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ProcessLeaveRequestDto,
   ) {
-    return this.leaveRequestsService.processBySupervisor(
+    return this.leaveRequestsService.processRequest(
       id,
+      req.user.role,
       req.user.userId,
       'REJECTED',
       dto,

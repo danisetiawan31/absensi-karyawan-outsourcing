@@ -366,18 +366,6 @@ describe('LeaveRequestsController (e2e)', () => {
       expect(body.error.code).toBe('STATUS_WAJIB_PENDING');
     });
 
-    it('should return 403 for HR_ADMIN', async () => {
-      const token = getAuthToken(hrAdmin);
-      const res = await request(app.getHttpServer() as Server)
-        .get('/leave-requests')
-        .set('Authorization', `Bearer ${token}`);
-
-      const body = res.body as ErrorEnvelope;
-      expect(res.status).toBe(403);
-      expect(body.success).toBe(false);
-      expect(body.error.code).toBe('FORBIDDEN');
-    });
-
     it('should return [] if no leave requests', async () => {
       const token = getAuthToken(karyawan);
       const res = await request(app.getHttpServer() as Server)
@@ -498,8 +486,12 @@ describe('LeaveRequestsController (e2e)', () => {
 
     beforeAll(async () => {
       // Clean up previous runs if any
-      await prisma.jadwalShift.deleteMany({});
-      await prisma.supervisorSite.deleteMany({});
+      await prisma.jadwalShift.deleteMany({
+        where: { siteId: { in: ['site-a-id', 'site-b-id', 'site-c-id'] } },
+      });
+      await prisma.supervisorSite.deleteMany({
+        where: { siteId: { in: ['site-a-id', 'site-b-id', 'site-c-id'] } },
+      });
       await prisma.site.deleteMany({
         where: { id: { in: ['site-a-id', 'site-b-id', 'site-c-id'] } },
       });
@@ -609,9 +601,15 @@ describe('LeaveRequestsController (e2e)', () => {
     });
 
     afterAll(async () => {
-      await prisma.jadwalShift.deleteMany({});
-      await prisma.supervisorSite.deleteMany({});
-      await prisma.site.deleteMany({});
+      await prisma.jadwalShift.deleteMany({
+        where: { siteId: { in: [siteA.id, siteB.id, siteC.id] } },
+      });
+      await prisma.supervisorSite.deleteMany({
+        where: { siteId: { in: [siteA.id, siteB.id, siteC.id] } },
+      });
+      await prisma.site.deleteMany({
+        where: { id: { in: [siteA.id, siteB.id, siteC.id] } },
+      });
       await prisma.pengajuanIzin.deleteMany({
         where: { karyawanId: { in: ['karyawan2-id', 'karyawan3-id'] } },
       });
@@ -750,6 +748,65 @@ describe('LeaveRequestsController (e2e)', () => {
 
       const ids = body.data.map((d) => d.id);
       expect(ids).toContain(reqCross.id);
+    });
+
+    describe('HR_ADMIN Dual-role', () => {
+      it('should return 400 if HR_ADMIN accesses without status=PENDING', async () => {
+        const token = getAuthToken(hrAdmin);
+        const res = await request(app.getHttpServer() as Server)
+          .get('/leave-requests')
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(res.status).toBe(400);
+      });
+
+      it('should return ONLY orphaned requests for HR_ADMIN', async () => {
+        const token = getAuthToken(hrAdmin);
+        const res = await request(app.getHttpServer() as Server)
+          .get('/leave-requests?status=PENDING')
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(res.status).toBe(200);
+        const body = res.body as SuccessEnvelope<{ id: string }[]>;
+        expect(body.success).toBe(true);
+
+        // Orphaned ones are:
+        // req3: overlapping with siteC (no supervisor assigned to siteC)
+        // req4 (the one on 1 Sept): no overlapping schedule at all
+        // req1 and req2 and reqCross are NOT orphaned because they overlap with siteA/B which have a supervisor
+
+        // Find req3 and req4 by querying them, wait we didn't store req3/req4 in variables
+        // Let's just assert length and check they don't contain req1 and req2.
+        // Or we can just create a specific one for this test.
+        const reqOrphaned = await prisma.pengajuanIzin.create({
+          data: {
+            karyawanId: karyawan3.id,
+            tanggalMulai: new Date('2026-10-01T00:00:00Z'),
+            tanggalSelesai: new Date('2026-10-01T00:00:00Z'),
+            jenis: 'IZIN',
+            alasan: 'Orphaned',
+            status: 'PENDING',
+          },
+        });
+
+        const res2 = await request(app.getHttpServer() as Server)
+          .get('/leave-requests?status=PENDING')
+          .set('Authorization', `Bearer ${token}`);
+
+        const body2 = res2.body as SuccessEnvelope<
+          { id: string; alasan: string }[]
+        >;
+        const ids2 = body2.data.map((d) => d.id);
+
+        // Make sure the non-orphaned ones are not here
+        // We know from earlier tests req1, req2, reqCross are NOT orphaned
+        expect(body2.data.some((d) => d.alasan === 'Demam')).toBe(false); // req1
+        expect(body2.data.some((d) => d.alasan === 'Urusan keluarga')).toBe(
+          false,
+        ); // req2
+
+        expect(ids2).toContain(reqOrphaned.id);
+      });
     });
   });
 
@@ -1005,12 +1062,54 @@ describe('LeaveRequestsController (e2e)', () => {
       expect(res.status).toBe(403);
     });
 
-    it('should return 403 if accessed by HR_ADMIN', async () => {
+    it('should return 403 if accessed by HR_ADMIN for non-orphaned request', async () => {
       const token = getAuthToken(hrAdmin);
       const res = await request(app.getHttpServer() as Server)
         .patch(`/leave-requests/${scopePendingRequest.id}/approve`)
         .set('Authorization', `Bearer ${token}`);
       expect(res.status).toBe(403);
+      expect((res.body as ErrorEnvelope).error.code).toBe('BUKAN_FALLBACK_HR');
+    });
+
+    it('should allow HR_ADMIN to approve orphaned request', async () => {
+      const token = getAuthToken(hrAdmin);
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/leave-requests/${outOfScopeRequest.id}/approve`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ catatanSupervisor: 'HR Fallback' });
+
+      expect(res.status).toBe(200);
+      const dbReq = await prisma.pengajuanIzin.findUnique({
+        where: { id: outOfScopeRequest.id },
+      });
+      expect(dbReq?.status).toBe('APPROVED');
+      expect(dbReq?.approvedById).toBe(hrAdmin.id);
+    });
+
+    it('should allow HR_ADMIN to reject orphaned request', async () => {
+      const req = await prisma.pengajuanIzin.create({
+        data: {
+          karyawanId: karyawan.id,
+          tanggalMulai: new Date('2028-01-01T00:00:00Z'),
+          tanggalSelesai: new Date('2028-01-01T00:00:00Z'),
+          jenis: 'IZIN',
+          alasan: 'Test',
+          status: 'PENDING',
+        },
+      });
+
+      const token = getAuthToken(hrAdmin);
+      const res = await request(app.getHttpServer() as Server)
+        .patch(`/leave-requests/${req.id}/reject`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      const dbReq = await prisma.pengajuanIzin.findUnique({
+        where: { id: req.id },
+      });
+      expect(dbReq?.status).toBe('REJECTED');
+
+      await prisma.pengajuanIzin.delete({ where: { id: req.id } });
     });
 
     it('should return 404 for non-existent ID', async () => {
@@ -1115,7 +1214,9 @@ describe('LeaveRequestsController (e2e)', () => {
 
     beforeEach(async () => {
       // Clean up first to be safe
-      await prisma.pengajuanIzin.deleteMany({});
+      await prisma.pengajuanIzin.deleteMany({
+        where: { karyawanId: { in: [karyawan.id, otherUser.id] } },
+      });
 
       pendingRequest = await prisma.pengajuanIzin.create({
         data: {

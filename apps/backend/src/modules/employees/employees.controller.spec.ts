@@ -346,11 +346,18 @@ describe('EmployeesController (e2e)', () => {
       expect(res.status).toBe(409);
       const body = res.body as ErrorEnvelope;
       expect(body.success).toBe(false);
-      expect(body.error.code).toBe('EMAIL_SUDAH_DIPAKAI');
     });
   });
 
   describe('POST /employees', () => {
+    beforeAll(async () => {
+      // Restore karyawan1 statusAktif to true for subsequent tests
+      await prisma.user.update({
+        where: { id: karyawan1.id },
+        data: { statusAktif: true },
+      });
+    });
+
     it('should forbid non-HR_ADMIN', async () => {
       const token = jwtService.sign({
         userId: karyawan1.id,

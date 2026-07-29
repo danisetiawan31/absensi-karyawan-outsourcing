@@ -1099,8 +1099,12 @@ describe('SchedulesController (e2e)', () => {
     });
 
     afterEach(async () => {
-      await prisma.logKehadiran.deleteMany({});
-      await prisma.percobaanAbsensi.deleteMany({});
+      await prisma.logKehadiran.deleteMany({
+        where: { jadwalId: testJadwalId },
+      });
+      await prisma.percobaanAbsensi.deleteMany({
+        where: { jadwalId: testJadwalId },
+      });
       await prisma.jadwalShift.deleteMany({
         where: { id: testJadwalId },
       });

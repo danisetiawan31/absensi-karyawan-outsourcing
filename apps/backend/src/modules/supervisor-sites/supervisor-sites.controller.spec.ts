@@ -77,7 +77,7 @@ describe('SupervisorSitesController (e2e)', () => {
     // Setup Test Data
     hrAdmin = await prisma.user.create({
       data: {
-        id: '11111111-1111-4111-a111-111111111111',
+        id: 'b1111111-1111-4111-a111-111111111111',
         nama: 'HR Admin SS',
         email: 'hr.ss@test.local',
         passwordHash: 'hash',
@@ -88,7 +88,7 @@ describe('SupervisorSitesController (e2e)', () => {
 
     supervisor = await prisma.user.create({
       data: {
-        id: '22222222-2222-4222-a222-222222222222',
+        id: 'b2222222-2222-4222-a222-222222222222',
         nama: 'Supervisor SS',
         email: 'spv.ss@test.local',
         passwordHash: 'hash',
@@ -99,7 +99,7 @@ describe('SupervisorSitesController (e2e)', () => {
 
     supervisor2 = await prisma.user.create({
       data: {
-        id: '99999999-9999-4999-a999-999999999999',
+        id: 'b9999999-9999-4999-a999-999999999999',
         nama: 'Supervisor 2 SS',
         email: 'spv2.ss@test.local',
         passwordHash: 'hash',
@@ -110,7 +110,7 @@ describe('SupervisorSitesController (e2e)', () => {
 
     karyawan = await prisma.user.create({
       data: {
-        id: '33333333-3333-4333-a333-333333333333',
+        id: 'b3333333-3333-4333-a333-333333333333',
         nama: 'Karyawan SS',
         email: 'emp.ss@test.local',
         passwordHash: 'hash',
@@ -121,7 +121,7 @@ describe('SupervisorSitesController (e2e)', () => {
 
     site = await prisma.site.create({
       data: {
-        id: '44444444-4444-4444-a444-444444444444',
+        id: 'b4444444-4444-4444-a444-444444444444',
         nama: 'Site SS',
         alamat: 'Alamat SS',
         latitude: -6.2,
@@ -133,7 +133,7 @@ describe('SupervisorSitesController (e2e)', () => {
 
     site2 = await prisma.site.create({
       data: {
-        id: '55555555-5555-4555-a555-555555555555',
+        id: 'b5555555-5555-4555-a555-555555555555',
         nama: 'Site 2 SS',
         alamat: 'Alamat 2 SS',
         latitude: -6.2,
@@ -205,7 +205,7 @@ describe('SupervisorSitesController (e2e)', () => {
         role: Role.HR_ADMIN,
       });
 
-      const notFoundId = '55555555-5555-4555-a555-555555555555';
+      const notFoundId = 'b5555555-5555-4555-a555-555555555555';
       const res = await request(app.getHttpServer() as Server)
         .post('/supervisor-sites')
         .set('Authorization', `Bearer ${token}`)
@@ -246,7 +246,7 @@ describe('SupervisorSitesController (e2e)', () => {
         role: Role.HR_ADMIN,
       });
 
-      const notFoundSiteId = '66666666-6666-4666-a666-666666666666';
+      const notFoundSiteId = 'b6666666-6666-4666-a666-666666666666';
       const res = await request(app.getHttpServer() as Server)
         .post('/supervisor-sites')
         .set('Authorization', `Bearer ${token}`)
@@ -469,7 +469,7 @@ describe('SupervisorSitesController (e2e)', () => {
         userId: hrAdmin.id,
         role: Role.HR_ADMIN,
       });
-      const nonExistentId = '99999999-9999-4999-a999-999999999999';
+      const nonExistentId = 'b9999999-9999-4999-a999-999999999999';
       const res = await request(app.getHttpServer() as Server)
         .delete(`/supervisor-sites/${nonExistentId}`)
         .set('Authorization', `Bearer ${token}`);

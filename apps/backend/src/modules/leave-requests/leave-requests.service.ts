@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -8,7 +9,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateLeaveRequestDto } from './dto/create-leave-request.dto';
 import { ProcessLeaveRequestDto } from './dto/process-leave-request.dto';
 import { FindLeaveRequestsHistoryQueryDto } from './dto/find-leave-requests-history-query.dto';
-import { Prisma } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -220,9 +221,67 @@ export class LeaveRequestsService {
     return sMulai <= selesai && sSelesai >= mulai;
   }
 
-  async processBySupervisor(
+  async findPendingOrphaned() {
+    const pending = await this.prisma.pengajuanIzin.findMany({
+      where: { status: 'PENDING' },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        karyawanId: true,
+        tanggalMulai: true,
+        tanggalSelesai: true,
+        jenis: true,
+        alasan: true,
+        dokumenPendukungUrl: true,
+        status: true,
+        catatanSupervisor: true,
+        createdAt: true,
+        karyawan: {
+          select: {
+            id: true,
+            nama: true,
+          },
+        },
+      },
+    });
+
+    if (pending.length === 0) return [];
+
+    const orphanedFlags = await Promise.all(
+      pending.map((p) =>
+        this.isOrphaned(p.karyawanId, p.tanggalMulai, p.tanggalSelesai),
+      ),
+    );
+
+    return pending.filter((_, idx) => orphanedFlags[idx]);
+  }
+
+  private async isOrphaned(
+    karyawanId: string,
+    tanggalMulai: Date,
+    tanggalSelesai: Date,
+  ): Promise<boolean> {
+    const allSupervisedSites = await this.prisma.supervisorSite.findMany({
+      select: { siteId: true },
+    });
+    const siteIds = [...new Set(allSupervisedSites.map((s) => s.siteId))];
+
+    const jadwalShifts = await this.prisma.jadwalShift.findMany({
+      where: { siteId: { in: siteIds }, karyawanId },
+      select: { jamMulai: true, jamSelesai: true },
+    });
+
+    const hasAnySupervisorScope = jadwalShifts.some((j) =>
+      this.checkOverlap(j.jamMulai, j.jamSelesai, tanggalMulai, tanggalSelesai),
+    );
+
+    return !hasAnySupervisorScope;
+  }
+
+  async processRequest(
     id: string,
-    supervisorId: string,
+    role: Role,
+    userId: string,
     action: 'APPROVED' | 'REJECTED',
     dto: ProcessLeaveRequestDto,
   ) {
@@ -247,31 +306,47 @@ export class LeaveRequestsService {
     }
 
     // c. Cek scope
-    const supervisedSites = await this.prisma.supervisorSite.findMany({
-      where: { supervisorId },
-      select: { siteId: true },
-    });
-    const siteIds = supervisedSites.map((s) => s.siteId);
+    if (role === Role.SUPERVISOR) {
+      const supervisedSites = await this.prisma.supervisorSite.findMany({
+        where: { supervisorId: userId },
+        select: { siteId: true },
+      });
+      const siteIds = supervisedSites.map((s) => s.siteId);
 
-    const jadwalShifts = await this.prisma.jadwalShift.findMany({
-      where: { siteId: { in: siteIds }, karyawanId: leaveRequest.karyawanId },
-      select: { jamMulai: true, jamSelesai: true },
-    });
+      const jadwalShifts = await this.prisma.jadwalShift.findMany({
+        where: { siteId: { in: siteIds }, karyawanId: leaveRequest.karyawanId },
+        select: { jamMulai: true, jamSelesai: true },
+      });
 
-    const isInScope = jadwalShifts.some((j) =>
-      this.checkOverlap(
-        j.jamMulai,
-        j.jamSelesai,
+      const isInScope = jadwalShifts.some((j) =>
+        this.checkOverlap(
+          j.jamMulai,
+          j.jamSelesai,
+          leaveRequest.tanggalMulai,
+          leaveRequest.tanggalSelesai,
+        ),
+      );
+
+      if (!isInScope) {
+        throw new NotFoundException({
+          code: 'NOT_FOUND',
+          message: 'Pengajuan izin tidak ditemukan', // SAMA PERSIS dengan 404
+        });
+      }
+    } else if (role === Role.HR_ADMIN) {
+      const isOrphaned = await this.isOrphaned(
+        leaveRequest.karyawanId,
         leaveRequest.tanggalMulai,
         leaveRequest.tanggalSelesai,
-      ),
-    );
+      );
 
-    if (!isInScope) {
-      throw new NotFoundException({
-        code: 'NOT_FOUND',
-        message: 'Pengajuan izin tidak ditemukan', // SAMA PERSIS dengan 404
-      });
+      if (!isOrphaned) {
+        throw new ForbiddenException({
+          code: 'BUKAN_FALLBACK_HR',
+          message:
+            'Pengajuan ini masih dalam cakupan supervisor, gunakan alur approval normal.',
+        });
+      }
     }
 
     // d. Kalau ketemu & dalam scope tapi status BUKAN PENDING -> 409
@@ -288,7 +363,7 @@ export class LeaveRequestsService {
       data: {
         status: action,
         catatanSupervisor: dto.catatanSupervisor,
-        approvedById: supervisorId,
+        approvedById: userId,
       },
     });
 

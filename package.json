@@ -5,5 +5,8 @@
   "private": true,
   "workspaces": [
     "apps/*"
-  ]
+  ],
+  "dependencies": {
+    "resend": "^6.18.1"
+  }
 }
