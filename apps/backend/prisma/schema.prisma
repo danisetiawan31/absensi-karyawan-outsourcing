@@ -162,6 +162,7 @@ model PengajuanIzin {
   dokumenPendukungUrl String?
 
   status       StatusIzin @default(PENDING)
+  catatanSupervisor String?
   approvedById String?
   createdAt    DateTime   @default(now())
 

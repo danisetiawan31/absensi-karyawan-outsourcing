@@ -168,3 +168,24 @@
   - `PATCH` boleh update shift di site nonaktif **asalkan `siteId` tidak diganti ke site lain** — mengakomodasi skenario "site berhenti kontrak mendadak" sesuai API-Contract.
   - `DELETE` pakai pendekatan "check first, then delete" (bukan reactive catch seperti endpoint lain) karena butuh cek data historis lintas tabel (`LogKehadiran`/`PercobaanAbsensi`) dan scoping sebelum eksekusi.
   - `GET /schedules`: `siteId` opsional, `tanggal` wajib — disengaja, mencegah query tanpa batas tanggal menarik seluruh histori yang belum ada mekanisme pagination-nya.
+
+## [Stage 11] Track D1 - POST & GET /leave-requests (Karyawan)
+
+- **File diubah/dibuat:**
+  - `apps/backend/src/modules/leave-requests/dto/create-leave-request.dto.ts` (baru)
+  - `apps/backend/src/modules/leave-requests/leave-requests.service.ts` (`create`, `findAll`)
+  - `apps/backend/src/modules/leave-requests/leave-requests.controller.ts` (`POST`, `GET`)
+  - `apps/backend/src/modules/leave-requests/leave-requests.controller.spec.ts` (baru, 15 e2e test)
+  - `apps/backend/src/modules/leave-requests/leave-requests.module.ts` (terdaftar di `app.module.ts`)
+  - `apps/backend/prisma/schema.prisma` (tambah field `catatanSupervisor` di `PengajuanIzin` via migration)
+  - `docs/API-Contract.md` (klarifikasi durasi SAKIT)
+- **Verifikasi:**
+  - `npm run test -- src/modules/leave-requests` lolos **15/15** total.
+  - Test mencakup: upload file dengan Multer (5MB limit memory storage), validasi overlap PENDING/APPROVED, aturan khusus SAKIT >= 2 hari kalender wajib dokumen, urutan output DESC, dan scoping strict GET data milik diri sendiri.
+  - Test memastikan field `catatanSupervisor` terekspos (`null` untuk status PENDING).
+  - Linter & type-check bersih (termasuk *strict typing* pada `req.user`).
+- **Catatan/Penyimpangan:**
+  - `FileInterceptor` menggunakan parameter `limits: { fileSize: 5 * 1024 * 1024 }` di level dekorator demi mencegah serangan DoS (alokasi memori berlebih) sebelum file sampai ke *service layer*.
+  - Field `catatanSupervisor` ditambahkan ke `schema.prisma` saat ini (walaupun fitur Supervisor di Track D3 belum dibuat), agar `response shape` Karyawan langsung lengkap tanpa harus merombak *select* Prisma nanti.
+  - Memperjelas definisi "sakit > 1 hari" di `API-Contract.md` menjadi "2 hari kalender atau lebih (tanggalSelesai berbeda dari tanggalMulai)".
+  - **Keputusan penamaan (Domain internal vs API):** Awalnya direncanakan agar API menerima `catatan` sementara DB menyimpan `catatanSupervisor`. Namun diputuskan untuk **menyamakan penamaan menjadi `catatanSupervisor` di seluruh layer** (API Contract, DTO, Database). Tujuannya agar ada *1:1 mapping* mutlak dari frontend ke backend, menghapus ambiguitas dengan field `alasan` milik karyawan, dan menghilangkan kebutuhan *mapping* manual di *service layer* saat eksekusi Track D3 nanti.

@@ -106,7 +106,9 @@ describe('LeaveRequestsController (e2e)', () => {
       where: { karyawanId: karyawan.id },
     });
     await prisma.user.deleteMany({
-      where: { id: { in: [hrAdmin.id, supervisor.id, karyawan.id] } },
+      where: {
+        id: { in: [hrAdmin.id, supervisor.id, karyawan.id, 'user-another'] },
+      },
     });
 
     writeFileSpy.mockRestore();
@@ -117,7 +119,7 @@ describe('LeaveRequestsController (e2e)', () => {
 
   afterEach(async () => {
     await prisma.pengajuanIzin.deleteMany({
-      where: { karyawanId: karyawan.id },
+      where: { karyawanId: { in: [karyawan.id, 'user-another'] } },
     });
     jest.clearAllMocks();
   });
@@ -348,6 +350,142 @@ describe('LeaveRequestsController (e2e)', () => {
       const body = res.body as SuccessEnvelope<any>;
       expect(res.status).toBe(201);
       expect(body.success).toBe(true);
+    });
+  });
+
+  describe('GET /leave-requests', () => {
+    it('should return 403 for SUPERVISOR', async () => {
+      const token = getAuthToken(supervisor);
+      const res = await request(app.getHttpServer() as Server)
+        .get('/leave-requests')
+        .set('Authorization', `Bearer ${token}`);
+
+      const body = res.body as ErrorEnvelope;
+      expect(res.status).toBe(403);
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('FORBIDDEN');
+    });
+
+    it('should return 403 for HR_ADMIN', async () => {
+      const token = getAuthToken(hrAdmin);
+      const res = await request(app.getHttpServer() as Server)
+        .get('/leave-requests')
+        .set('Authorization', `Bearer ${token}`);
+
+      const body = res.body as ErrorEnvelope;
+      expect(res.status).toBe(403);
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('FORBIDDEN');
+    });
+
+    it('should return [] if no leave requests', async () => {
+      const token = getAuthToken(karyawan);
+      const res = await request(app.getHttpServer() as Server)
+        .get('/leave-requests')
+        .set('Authorization', `Bearer ${token}`);
+
+      const body = res.body as SuccessEnvelope<any[]>;
+      expect(res.status).toBe(200);
+      expect(body.success).toBe(true);
+      expect(body.data).toEqual([]);
+    });
+
+    it("should return only the user's leave requests ordered by createdAt DESC", async () => {
+      // Create another karyawan
+      const anotherKaryawan = await prisma.user.create({
+        data: {
+          id: 'user-another',
+          nama: 'Another Karyawan',
+          email: 'another@example.com',
+          passwordHash: 'hash',
+          role: 'KARYAWAN',
+        },
+      });
+
+      // Create a request for another karyawan (should NOT be returned)
+      await prisma.pengajuanIzin.create({
+        data: {
+          karyawanId: anotherKaryawan.id,
+          tanggalMulai: new Date('2026-08-01T00:00:00Z'),
+          tanggalSelesai: new Date('2026-08-01T00:00:00Z'),
+          jenis: 'IZIN',
+          alasan: 'Other',
+          status: 'PENDING',
+        },
+      });
+
+      // Create 2 requests for the main karyawan
+      const req1 = await prisma.pengajuanIzin.create({
+        data: {
+          karyawanId: karyawan.id,
+          tanggalMulai: new Date('2026-08-10T00:00:00Z'),
+          tanggalSelesai: new Date('2026-08-11T00:00:00Z'),
+          jenis: 'SAKIT',
+          alasan: 'Sakit',
+          status: 'PENDING',
+          dokumenPendukungUrl: 'storage/dokumen-izin/dummy.pdf',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
+        },
+      });
+
+      const req2 = await prisma.pengajuanIzin.create({
+        data: {
+          karyawanId: karyawan.id,
+          tanggalMulai: new Date('2026-09-01T00:00:00Z'),
+          tanggalSelesai: new Date('2026-09-02T00:00:00Z'),
+          jenis: 'CUTI',
+          alasan: 'Liburan',
+          status: 'APPROVED',
+          approvedById: supervisor.id, // simulate approval
+          createdAt: new Date('2026-07-02T00:00:00Z'), // newer
+        },
+      });
+
+      const token = getAuthToken(karyawan);
+      const res = await request(app.getHttpServer() as Server)
+        .get('/leave-requests')
+        .set('Authorization', `Bearer ${token}`);
+
+      type LeaveResponse = {
+        id: string;
+        tanggalMulai: string;
+        tanggalSelesai: string;
+        jenis: string;
+        alasan: string;
+        status: string;
+        createdAt: string;
+        dokumenPendukungUrl?: string;
+        catatanSupervisor?: string | null;
+        approvedBy?: { nama: string } | null;
+      };
+
+      const body = res.body as SuccessEnvelope<LeaveResponse[]>;
+      expect(res.status).toBe(200);
+      expect(body.success).toBe(true);
+      expect(body.data.length).toBe(2);
+
+      // Verify order: newest first (req2 then req1)
+      expect(body.data[0].id).toBe(req2.id);
+      expect(body.data[1].id).toBe(req1.id);
+
+      // Verify shape of response
+      const firstData = body.data[0];
+      expect(firstData.id).toBeDefined();
+      expect(firstData.tanggalMulai).toBeDefined();
+      expect(firstData.tanggalSelesai).toBeDefined();
+      expect(firstData.jenis).toBe('CUTI');
+      expect(firstData.alasan).toBe('Liburan');
+      expect(firstData.status).toBe('APPROVED');
+      expect(firstData.createdAt).toBeDefined();
+      expect(firstData.approvedBy!.nama).toBe(supervisor.nama);
+
+      const secondData = body.data[1];
+      expect(secondData.jenis).toBe('SAKIT');
+      expect(secondData.dokumenPendukungUrl).toBe(
+        'storage/dokumen-izin/dummy.pdf',
+      );
+      expect(secondData.catatanSupervisor).toBeNull();
+      expect(secondData.approvedBy).toBeNull();
     });
   });
 });

@@ -101,4 +101,27 @@ export class LeaveRequestsService {
       status: created.status,
     };
   }
+
+  async findAll(userId: string) {
+    return this.prisma.pengajuanIzin.findMany({
+      where: { karyawanId: userId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        tanggalMulai: true,
+        tanggalSelesai: true,
+        jenis: true,
+        alasan: true,
+        dokumenPendukungUrl: true,
+        status: true,
+        catatanSupervisor: true,
+        createdAt: true,
+        approvedBy: {
+          select: {
+            nama: true,
+          },
+        },
+      },
+    });
+  }
 }

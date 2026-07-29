@@ -6,6 +6,7 @@ import {
   UseGuards,
   UseInterceptors,
   Request,
+  Get,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import 'multer';
@@ -32,5 +33,13 @@ export class LeaveRequestsController {
     @UploadedFile() file?: Express.Multer.File,
   ) {
     return this.leaveRequestsService.create(req.user.userId, dto, file);
+  }
+
+  @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.KARYAWAN)
+  async findAll(@Request() req: { user: { userId: string; role: Role } }) {
+    const data = await this.leaveRequestsService.findAll(req.user.userId);
+    return data;
   }
 }

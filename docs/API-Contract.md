@@ -208,7 +208,7 @@ Daftar pengajuan izin yang perlu diapprove, dibatasi ke karyawan di site yang di
 
 ### PATCH /leave-requests/:id/approve · PATCH /leave-requests/:id/reject
 
-**Request:** `{ "catatan": "string (opsional)" }`
+**Request:** `{ "catatanSupervisor": "string (opsional)" }`
 **Response:** `{ "id": "uuid", "status": "APPROVED | REJECTED" }`
 
 ### GET /employees/available?tanggal=&siteId=
