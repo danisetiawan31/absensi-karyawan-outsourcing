@@ -214,3 +214,14 @@
   - **Kondisi Auto-mark:** `now >= jamSelesai` DAN belum memiliki _check-in_ valid. 
   - **Proteksi _Race Condition_ Tingkat Tinggi:** Sama sekali tidak menggunakan `findUnique` untuk memeriksa status kehadiran sebelum operasi tulis. Operasi pencatatan `TIDAK_HADIR` dilakukan murni reaktif menggunakan `create` dengan proteksi `try-catch P2002` (jika _row_ baru), dan _conditional update_ `updateMany({ where: { waktuCheckIn: null } })` (jika _row_ lama). Ini 100% menghilangkan risiko menimpa data Karyawan yang _check-in_ sepersekian milidetik saat _cron_ sedang memproses data.
   - **Technical Debt:** Risiko _concurrency antar-tick_ (jika _tick cron_ baru dieksekusi sebelum _tick_ sebelumnya usai) sengaja tidak ditangani melalui _mutex lock_ atau mekanisme serupanya sekarang. Hal ini disepakati untuk diterima di lingkup _MVP_.
+
+## [Stage 24] Track E1 — Endpoint API Notifikasi
+
+- **Selesai:** Implementasi `GET /notifications` dan `PATCH /notifications/:id/read`.
+- **File dibuat/diubah:** `modules/notifications/*` (controller, module, service, spec e2e).
+- **Verifikasi:** Keseluruhan test (10 e2e tests spesifik E1, total 214 tests suite lengkap) lolos 100%. Linter 100% bersih setelah resolusi _error type resolution_ pada `supertest` dan _envelope typing_.
+- **Keputusan Desain & Catatan Penting:**
+  - **Security / Scoping:** Endpoint `GET` tidak pernah menerima _userId_ dari _client_/parameter URL, namun 100% menggunakan informasi `userId` dari subjek _JWT payload_ Karyawan atau Supervisor saat ini (`req.user.userId`). Dengan demikian, tidak ada risiko celah _Insecure Direct Object Reference_ (IDOR).
+  - **Eksklusivitas Payload:** Response payload `GET /notifications` dengan sadar membatasi pengembalian _fields_ pada 5 buah _key_ (`id`, `tipe`, `pesan`, `dibaca`, `createdAt`). Properti `userId` maupun `jadwalId` secara aman dihilangkan untuk tidak memaparkan abstraksi ID ke tampilan depan (UI), sesuai instruksi `API-Contract.md`.
+  - **Idempotensi & Reactive Scoping pada PATCH:** `PATCH` untuk menandai _read_ berjalan dengan Idempotensi (_dipanggil 2x tetap sukses_), memanfaatkan pendekatan query reaktif `updateMany` secara simultan dengan kondisi `id` _AND_ `userId`. Ketiadaan row memicu penolakan 404 (baik untuk salah ID mapun hak akses ID milik user lain) sehingga _client_ tak bisa membedakan mana _row_ tidak ada vs _row_ milik user lain (prinsip keamanan Data Hiding).
+  - **Perbaikan Type-Safety (Zero 'Any'):** Masalah dependensi import _type_ asertif `ErrorEnvelope` yang salah `import` (_salah direktori_) serta salah memanggil variabel pada unit _test_ telah diidentifikasi dan ditangani mandiri sehingga tidak menimbulkan peringatan _linter unsafe assignment_ secara jangka panjang.

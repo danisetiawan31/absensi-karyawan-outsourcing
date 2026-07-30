@@ -8,6 +8,7 @@ import {
   BadRequestException,
   HttpException,
 } from '@nestjs/common';
+import { Server } from 'http';
 import request from 'supertest';
 import { Role, User } from '@prisma/client';
 import { AllExceptionsFilter } from '../../common/filters/all-exceptions.filter';
@@ -135,7 +136,7 @@ describe('FaceVerificationController (e2e)', () => {
         liveness: { isLive: true, confidence: 0.99 },
       });
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as Server)
         .post('/users/me/face-registration')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .attach('foto', Buffer.from('dummy image data'), 'foto.jpg');
@@ -158,7 +159,7 @@ describe('FaceVerificationController (e2e)', () => {
         data: { faceEmbedding: initialEmbedding },
       });
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as Server)
         .post('/users/me/face-registration')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .attach('foto', Buffer.from('dummy image data'), 'foto.jpg');
@@ -176,7 +177,7 @@ describe('FaceVerificationController (e2e)', () => {
     });
 
     it('Skenario 3: Request tanpa file foto -> 400', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as Server)
         .post('/users/me/face-registration')
         .set('Authorization', `Bearer ${karyawanToken}`);
 
@@ -187,7 +188,7 @@ describe('FaceVerificationController (e2e)', () => {
     });
 
     it('Skenario 4: Upload file bukan format image -> 400', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as Server)
         .post('/users/me/face-registration')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .attach('foto', Buffer.from('dummy txt data'), 'document.pdf');
@@ -201,7 +202,7 @@ describe('FaceVerificationController (e2e)', () => {
     it('Skenario 5: Upload file melebihi 5MB', async () => {
       const largeBuffer = Buffer.alloc(6 * 1024 * 1024, 'a');
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as Server)
         .post('/users/me/face-registration')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .attach('foto', largeBuffer, 'large.jpg');
@@ -220,7 +221,7 @@ describe('FaceVerificationController (e2e)', () => {
         ),
       );
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as Server)
         .post('/users/me/face-registration')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .attach('foto', Buffer.from('dummy image data'), 'foto.jpg');
@@ -244,7 +245,7 @@ describe('FaceVerificationController (e2e)', () => {
         ),
       );
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as Server)
         .post('/users/me/face-registration')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .attach('foto', Buffer.from('dummy image data'), 'foto.jpg');
@@ -261,7 +262,7 @@ describe('FaceVerificationController (e2e)', () => {
     });
 
     it('Skenario 8: Request dari role selain KARYAWAN (SUPERVISOR) -> 403', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as Server)
         .post('/users/me/face-registration')
         .set('Authorization', `Bearer ${supervisorToken}`)
         .attach('foto', Buffer.from('dummy image data'), 'foto.jpg');
@@ -273,7 +274,7 @@ describe('FaceVerificationController (e2e)', () => {
     });
 
     it('Skenario 9: Request tanpa JWT token -> 401', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as Server)
         .post('/users/me/face-registration')
         .attach('foto', Buffer.from('dummy image data'), 'foto.jpg');
 

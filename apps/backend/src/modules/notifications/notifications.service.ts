@@ -21,4 +21,26 @@ export class NotificationsService {
       },
     });
   }
+
+  async findByUserId(userId: string) {
+    return this.prisma.notifikasi.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        tipe: true,
+        pesan: true,
+        createdAt: true,
+        dibaca: true,
+      },
+    });
+  }
+
+  async markAsRead(id: string, userId: string) {
+    const result = await this.prisma.notifikasi.updateMany({
+      where: { id, userId },
+      data: { dibaca: true },
+    });
+    return result.count;
+  }
 }

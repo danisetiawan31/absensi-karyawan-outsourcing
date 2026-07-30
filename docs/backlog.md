@@ -39,11 +39,9 @@
 
 ## Track E — Notifikasi & Cron
 
-| #   | Task                                                                               | Kenapa urutan segini                                                                                                                                                                                          | Status                    |
-| --- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| E1  | `GET /notifications` (shared Karyawan+Supervisor), `PATCH /notifications/:id/read` | Model `Notifikasi` independen secara struktur. Tapi TANPA trigger yang nulis ke tabel ini (lihat E2/E3), endpoint ini bakal selalu kosong — bisa dibangun sekarang tapi manfaatnya baru kerasa setelah E2/E3. | `READY` (secara struktur) |
-| E2  | Cron: reminder T+5 menit belum check-in (ke Karyawan)                              | Butuh data check-in beneran buat tau siapa yang "belum check-in" — depend ke Track C3 (belum ada).                                                                                                            | `SELESAI`                 |
-| E3  | Cron: alert T+15 menit (ke Supervisor) + auto-mark `TIDAK_HADIR`                   | Sama kayak E2, butuh data `LogKehadiran`/`PercobaanAbsensi` real — depend ke C3.                                                                                                                              | `SELESAI`                 |
+**Status: SELESAI (E1-E3).** Detail lengkap ada di `done.md` Stage 23-24.
+
+**Technical Debt yang masih berlaku:** Risiko _concurrency antar-tick_ pada _cron job_ jika eksekusi melebihi durasi interval, yang sementara tidak ditangani melalui _mutex lock_ di tahap MVP ini.
 
 ---
 

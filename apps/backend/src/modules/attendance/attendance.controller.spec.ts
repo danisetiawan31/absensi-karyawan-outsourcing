@@ -9,6 +9,7 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
+import { Server } from 'http';
 import request from 'supertest';
 import {
   Role,
@@ -198,7 +199,7 @@ describe('AttendanceController (e2e)', () => {
 
   describe('POST /attendance/check-in', () => {
     it('harus menolak request tanpa file foto', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/attendance/check-in')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .field('jadwalId', jadwalCheckIn.id)
@@ -212,7 +213,7 @@ describe('AttendanceController (e2e)', () => {
     });
 
     it('harus menolak request dengan file bukan gambar', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/attendance/check-in')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .field('jadwalId', jadwalCheckIn.id)
@@ -236,7 +237,7 @@ describe('AttendanceController (e2e)', () => {
         },
       });
 
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/attendance/check-in')
         .set('Authorization', `Bearer ${noFaceToken}`)
         .field('jadwalId', noFaceJadwal.id)
@@ -254,7 +255,7 @@ describe('AttendanceController (e2e)', () => {
       const latJauh = -6.1754;
       const lonJauh = 106.8272;
 
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/attendance/check-in')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .field('jadwalId', jadwalCheckIn.id)
@@ -287,7 +288,7 @@ describe('AttendanceController (e2e)', () => {
         liveness: { isLive: false, score: 0.1 },
       });
 
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/attendance/check-in')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .field('jadwalId', jadwalCheckIn.id)
@@ -310,7 +311,7 @@ describe('AttendanceController (e2e)', () => {
         liveness: { isLive: true, score: 0.99 },
       });
 
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/attendance/check-in')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .field('jadwalId', jadwalCheckIn.id)
@@ -333,7 +334,7 @@ describe('AttendanceController (e2e)', () => {
         liveness: { isLive: true, score: 0.99 },
       });
 
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/attendance/check-in')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .field('jadwalId', jadwalCheckIn.id)
@@ -361,7 +362,7 @@ describe('AttendanceController (e2e)', () => {
     });
 
     it('harus menolak dengan SUDAH_CHECKIN (409) jika melakukan check-in ulang', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/attendance/check-in')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .field('jadwalId', jadwalCheckIn.id)
@@ -376,7 +377,7 @@ describe('AttendanceController (e2e)', () => {
 
     it('harus menolak dengan JADWAL_TIDAK_DITEMUKAN (404) jika jadwalId tidak valid/bukan milik user', async () => {
       const randomId = randomUUID();
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/attendance/check-in')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .field('jadwalId', randomId)
@@ -415,7 +416,7 @@ describe('AttendanceController (e2e)', () => {
           }),
         );
 
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/attendance/check-in')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .field('jadwalId', raceJadwal.id)
@@ -456,7 +457,7 @@ describe('AttendanceController (e2e)', () => {
         where: { jadwalId: svcDownJadwal.id },
       });
 
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/attendance/check-in')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .field('jadwalId', svcDownJadwal.id)
@@ -489,7 +490,7 @@ describe('AttendanceController (e2e)', () => {
         },
       });
 
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/attendance/check-out')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .field('jadwalId', cleanJadwal.id)
@@ -508,7 +509,7 @@ describe('AttendanceController (e2e)', () => {
         liveness: { isLive: true, score: 0.99 },
       });
 
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/attendance/check-out')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .field('jadwalId', jadwalCheckOut.id)
@@ -534,7 +535,7 @@ describe('AttendanceController (e2e)', () => {
     });
 
     it('harus menolak dengan SUDAH_CHECKOUT (409) jika melakukan check-out ulang', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/attendance/check-out')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .field('jadwalId', jadwalCheckOut.id)
@@ -570,7 +571,7 @@ describe('AttendanceController (e2e)', () => {
         },
       });
 
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/attendance/check-out')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .field('jadwalId', pastJadwal.id)
@@ -598,7 +599,7 @@ describe('AttendanceController (e2e)', () => {
 
     it('harus menolak dengan JADWAL_TIDAK_DITEMUKAN (404) jika jadwalId tidak valid/bukan milik user', async () => {
       const randomId = randomUUID();
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/attendance/check-out')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .field('jadwalId', randomId)
@@ -642,7 +643,7 @@ describe('AttendanceController (e2e)', () => {
         .spyOn(prisma, '$transaction')
         .mockResolvedValueOnce([{ count: 0 }, { id: 'fake-percobaan' }]);
 
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/attendance/check-out')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .field('jadwalId', raceJadwal.id)
@@ -693,7 +694,7 @@ describe('AttendanceController (e2e)', () => {
         where: { jadwalId: svcDownJadwal.id },
       });
 
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/attendance/check-out')
         .set('Authorization', `Bearer ${karyawanToken}`)
         .field('jadwalId', svcDownJadwal.id)
