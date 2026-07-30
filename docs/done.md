@@ -182,3 +182,13 @@
   - **Dependency:** Tambahan `tf-keras` (kompatibilitas Keras 3) dan `torch` (wajib untuk modul anti-spoofing FasNet).
   - **Detector:** Beralih ke `mtcnn` (pengganti `opencv` yang crash akibat file XML *haarcascade* absen di build *headless*).
   - **Latency:** Rata-rata ~30 detik murni di CPU (*mitigasi integrasi sudah dicatat di `AGENTS.md`*).
+
+## [Stage 21] Track C2 — POST /users/me/face-registration
+
+- **Selesai:** Endpoint pendaftaran wajah karyawan via NestJS.
+- **File diubah/dibuat:** Module face-verification: controller, service, test suite (1 e2e test file); Module common: filter.
+- **Verifikasi:** 157/157 test (Full suite) lolos.
+- **Catatan & Deviasi:**
+  - **Integrasi Service:** Memanggil `POST /internal/embed` menggunakan Axios dan sukses di-*mock* menggunakan `jest.spyOn()` pada e2e tests sehingga tidak membebani performa CI/CD.
+  - **Exception Flattening:** Bug struktur *exception nested* di `FaceVerificationService` yang menyebabkan format *error* tidak terprediksi kini telah diperbaiki agar *flat* sesuai dengan ekspektasi filter.
+  - **Global Exception Filter:** Ditemukan _bug_ pada fallback pesan error HTTP bawaan (seperti `Payload Too Large` dan `Unauthorized`). Telah diatasi di `AllExceptionsFilter` dengan melakukan konversi format teks menggunakan enum `HttpStatus` sehingga secara global _error framework_ kini langsung di-cast ke _SNAKE_CASE_ (contoh: `PAYLOAD_TOO_LARGE`).

@@ -30,8 +30,8 @@ gak nyentuh Postgres/JadwalShift/Site sama sekali — beda dari endpoint NestJS 
 
 | #   | Task                                                                        | Kenapa urutan segini                                                                               | Status                |
 | --- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------- |
-| C1  | Python microservice: `POST /internal/embed` (DeepFace embedding + liveness) | Gak depend ke apapun di Track A/B — boleh dikerjakan kapan saja, termasuk bersamaan dengan Track A | `READY`               |
-| C2  | `POST /users/me/face-registration` (NestJS, manggil `/internal/embed`)      | Butuh C1 jadi dulu, kalau enggak endpoint ini selalu gagal saat ditest                             | `BLOCKED` — nunggu C1 |
+| C1  | Python microservice: `POST /internal/embed` (DeepFace embedding + liveness) | Gak depend ke apapun di Track A/B — boleh dikerjakan kapan saja, termasuk bersamaan dengan Track A | `DONE`                |
+| C2  | `POST /users/me/face-registration` (NestJS, manggil `/internal/embed`)      | Butuh C1 jadi dulu, kalau enggak endpoint ini selalu gagal saat ditest                             | `DONE`                |
 | C3  | `POST /attendance/check-in`, `POST /attendance/check-out`                   | Butuh C1 (face verification) dan jadwal shift yang sudah ready di A5                               | `BLOCKED` — nunggu C1 |
 
 ---
