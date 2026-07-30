@@ -8,6 +8,7 @@ import { EmployeesModule } from './modules/employees/employees.module';
 import { SupervisorSitesModule } from './modules/supervisor-sites/supervisor-sites.module';
 import { SchedulesModule } from './modules/schedules/schedules.module';
 import { LeaveRequestsModule } from './modules/leave-requests/leave-requests.module';
+import { FaceVerificationModule } from './modules/face-verification/face-verification.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { LeaveRequestsModule } from './modules/leave-requests/leave-requests.mod
     SupervisorSitesModule,
     SchedulesModule,
     LeaveRequestsModule,
+    FaceVerificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
