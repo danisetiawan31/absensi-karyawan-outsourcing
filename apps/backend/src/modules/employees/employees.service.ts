@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -109,6 +110,68 @@ export class EmployeesService {
     });
 
     return users;
+  }
+
+  async findEmployeeSchedules(
+    karyawanId: string,
+    tanggalMulai: string,
+    tanggalSelesai: string,
+  ) {
+    const karyawan = await this.prisma.user.findUnique({
+      where: { id: karyawanId },
+      select: { id: true, role: true, statusAktif: true },
+    });
+
+    if (!karyawan || karyawan.role !== Role.KARYAWAN || !karyawan.statusAktif) {
+      throw new NotFoundException({
+        code: 'KARYAWAN_TIDAK_DITEMUKAN',
+        message: 'Karyawan tidak ditemukan',
+      });
+    }
+
+    const startDate = new Date(`${tanggalMulai}T00:00:00+07:00`);
+    const endDate = new Date(`${tanggalSelesai}T23:59:59+07:00`);
+
+    if (startDate > endDate) {
+      throw new BadRequestException({
+        code: 'RENTANG_TANGGAL_TIDAK_VALID',
+        message: 'tanggalMulai tidak boleh lebih besar dari tanggalSelesai',
+      });
+    }
+
+    const jadwals = await this.prisma.jadwalShift.findMany({
+      where: {
+        karyawanId,
+        tanggal: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      select: {
+        id: true,
+        tanggal: true,
+        jamMulai: true,
+        jamSelesai: true,
+        site: {
+          select: {
+            id: true,
+            nama: true,
+          },
+        },
+      },
+      orderBy: [{ tanggal: 'asc' }, { jamMulai: 'asc' }],
+    });
+
+    return jadwals.map((j) => ({
+      jadwalId: j.id,
+      tanggal: j.tanggal,
+      jamMulai: j.jamMulai,
+      jamSelesai: j.jamSelesai,
+      site: {
+        id: j.site.id,
+        nama: j.site.nama,
+      },
+    }));
   }
 
   async create(createEmployeeDto: CreateEmployeeDto) {

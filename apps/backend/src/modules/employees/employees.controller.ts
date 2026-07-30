@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -12,6 +13,7 @@ import {
 import { EmployeesService } from './employees.service';
 import { FindEmployeesQueryDto } from './dto/find-employees-query.dto';
 import { FindAvailableEmployeesQueryDto } from './dto/find-available-employees-query.dto';
+import { FindEmployeeSchedulesQueryDto } from './dto/find-employee-schedules-query.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -34,6 +36,19 @@ export class EmployeesController {
       query.tanggal,
       query.siteId,
       { id: req.user.userId, role: req.user.role },
+    );
+  }
+
+  @Get(':id/schedules')
+  @Roles(Role.HR_ADMIN)
+  async findSchedules(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: FindEmployeeSchedulesQueryDto,
+  ) {
+    return this.employeesService.findEmployeeSchedules(
+      id,
+      query.tanggalMulai,
+      query.tanggalSelesai,
     );
   }
 

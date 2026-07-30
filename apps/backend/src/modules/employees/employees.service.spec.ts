@@ -240,3 +240,139 @@ describe('EmployeesService - findAvailableEmployees', () => {
     });
   });
 });
+
+describe('EmployeesService - findEmployeeSchedules', () => {
+  let service: EmployeesService;
+  let prisma: PrismaService;
+  const testTrackId = randomUUID();
+
+  let siteId: string;
+  let karyawanId: string;
+  let supervisorId: string;
+
+  beforeAll(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    service = module.get<EmployeesService>(EmployeesService);
+    prisma = module.get<PrismaService>(PrismaService);
+
+    // Buat site
+    const site = await prisma.site.create({
+      data: {
+        nama: `Site-F2-${testTrackId}`,
+        alamat: 'Jl. Test F2',
+        latitude: -6.2,
+        longitude: 106.8,
+      },
+    });
+    siteId = site.id;
+
+    // Buat karyawan aktif
+    const karyawan = await prisma.user.create({
+      data: {
+        nama: `Karyawan-F2-${testTrackId}`,
+        email: `karyawan-f2-${testTrackId}@test.local`,
+        passwordHash: 'hash',
+        role: Role.KARYAWAN,
+        statusAktif: true,
+        faceEmbedding: [],
+      },
+    });
+    karyawanId = karyawan.id;
+
+    // Buat supervisor (untuk test 404 - role bukan KARYAWAN)
+    const supervisor = await prisma.user.create({
+      data: {
+        nama: `Supervisor-F2-${testTrackId}`,
+        email: `supervisor-f2-${testTrackId}@test.local`,
+        passwordHash: 'hash',
+        role: Role.SUPERVISOR,
+        statusAktif: true,
+        faceEmbedding: [],
+      },
+    });
+    supervisorId = supervisor.id;
+
+    // Buat 2 jadwal untuk karyawan
+    await prisma.jadwalShift.createMany({
+      data: [
+        {
+          karyawanId,
+          siteId,
+          tanggal: new Date('2026-09-01T00:00:00+07:00'),
+          jamMulai: new Date('2026-09-01T08:00:00+07:00'),
+          jamSelesai: new Date('2026-09-01T16:00:00+07:00'),
+        },
+        {
+          karyawanId,
+          siteId,
+          tanggal: new Date('2026-09-15T00:00:00+07:00'),
+          jamMulai: new Date('2026-09-15T08:00:00+07:00'),
+          jamSelesai: new Date('2026-09-15T16:00:00+07:00'),
+        },
+      ],
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.jadwalShift.deleteMany({
+      where: { site: { nama: { contains: testTrackId } } },
+    });
+    await prisma.site.deleteMany({
+      where: { nama: { contains: testTrackId } },
+    });
+    await prisma.user.deleteMany({
+      where: { nama: { contains: testTrackId } },
+    });
+  });
+
+  it('happy path — karyawan valid dengan jadwal di rentang → return array jadwal', async () => {
+    const result = await service.findEmployeeSchedules(
+      karyawanId,
+      '2026-09-01',
+      '2026-09-30',
+    );
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(2);
+    expect(result[0]).toHaveProperty('jadwalId');
+    expect(result[0]).toHaveProperty('tanggal');
+    expect(result[0]).toHaveProperty('jamMulai');
+    expect(result[0]).toHaveProperty('jamSelesai');
+    expect(result[0]).toHaveProperty('site');
+    expect(result[0].site).toHaveProperty('id');
+    expect(result[0].site).toHaveProperty('nama');
+  });
+
+  it('tidak ada jadwal di rentang → return [] (bukan error)', async () => {
+    const result = await service.findEmployeeSchedules(
+      karyawanId,
+      '2026-10-01',
+      '2026-10-31',
+    );
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(0);
+  });
+
+  it('karyawanId tidak ditemukan → 404 KARYAWAN_TIDAK_DITEMUKAN', async () => {
+    const fakeId = '00000000-0000-0000-0000-000000000099';
+    await expect(
+      service.findEmployeeSchedules(fakeId, '2026-09-01', '2026-09-30'),
+    ).rejects.toMatchObject({ response: { code: 'KARYAWAN_TIDAK_DITEMUKAN' } });
+  });
+
+  it('karyawanId adalah SUPERVISOR (role bukan KARYAWAN) → 404 KARYAWAN_TIDAK_DITEMUKAN', async () => {
+    await expect(
+      service.findEmployeeSchedules(supervisorId, '2026-09-01', '2026-09-30'),
+    ).rejects.toMatchObject({ response: { code: 'KARYAWAN_TIDAK_DITEMUKAN' } });
+  });
+
+  it('tanggalMulai > tanggalSelesai → 400 RENTANG_TANGGAL_TIDAK_VALID', async () => {
+    await expect(
+      service.findEmployeeSchedules(karyawanId, '2026-09-30', '2026-09-01'),
+    ).rejects.toMatchObject({
+      response: { code: 'RENTANG_TANGGAL_TIDAK_VALID' },
+    });
+  });
+});

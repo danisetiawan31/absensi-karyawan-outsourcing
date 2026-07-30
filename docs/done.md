@@ -236,3 +236,14 @@
   - **No Double-Wrap:** Controller direturn _raw array_, di-assert eksplisit di test agar bebas dari bug _double-wrap_.
   - **Type-Safety & Cleanup:** Param role dikunci ke Enum `Role` Prisma. Test diisolasi UUID marker, menjamin `deleteMany` aman 100% (Stage 15 compliance).
   - **Silent Scoping:** SUPERVISOR yang salah query `siteId` di luar aksesnya langsung dibalas `[]` (sembunyikan data tanpa error 403/404).
+
+## [Stage 26] Track F2 — GET /employees/:id/schedules
+
+- **Selesai:** Endpoint `GET /employees/:id/schedules` untuk melihat histori/jadwal shift seorang karyawan di rentang tanggal tertentu (HR_ADMIN only).
+- **File:** `modules/employees/*` (controller, service, DTO, spec e2e).
+- **Verifikasi:** 234/234 test (Full suite) lolos.
+- **Catatan Penting:**
+  - **Validasi Rentang Tanggal:** Dilakukan di service layer melempar `400 RENTANG_TANGGAL_TIDAK_VALID` jika `tanggalMulai > tanggalSelesai`.
+  - **Reaktif pada Entitas:** Karyawan yang tidak ada (atau bukan role KARYAWAN) dilempar `404 KARYAWAN_TIDAK_DITEMUKAN`.
+  - **Empty Result:** Jika rentang valid tapi tidak ada jadwal shift, dikembalikan `[]` dengan HTTP 200 (bukan error).
+  - **Type-Safety:** DTO menggunakan regex `@Matches` konsisten untuk parsing tanggal YYYY-MM-DD. Param `id` di controller dikunci via `ParseUUIDPipe`.

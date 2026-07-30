@@ -622,4 +622,194 @@ describe('EmployeesController (e2e)', () => {
       expect(ids).not.toContain(karyawan2.id);
     });
   });
+
+  describe('GET /employees/:id/schedules', () => {
+    const scheduleTrackId = '7f000000-0000-0000-0000-000000000099'; // unique per file
+    let scheduleKaryawanId: string;
+    let scheduleSiteId: string;
+
+    beforeAll(async () => {
+      // Buat site khusus untuk test ini
+      const site = await prisma.site.create({
+        data: {
+          id: scheduleTrackId,
+          nama: `Site-Sched-Test`,
+          alamat: 'Jl. Sched Test',
+          latitude: -6.3,
+          longitude: 106.9,
+        },
+      });
+      scheduleSiteId = site.id;
+
+      // Buat karyawan aktif khusus untuk test ini
+      const karyawan = await prisma.user.create({
+        data: {
+          email: 'karyawan-sched-test@emp-test.com',
+          passwordHash: await bcrypt.hash('dummy', 10),
+          nama: 'Karyawan Sched Test',
+          role: Role.KARYAWAN,
+          statusAktif: true,
+          faceEmbedding: [],
+        },
+      });
+      scheduleKaryawanId = karyawan.id;
+
+      // Buat 2 jadwal untuk karyawan di bulan September 2026
+      await prisma.jadwalShift.createMany({
+        data: [
+          {
+            karyawanId: scheduleKaryawanId,
+            siteId: scheduleSiteId,
+            tanggal: new Date('2026-09-05T00:00:00+07:00'),
+            jamMulai: new Date('2026-09-05T08:00:00+07:00'),
+            jamSelesai: new Date('2026-09-05T16:00:00+07:00'),
+          },
+          {
+            karyawanId: scheduleKaryawanId,
+            siteId: scheduleSiteId,
+            tanggal: new Date('2026-09-20T00:00:00+07:00'),
+            jamMulai: new Date('2026-09-20T08:00:00+07:00'),
+            jamSelesai: new Date('2026-09-20T16:00:00+07:00'),
+          },
+        ],
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.jadwalShift.deleteMany({
+        where: { siteId: scheduleSiteId },
+      });
+      await prisma.site.deleteMany({
+        where: { id: scheduleSiteId },
+      });
+      await prisma.user.deleteMany({
+        where: { email: 'karyawan-sched-test@emp-test.com' },
+      });
+    });
+
+    it('should return 401 if no token provided', async () => {
+      const res = await request(app.getHttpServer() as Server).get(
+        `/employees/${scheduleKaryawanId}/schedules?tanggalMulai=2026-09-01&tanggalSelesai=2026-09-30`,
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it('should return 403 if role is SUPERVISOR', async () => {
+      const token = jwtService.sign({
+        userId: karyawan1.id,
+        role: Role.SUPERVISOR,
+      });
+      const res = await request(app.getHttpServer() as Server)
+        .get(
+          `/employees/${scheduleKaryawanId}/schedules?tanggalMulai=2026-09-01&tanggalSelesai=2026-09-30`,
+        )
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(403);
+    });
+
+    it('should return 400 if :id is not a UUID', async () => {
+      const token = jwtService.sign({
+        userId: hrAdmin.id,
+        role: Role.HR_ADMIN,
+      });
+      const res = await request(app.getHttpServer() as Server)
+        .get(
+          `/employees/bukan-uuid/schedules?tanggalMulai=2026-09-01&tanggalSelesai=2026-09-30`,
+        )
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 400 if tanggalMulai format is invalid', async () => {
+      const token = jwtService.sign({
+        userId: hrAdmin.id,
+        role: Role.HR_ADMIN,
+      });
+      const res = await request(app.getHttpServer() as Server)
+        .get(
+          `/employees/${scheduleKaryawanId}/schedules?tanggalMulai=01-09-2026&tanggalSelesai=2026-09-30`,
+        )
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(400);
+      const body = res.body as ErrorEnvelope;
+      expect(body.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('should return 400 if tanggalSelesai format is invalid', async () => {
+      const token = jwtService.sign({
+        userId: hrAdmin.id,
+        role: Role.HR_ADMIN,
+      });
+      const res = await request(app.getHttpServer() as Server)
+        .get(
+          `/employees/${scheduleKaryawanId}/schedules?tanggalMulai=2026-09-01&tanggalSelesai=not-a-date`,
+        )
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(400);
+      const body = res.body as ErrorEnvelope;
+      expect(body.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('should return 404 if karyawanId not found', async () => {
+      const token = jwtService.sign({
+        userId: hrAdmin.id,
+        role: Role.HR_ADMIN,
+      });
+      const fakeId = '00000000-0000-0000-0000-000000000088';
+      const res = await request(app.getHttpServer() as Server)
+        .get(
+          `/employees/${fakeId}/schedules?tanggalMulai=2026-09-01&tanggalSelesai=2026-09-30`,
+        )
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(404);
+      const body = res.body as ErrorEnvelope;
+      expect(body.error.code).toBe('KARYAWAN_TIDAK_DITEMUKAN');
+    });
+
+    it('should return 200 with array of schedules for HR_ADMIN', async () => {
+      const token = jwtService.sign({
+        userId: hrAdmin.id,
+        role: Role.HR_ADMIN,
+      });
+      const res = await request(app.getHttpServer() as Server)
+        .get(
+          `/employees/${scheduleKaryawanId}/schedules?tanggalMulai=2026-09-01&tanggalSelesai=2026-09-30`,
+        )
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+
+      interface ScheduleItem {
+        jadwalId: string;
+        tanggal: string;
+        jamMulai: string;
+        jamSelesai: string;
+        site: { id: string; nama: string };
+      }
+      const body = res.body as SuccessEnvelope<ScheduleItem[]>;
+      expect(body.success).toBe(true);
+      expect(Array.isArray(body.data)).toBe(true);
+      expect(body.data.length).toBe(2);
+      expect(body.data[0]).toHaveProperty('jadwalId');
+      expect(body.data[0]).toHaveProperty('site');
+    });
+
+    it('should return 200 with empty array if no schedules in range', async () => {
+      const token = jwtService.sign({
+        userId: hrAdmin.id,
+        role: Role.HR_ADMIN,
+      });
+      const res = await request(app.getHttpServer() as Server)
+        .get(
+          `/employees/${scheduleKaryawanId}/schedules?tanggalMulai=2026-10-01&tanggalSelesai=2026-10-31`,
+        )
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      const body = res.body as SuccessEnvelope<unknown[]>;
+      expect(body.success).toBe(true);
+      expect(Array.isArray(body.data)).toBe(true);
+      expect(body.data.length).toBe(0);
+    });
+  });
 });
