@@ -34,9 +34,9 @@ async def lifespan(app: FastAPI):
             detector_backend="skip", 
             enforce_detection=False
         )
-        print("✅ Model DeepFace berhasil dimuat ke memory.")
+        print("SUCCESS Model DeepFace berhasil dimuat ke memory.")
     except Exception as e:
-        print(f"❌ ERROR saat pre-load model: {e}")
+        print(f"ERROR saat pre-load model: {e}")
         raise e
     
     yield

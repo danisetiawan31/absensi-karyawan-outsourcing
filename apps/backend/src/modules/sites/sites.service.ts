@@ -43,7 +43,7 @@ export class SitesService {
 
     if (!site) {
       throw new NotFoundException({
-        code: 'NOT_FOUND',
+        code: 'SITE_TIDAK_DITEMUKAN',
         message: 'Data site tidak ditemukan',
       });
     }

@@ -182,7 +182,7 @@ describe('SitesController (e2e)', () => {
       expect(res.status).toBe(403);
       const body = res.body as ErrorEnvelope;
       expect(body.success).toBe(false);
-      expect(body.error.code).toBe('FORBIDDEN');
+      expect(body.error.code).toBe('AKSES_DITOLAK');
     });
 
     it('Gagal auth: akses tanpa token (401)', async () => {
@@ -296,7 +296,7 @@ describe('SitesController (e2e)', () => {
       expect(res.status).toBe(403);
       const body = res.body as ErrorEnvelope;
       expect(body.success).toBe(false);
-      expect(body.error.code).toBe('FORBIDDEN');
+      expect(body.error.code).toBe('AKSES_DITOLAK');
     });
   });
 
@@ -358,7 +358,7 @@ describe('SitesController (e2e)', () => {
       expect(res.status).toBe(404);
       const body = res.body as ErrorEnvelope;
       expect(body.success).toBe(false);
-      expect(body.error.code).toBe('NOT_FOUND');
+      expect(body.error.code).toBe('SITE_TIDAK_DITEMUKAN');
     });
 
     it('Sukses: statusAktif di body mengubah status (soft-deactivate)', async () => {
@@ -416,7 +416,7 @@ describe('SitesController (e2e)', () => {
       expect(res.status).toBe(403);
       const body = res.body as ErrorEnvelope;
       expect(body.success).toBe(false);
-      expect(body.error.code).toBe('FORBIDDEN');
+      expect(body.error.code).toBe('AKSES_DITOLAK');
     });
   });
 });

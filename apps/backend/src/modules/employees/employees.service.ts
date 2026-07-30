@@ -128,7 +128,7 @@ export class EmployeesService {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
           throw new NotFoundException({
-            code: 'NOT_FOUND',
+            code: 'KARYAWAN_TIDAK_DITEMUKAN',
             message: 'Karyawan tidak ditemukan',
           });
         }

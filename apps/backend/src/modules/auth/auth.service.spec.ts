@@ -76,7 +76,7 @@ describe('AuthService', () => {
       expect(result.role).toBe(Role.KARYAWAN);
     });
 
-    it('gagal login dengan email tidak terdaftar (UNAUTHORIZED)', async () => {
+    it('gagal login dengan email tidak terdaftar (KREDENSIAL_SALAH)', async () => {
       await expect(
         service.login({
           email: 'notfound@test.local',
@@ -90,11 +90,11 @@ describe('AuthService', () => {
           password: testPassword,
         }),
       ).rejects.toMatchObject({
-        response: { code: 'UNAUTHORIZED' },
+        response: { code: 'KREDENSIAL_SALAH' },
       });
     });
 
-    it('gagal login dengan password salah (UNAUTHORIZED)', async () => {
+    it('gagal login dengan password salah (KREDENSIAL_SALAH)', async () => {
       await expect(
         service.login({
           email: testEmail,
@@ -108,7 +108,7 @@ describe('AuthService', () => {
           password: 'wrongpassword',
         }),
       ).rejects.toMatchObject({
-        response: { code: 'UNAUTHORIZED' },
+        response: { code: 'KREDENSIAL_SALAH' },
       });
     });
   });

@@ -140,7 +140,7 @@ describe('EmployeesController (e2e)', () => {
       expect(res.status).toBe(403);
       const body = res.body as ErrorEnvelope;
       expect(body.success).toBe(false);
-      expect(body.error.code).toBe('FORBIDDEN');
+      expect(body.error.code).toBe('AKSES_DITOLAK');
     });
 
     it('should return all employees if no query provided', async () => {
@@ -268,7 +268,7 @@ describe('EmployeesController (e2e)', () => {
       expect(res.status).toBe(403);
       const body = res.body as ErrorEnvelope;
       expect(body.success).toBe(false);
-      expect(body.error.code).toBe('FORBIDDEN');
+      expect(body.error.code).toBe('AKSES_DITOLAK');
     });
 
     it('should return 404 if employee not found', async () => {
@@ -285,7 +285,7 @@ describe('EmployeesController (e2e)', () => {
       expect(res.status).toBe(404);
       const body = res.body as ErrorEnvelope;
       expect(body.success).toBe(false);
-      expect(body.error.code).toBe('NOT_FOUND');
+      expect(body.error.code).toBe('KARYAWAN_TIDAK_DITEMUKAN');
     });
 
     it('should partially update employee (e.g. name only)', async () => {

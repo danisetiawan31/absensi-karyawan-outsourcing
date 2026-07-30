@@ -476,7 +476,7 @@ describe('SupervisorSitesController (e2e)', () => {
       expect(res.status).toBe(404);
       const body = res.body as ErrorEnvelope;
       expect(body.success).toBe(false);
-      expect(body.error.code).toBe('NOT_FOUND');
+      expect(body.error.code).toBe('ASSIGNMENT_TIDAK_DITEMUKAN');
     });
 
     it('should successfully delete assignment and return 200', async () => {

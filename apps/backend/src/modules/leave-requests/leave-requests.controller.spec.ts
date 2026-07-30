@@ -146,7 +146,7 @@ describe('LeaveRequestsController (e2e)', () => {
       const body = res.body as ErrorEnvelope;
       expect(res.status).toBe(403);
       expect(body.success).toBe(false);
-      expect(body.error.code).toBe('FORBIDDEN');
+      expect(body.error.code).toBe('AKSES_DITOLAK');
     });
 
     it('should return 403 for SUPERVISOR', async () => {

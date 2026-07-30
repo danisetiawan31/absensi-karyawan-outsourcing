@@ -52,12 +52,9 @@ export class FaceVerificationService {
                 ) {
                   throw new HttpException(
                     {
-                      error: {
-                        code: (errObj as Record<string, unknown>)
-                          .code as string,
-                        message: (errObj as Record<string, unknown>)
-                          .message as string,
-                      },
+                      code: (errObj as Record<string, unknown>).code as string,
+                      message: (errObj as Record<string, unknown>)
+                        .message as string,
                     },
                     error.response.status,
                   );
@@ -66,10 +63,8 @@ export class FaceVerificationService {
               // Generic fallback for other 4xx/5xx responses from python
               throw new HttpException(
                 {
-                  error: {
-                    code: 'FACE_SERVICE_ERROR',
-                    message: 'Terjadi kesalahan pada face service',
-                  },
+                  code: 'FACE_SERVICE_ERROR',
+                  message: 'Terjadi kesalahan pada face service',
                 },
                 error.response.status,
               );
@@ -77,10 +72,8 @@ export class FaceVerificationService {
             // Network failure / timeout (no response body)
             throw new HttpException(
               {
-                error: {
-                  code: 'FACE_SERVICE_UNAVAILABLE',
-                  message: 'Face service tidak dapat dihubungi atau timeout',
-                },
+                code: 'FACE_SERVICE_UNAVAILABLE',
+                message: 'Face service tidak dapat dihubungi atau timeout',
               },
               HttpStatus.SERVICE_UNAVAILABLE, // 503
             );

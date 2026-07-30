@@ -24,7 +24,7 @@ export class AuthService {
 
     if (!user) {
       throw new UnauthorizedException({
-        code: 'UNAUTHORIZED',
+        code: 'KREDENSIAL_SALAH',
         message: 'Email atau password salah',
       });
     }
@@ -36,7 +36,7 @@ export class AuthService {
 
     if (!isPasswordValid) {
       throw new UnauthorizedException({
-        code: 'UNAUTHORIZED',
+        code: 'KREDENSIAL_SALAH',
         message: 'Email atau password salah',
       });
     }

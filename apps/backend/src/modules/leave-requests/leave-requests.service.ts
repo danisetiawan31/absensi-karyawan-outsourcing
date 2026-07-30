@@ -300,7 +300,7 @@ export class LeaveRequestsService {
     // b. Kalau tidak ketemu -> 404 NOT_FOUND
     if (!leaveRequest) {
       throw new NotFoundException({
-        code: 'NOT_FOUND',
+        code: 'IZIN_TIDAK_DITEMUKAN',
         message: 'Pengajuan izin tidak ditemukan',
       });
     }
@@ -329,7 +329,7 @@ export class LeaveRequestsService {
 
       if (!isInScope) {
         throw new NotFoundException({
-          code: 'NOT_FOUND',
+          code: 'IZIN_TIDAK_DITEMUKAN',
           message: 'Pengajuan izin tidak ditemukan', // SAMA PERSIS dengan 404
         });
       }
@@ -389,7 +389,7 @@ export class LeaveRequestsService {
 
     if (!leaveRequest || leaveRequest.karyawanId !== userId) {
       throw new NotFoundException({
-        code: 'NOT_FOUND',
+        code: 'IZIN_TIDAK_DITEMUKAN',
         message: 'Pengajuan izin tidak ditemukan',
       });
     }

@@ -20,8 +20,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
     if (!user || !user.statusAktif) {
       throw new UnauthorizedException({
-        code: 'UNAUTHORIZED',
-        message: 'Unauthorized',
+        code: 'TOKEN_TIDAK_VALID',
+        message: 'Token tidak valid atau akun dinonaktifkan',
       });
     }
     return { userId: payload.userId, role: payload.role };

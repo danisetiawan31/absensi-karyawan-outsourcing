@@ -116,7 +116,7 @@ export class SupervisorSitesService {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
           throw new NotFoundException({
-            code: 'NOT_FOUND',
+            code: 'ASSIGNMENT_TIDAK_DITEMUKAN',
             message: 'Assignment tidak ditemukan',
           });
         }
