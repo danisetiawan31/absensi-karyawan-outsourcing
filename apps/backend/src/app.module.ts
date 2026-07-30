@@ -10,6 +10,9 @@ import { SchedulesModule } from './modules/schedules/schedules.module';
 import { LeaveRequestsModule } from './modules/leave-requests/leave-requests.module';
 import { FaceVerificationModule } from './modules/face-verification/face-verification.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { AttendanceCronModule } from './modules/attendance-cron/attendance-cron.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -22,6 +25,9 @@ import { AttendanceModule } from './modules/attendance/attendance.module';
     LeaveRequestsModule,
     FaceVerificationModule,
     AttendanceModule,
+    NotificationsModule,
+    AttendanceCronModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [AppController],
   providers: [AppService],

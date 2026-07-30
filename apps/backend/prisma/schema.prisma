@@ -141,6 +141,7 @@ model JadwalShift {
   site             Site               @relation(fields: [siteId], references: [id])
   logKehadiran     LogKehadiran?
   percobaanAbsensi PercobaanAbsensi[]
+  notifikasi       Notifikasi[]
 
   @@unique([karyawanId, tanggal, jamMulai])
 }
@@ -222,10 +223,12 @@ model PercobaanAbsensi {
 model Notifikasi {
   id        String         @id @default(uuid())
   userId    String
+  jadwalId  String?
   tipe      TipeNotifikasi
   pesan     String
   dibaca    Boolean        @default(false)
   createdAt DateTime       @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user   User         @relation(fields: [userId], references: [id])
+  jadwal JadwalShift? @relation(fields: [jadwalId], references: [id], onDelete: SetNull)
 }

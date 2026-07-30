@@ -76,7 +76,6 @@
   - `GET /supervisor-sites` dual-role (`HR_ADMIN` & `SUPERVISOR`) dengan scoping berbeda: `SUPERVISOR` di-force scope ke `userId` miliknya sendiri dari JWT (query param `supervisorId` yang dikirim diabaikan total — keputusan keamanan disengaja, mencegah supervisor melihat assignment supervisor lain), sedangkan `HR_ADMIN` bebas pakai query param tsb atau kosongkan untuk melihat semua assignment.
   - Belum ada preseden `@CurrentUser()` decorator di project ini sebelum stage ini — akses `userId`/`role` caller di `GET` memakai `@Request() req.user` standar NestJS (di-type eksplisit, bukan `any`), bukan bikin decorator abstraksi baru tanpa preseden.
 
-
 ## [Stage 10] Track A5 - Schedules (POST, GET, PATCH, DELETE)
 
 - **File diubah/dibuat:** Module schedules: 9 file baru/diubah (DTOs, service, controller, module, main.ts, tests, docs).
@@ -180,8 +179,8 @@
 - **Selesai:** Endpoint `POST /internal/embed` (ekstraksi wajah & liveness).
 - **Catatan & Deviasi:**
   - **Dependency:** Tambahan `tf-keras` (kompatibilitas Keras 3) dan `torch` (wajib untuk modul anti-spoofing FasNet).
-  - **Detector:** Beralih ke `mtcnn` (pengganti `opencv` yang crash akibat file XML *haarcascade* absen di build *headless*).
-  - **Latency:** Rata-rata ~30 detik murni di CPU (*mitigasi integrasi sudah dicatat di `AGENTS.md`*).
+  - **Detector:** Beralih ke `mtcnn` (pengganti `opencv` yang crash akibat file XML _haarcascade_ absen di build _headless_).
+  - **Latency:** Rata-rata ~30 detik murni di CPU (_mitigasi integrasi sudah dicatat di `AGENTS.md`_).
 
 ## [Stage 21] Track C2 — POST /users/me/face-registration
 
@@ -189,8 +188,8 @@
 - **File diubah/dibuat:** Module face-verification: controller, service, test suite (1 e2e test file); Module common: filter.
 - **Verifikasi:** 157/157 test (Full suite) lolos.
 - **Catatan & Deviasi:**
-  - **Integrasi Service:** Memanggil `POST /internal/embed` menggunakan Axios dan sukses di-*mock* menggunakan `jest.spyOn()` pada e2e tests sehingga tidak membebani performa CI/CD.
-  - **Exception Flattening:** Bug struktur *exception nested* di `FaceVerificationService` yang menyebabkan format *error* tidak terprediksi kini telah diperbaiki agar *flat* sesuai dengan ekspektasi filter.
+  - **Integrasi Service:** Memanggil `POST /internal/embed` menggunakan Axios dan sukses di-_mock_ menggunakan `jest.spyOn()` pada e2e tests sehingga tidak membebani performa CI/CD.
+  - **Exception Flattening:** Bug struktur _exception nested_ di `FaceVerificationService` yang menyebabkan format _error_ tidak terprediksi kini telah diperbaiki agar _flat_ sesuai dengan ekspektasi filter.
   - **Global Exception Filter:** Ditemukan _bug_ pada fallback pesan error HTTP bawaan (seperti `Payload Too Large` dan `Unauthorized`). Telah diatasi di `AllExceptionsFilter` dengan melakukan konversi format teks menggunakan enum `HttpStatus` sehingga secara global _error framework_ kini langsung di-cast ke _SNAKE_CASE_ (contoh: `PAYLOAD_TOO_LARGE`).
 
 ## [Stage 22] Track C3 — POST /attendance/check-in & POST /attendance/check-out
@@ -200,6 +199,18 @@
 - **Verifikasi:** 184/184 test (Full suite) lolos.
 - **Keputusan Desain & Catatan Penting:**
   - **Pemisahan Pipeline vs Precondition:** Hasil _pipeline_ verifikasi (`DI_LUAR_JENDELA_WAKTU`, `GAGAL_LOKASI`, `GAGAL_LIVENESS`, `GAGAL_WAJAH`) direspons sebagai data absensi normal (`success: true`, HTTP 200). Ini secara tegas dibedakan dari _precondition error_ (`JADWAL_TIDAK_DITEMUKAN 404`, `WAJAH_BELUM_TERDAFTAR 400`, `BELUM_CHECKIN 400`, `SUDAH_CHECKIN/SUDAH_CHECKOUT 409`, `FACE_SERVICE_UNAVAILABLE 503`) yang tetap melempar `HttpException` standar. Tabel `PercobaanAbsensi` HANYA dicatat untuk hasil _pipeline_, bukan saat _precondition error_ terjadi.
-  - **Race Conditions:** *Check-in* menggunakan *create* murni + *catch* `P2002` untuk *race condition*. *Check-out* menggunakan *conditional* `updateMany({ where: { waktuCheckOut: null } })` — perbedaan pendekatan transaksi terjadi karena *check-in* membuat *row* baru sedangkan *check-out* mengubah *row* _existing_.
-  - **Threshold Wajah:** `FACE_MATCH_DISTANCE_THRESHOLD=0.40` menggunakan pendekatan *cosine DISTANCE* (bukan *similarity* absolut, sehingga makin kecil makin cocok) sebagai nilai *default* kalkulasi dari *DeepFace* model *Facenet*. Bersifat *configurable* melalui `env` karena tetap butuh _tuning empiris_ pada tingkat operasional (mirip konfigurasi `LIVENESS_CONFIDENCE_THRESHOLD`).
-  - **Validasi Koordinat Dini:** Penggunaan eksklusif `@IsLatitude()` dan `@IsLongitude()` pada DTO untuk *blocking* format *invalid* lebih awal dan akurat ketimbang sekadar melempar angka _out-of-bounds_ ke dalam _kalkulasi Haversine_ buta.
+  - **Race Conditions:** _Check-in_ menggunakan _create_ murni + _catch_ `P2002` untuk _race condition_. _Check-out_ menggunakan _conditional_ `updateMany({ where: { waktuCheckOut: null } })` — perbedaan pendekatan transaksi terjadi karena _check-in_ membuat _row_ baru sedangkan _check-out_ mengubah _row_ _existing_.
+  - **Threshold Wajah:** `FACE_MATCH_DISTANCE_THRESHOLD=0.40` menggunakan pendekatan _cosine DISTANCE_ (bukan _similarity_ absolut, sehingga makin kecil makin cocok) sebagai nilai _default_ kalkulasi dari _DeepFace_ model _Facenet_. Bersifat _configurable_ melalui `env` karena tetap butuh _tuning empiris_ pada tingkat operasional (mirip konfigurasi `LIVENESS_CONFIDENCE_THRESHOLD`).
+  - **Validasi Koordinat Dini:** Penggunaan eksklusif `@IsLatitude()` dan `@IsLongitude()` pada DTO untuk _blocking_ format _invalid_ lebih awal dan akurat ketimbang sekadar melempar angka _out-of-bounds_ ke dalam _kalkulasi Haversine_ buta.
+
+## [Stage 23] Track E2 & E3 — Background Cron Jobs (Reminder T+5, Alert T+15 & Auto-mark TIDAK_HADIR)
+
+- **Selesai:** Implementasi `AttendanceCronService` (`handleCron` setiap menit) untuk memproses 3 logika: _reminder_ T+5 (ke Karyawan), _alert_ T+15 (ke Supervisor), dan _auto-mark_ absensi `TIDAK_HADIR`.
+- **File dibuat/diubah:** `modules/attendance-cron/*` (module, service, spec e2e), `app.module.ts`.
+- **Verifikasi:** 204/204 test (Full suite) lolos.
+- **Keputusan Desain & Catatan Penting:**
+  - **Kondisi T+5 (Karyawan):** `now >= jamMulai + 5 menit` DAN `now < jamSelesai` DAN belum _check-in_.
+  - **Kondisi T+15 (Supervisor):** `now >= jamMulai + 15 menit` DAN `now < jamSelesai` DAN belum _check-in_. Dinotifikasikan ke SEMUA Supervisor yang memiliki wewenang pada Site tempat jadwal tersebut, di _de-duplicate_ berbasis `supervisorId` menggunakan `Set` demi efisiensi.
+  - **Kondisi Auto-mark:** `now >= jamSelesai` DAN belum memiliki _check-in_ valid. 
+  - **Proteksi _Race Condition_ Tingkat Tinggi:** Sama sekali tidak menggunakan `findUnique` untuk memeriksa status kehadiran sebelum operasi tulis. Operasi pencatatan `TIDAK_HADIR` dilakukan murni reaktif menggunakan `create` dengan proteksi `try-catch P2002` (jika _row_ baru), dan _conditional update_ `updateMany({ where: { waktuCheckIn: null } })` (jika _row_ lama). Ini 100% menghilangkan risiko menimpa data Karyawan yang _check-in_ sepersekian milidetik saat _cron_ sedang memproses data.
+  - **Technical Debt:** Risiko _concurrency antar-tick_ (jika _tick cron_ baru dieksekusi sebelum _tick_ sebelumnya usai) sengaja tidak ditangani melalui _mutex lock_ atau mekanisme serupanya sekarang. Hal ini disepakati untuk diterima di lingkup _MVP_.
