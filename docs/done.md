@@ -174,3 +174,11 @@
 
 - **Modul:** dokumentasi (AGENTS.md, TDD.md, done.md), tidak ada perubahan kode
 - **Perubahan:** Ekstraksi 5 aturan utama (bcrypt, timezone, conditional update, 403/404, exception handling reaktif Prisma P2002/P2025) ke AGENTS.md §7. Log historis yang redundan di `docs/done.md` Stage 1-18 dipress menjadi pointer. Riwayat gap dan perdebatan soft-delete di `TDD.md` dihapus/diringkas.
+
+## [Stage 20] Track C1 — Face Verification Microservice (Python + FastAPI + DeepFace)
+
+- **Selesai:** Endpoint `POST /internal/embed` (ekstraksi wajah & liveness).
+- **Catatan & Deviasi:**
+  - **Dependency:** Tambahan `tf-keras` (kompatibilitas Keras 3) dan `torch` (wajib untuk modul anti-spoofing FasNet).
+  - **Detector:** Beralih ke `mtcnn` (pengganti `opencv` yang crash akibat file XML *haarcascade* absen di build *headless*).
+  - **Latency:** Rata-rata ~30 detik murni di CPU (*mitigasi integrasi sudah dicatat di `AGENTS.md`*).

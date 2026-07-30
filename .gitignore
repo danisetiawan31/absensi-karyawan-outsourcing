@@ -54,3 +54,5 @@ logs/
 docs/hr/
 docs/karyawan/
 docs/supervisor/
+# Ignore CLAUDE folder
+CLAUDE/

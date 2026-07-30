@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+python-dotenv
+deepface
+opencv-python-headless
+pytest
+httpx
+tf-keras
+torch
+torchvision

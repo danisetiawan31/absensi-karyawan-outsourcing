@@ -68,6 +68,7 @@ Setelah 1 langkah kecil selesai, test (jika ada) lolos, DAN user sudah approve h
 - Untuk operasi yang mengubah STATUS dari satu nilai spesifik ke nilai lain (approve/reject/cancel/dsb) yang berpotensi race condition (lebih dari 1 aktor bisa memproses barengan) — WAJIB pakai `updateMany` dengan kondisi `where: { id, status: <statusSaatIniYangDiharapkan> }` (conditional update), BUKAN `findUnique` lalu `update` terpisah.
 - Prinsip pilih 404 vs 403 untuk resource yang scoped: kalau caller TIDAK punya alasan legitimate untuk tahu resource itu eksis sama sekali (mis. supervisor lain di luar cakupannya) → 404 generic, sembunyikan keberadaan data. Kalau caller punya alasan legitimate untuk tahu resource itu eksis tapi tetap tidak berhak memprosesnya (mis. HR_ADMIN yang melihat pengajuan izin bukan-orphaned) → 403 eksplisit dengan error code spesifik.
 - **Pola exception handling reaktif Prisma:** Untuk validasi unique constraint (duplikat) atau operasi write (update/delete) pada relasi yang mungkin tidak ada, WAJIB menggunakan pendekatan reaktif dengan menangkap error Prisma (`P2002` untuk duplikat, `P2025` untuk record tidak ditemukan) di dalam blok `try-catch`, BUKAN melakukan query preemptive (`findUnique`) sebelum operasi _write_. Ini menjamin efisiensi query dan mencegah celah _race condition_.
+- Panggilan ke face-service (/internal/embed) berpotensi lambat (~30 detik di CPU tanpa GPU) — endpoint pemanggil WAJIB set timeout HTTP yang sesuai (bukan default axios), dan UI pemanggil WAJIB tampilkan loading state eksplisit.
 
 ## 8. Larangan
 
