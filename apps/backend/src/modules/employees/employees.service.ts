@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { FindEmployeesQueryDto } from './dto/find-employees-query.dto';
-import { Prisma, Role } from '@prisma/client';
+import { Prisma, Role, StatusIzin } from '@prisma/client';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import * as bcrypt from 'bcrypt';
@@ -56,6 +56,59 @@ export class EmployeesService {
     });
 
     return users.map((u) => this.mapToResponse(u));
+  }
+
+  async findAvailableEmployees(
+    tanggal: string,
+    siteId: string,
+    user: { id: string; role: Role },
+  ) {
+    if (user.role === Role.SUPERVISOR) {
+      const isAssigned = await this.prisma.supervisorSite.findUnique({
+        where: {
+          supervisorId_siteId: {
+            supervisorId: user.id,
+            siteId,
+          },
+        },
+      });
+
+      if (!isAssigned) {
+        return [];
+      }
+    }
+
+    const startOfDay = new Date(`${tanggal}T00:00:00+07:00`);
+    const endOfDay = new Date(`${tanggal}T23:59:59+07:00`);
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        role: Role.KARYAWAN,
+        statusAktif: true,
+        jadwalShift: {
+          none: {
+            tanggal: {
+              gte: startOfDay,
+              lte: endOfDay,
+            },
+          },
+        },
+        pengajuanIzin: {
+          none: {
+            status: StatusIzin.APPROVED,
+            tanggalMulai: { lte: endOfDay },
+            tanggalSelesai: { gte: startOfDay },
+          },
+        },
+      },
+      select: {
+        id: true,
+        nama: true,
+      },
+      orderBy: { nama: 'asc' },
+    });
+
+    return users;
   }
 
   async create(createEmployeeDto: CreateEmployeeDto) {

@@ -484,4 +484,142 @@ describe('EmployeesController (e2e)', () => {
       expect(body.error.code).toBe('EMAIL_SUDAH_DIPAKAI');
     });
   });
+
+  describe('GET /employees/available', () => {
+    const testAvailSiteId = '123e4567-e89b-12d3-a456-426614174000';
+    let supervisor: User;
+
+    beforeAll(async () => {
+      supervisor = await prisma.user.create({
+        data: {
+          id: 'test-avail-sup',
+          email: 'sup-avail@emp-test.com',
+          passwordHash: 'dummy',
+          nama: 'Sup Available',
+          role: Role.SUPERVISOR,
+          statusAktif: true,
+          faceEmbedding: [],
+        },
+      });
+
+      await prisma.site.create({
+        data: {
+          id: testAvailSiteId,
+          nama: 'Avail Site',
+          alamat: 'Alamat',
+          latitude: 0,
+          longitude: 0,
+        },
+      });
+
+      await prisma.supervisorSite.create({
+        data: { supervisorId: supervisor.id, siteId: testAvailSiteId },
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.supervisorSite.deleteMany({
+        where: { siteId: testAvailSiteId },
+      });
+      await prisma.site.deleteMany({ where: { id: testAvailSiteId } });
+      await prisma.user.deleteMany({ where: { id: 'test-avail-sup' } });
+    });
+
+    it('should throw 401 if no token provided', async () => {
+      const res = await request(app.getHttpServer() as Server).get(
+        `/employees/available?tanggal=2026-08-01&siteId=${testAvailSiteId}`,
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it('should throw 403 if requested by KARYAWAN', async () => {
+      const token = jwtService.sign({
+        userId: karyawan1.id,
+        role: Role.KARYAWAN,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .get(
+          `/employees/available?tanggal=2026-08-01&siteId=${testAvailSiteId}`,
+        )
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(403);
+      const body = res.body as ErrorEnvelope;
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('AKSES_DITOLAK');
+    });
+
+    it('should throw 400 if tanggal format is invalid', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .get(
+          `/employees/available?tanggal=2026-08-01T00:00:00Z&siteId=${testAvailSiteId}`,
+        )
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(400);
+      const body = res.body as ErrorEnvelope;
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('VALIDATION_ERROR');
+
+      const details = body.error.details as Array<{ field: string }>;
+      const fields = details?.map((d) => d.field);
+      expect(fields).toContain('tanggal');
+    });
+
+    it('should throw 400 if siteId is not UUID', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .get('/employees/available?tanggal=2026-08-01&siteId=not-a-uuid')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(400);
+      const body = res.body as ErrorEnvelope;
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('VALIDATION_ERROR');
+
+      const details = body.error.details as Array<{ field: string }>;
+      const fields = details?.map((d) => d.field);
+      expect(fields).toContain('siteId');
+    });
+
+    it('should return 200 with raw data array for SUPERVISOR', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .get(
+          `/employees/available?tanggal=2026-08-01&siteId=${testAvailSiteId}`,
+        )
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+
+      const body = res.body as SuccessEnvelope<
+        Array<{ id: string; nama: string }>
+      >;
+      expect(body.success).toBe(true);
+
+      // Verify raw data returned by service is not double wrapped
+      expect(Array.isArray(body.data)).toBe(true);
+
+      // karyawan1 should be available since they have no shift/leave on 2026-08-01
+      const ids = body.data.map((emp) => emp.id);
+      expect(ids).toContain(karyawan1.id);
+
+      // Non-active should not be available
+      expect(ids).not.toContain(karyawan2.id);
+    });
+  });
 });

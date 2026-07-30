@@ -49,7 +49,7 @@
 
 | #   | Task                                                              | Kenapa urutan segini                                                                                                                               | Status  |
 | --- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| F1  | `GET /employees/available?tanggal=&siteId=`                       | Cuma butuh `JadwalShift` (A5, `DONE`) — nyari karyawan yang BELUM ada jadwal di tanggal itu. Gak nyentuh data kehadiran sama sekali.               | `READY` |
+| F1  | `GET /employees/available?tanggal=&siteId=`                       | Cuma butuh `JadwalShift` (A5, `DONE`) — nyari karyawan yang BELUM ada jadwal di tanggal itu. Gak nyentuh data kehadiran sama sekali.               | `DONE`  |
 | F2  | `GET /employees/:id/schedules?tanggalMulai=&tanggalSelesai=` (HR) | Cuma butuh `JadwalShift` (A5, `DONE`) — ini eks-Gap 3 lama, kontraknya udah resmi, tinggal dieksekusi.                                             | `READY` |
 | F3  | `GET /schedules/today` (Karyawan)                                 | Bagian jadwalnya siap (A5), tapi field `statusKehadiran` butuh `LogKehadiran` buat akurat — depend ke C3 biar gak selalu nampilin `BELUM_CHECKIN`. | `READY` |
 | F4  | `GET /dashboard/attendance?tanggal=`                              | Butuh `SupervisorSite` (A4, `DONE`) buat scoping, DAN `LogKehadiran` buat status real-time — depend ke C3.                                         | `READY` |

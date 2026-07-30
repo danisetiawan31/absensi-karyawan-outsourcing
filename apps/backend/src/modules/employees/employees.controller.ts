@@ -7,9 +7,11 @@ import {
   Post,
   Query,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 import { EmployeesService } from './employees.service';
 import { FindEmployeesQueryDto } from './dto/find-employees-query.dto';
+import { FindAvailableEmployeesQueryDto } from './dto/find-available-employees-query.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -21,6 +23,19 @@ import { Role } from '@prisma/client';
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class EmployeesController {
   constructor(private readonly employeesService: EmployeesService) {}
+
+  @Get('available')
+  @Roles(Role.SUPERVISOR, Role.HR_ADMIN)
+  async findAvailable(
+    @Query() query: FindAvailableEmployeesQueryDto,
+    @Request() req: { user: { userId: string; role: Role } },
+  ) {
+    return this.employeesService.findAvailableEmployees(
+      query.tanggal,
+      query.siteId,
+      { id: req.user.userId, role: req.user.role },
+    );
+  }
 
   @Get()
   @Roles(Role.HR_ADMIN)

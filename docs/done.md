@@ -211,7 +211,7 @@
 - **Keputusan Desain & Catatan Penting:**
   - **Kondisi T+5 (Karyawan):** `now >= jamMulai + 5 menit` DAN `now < jamSelesai` DAN belum _check-in_.
   - **Kondisi T+15 (Supervisor):** `now >= jamMulai + 15 menit` DAN `now < jamSelesai` DAN belum _check-in_. Dinotifikasikan ke SEMUA Supervisor yang memiliki wewenang pada Site tempat jadwal tersebut, di _de-duplicate_ berbasis `supervisorId` menggunakan `Set` demi efisiensi.
-  - **Kondisi Auto-mark:** `now >= jamSelesai` DAN belum memiliki _check-in_ valid. 
+  - **Kondisi Auto-mark:** `now >= jamSelesai` DAN belum memiliki _check-in_ valid.
   - **Proteksi _Race Condition_ Tingkat Tinggi:** Sama sekali tidak menggunakan `findUnique` untuk memeriksa status kehadiran sebelum operasi tulis. Operasi pencatatan `TIDAK_HADIR` dilakukan murni reaktif menggunakan `create` dengan proteksi `try-catch P2002` (jika _row_ baru), dan _conditional update_ `updateMany({ where: { waktuCheckIn: null } })` (jika _row_ lama). Ini 100% menghilangkan risiko menimpa data Karyawan yang _check-in_ sepersekian milidetik saat _cron_ sedang memproses data.
   - **Technical Debt:** Risiko _concurrency antar-tick_ (jika _tick cron_ baru dieksekusi sebelum _tick_ sebelumnya usai) sengaja tidak ditangani melalui _mutex lock_ atau mekanisme serupanya sekarang. Hal ini disepakati untuk diterima di lingkup _MVP_.
 
@@ -225,3 +225,14 @@
   - **Eksklusivitas Payload:** Response payload `GET /notifications` dengan sadar membatasi pengembalian _fields_ pada 5 buah _key_ (`id`, `tipe`, `pesan`, `dibaca`, `createdAt`). Properti `userId` maupun `jadwalId` secara aman dihilangkan untuk tidak memaparkan abstraksi ID ke tampilan depan (UI), sesuai instruksi `API-Contract.md`.
   - **Idempotensi & Reactive Scoping pada PATCH:** `PATCH` untuk menandai _read_ berjalan dengan Idempotensi (_dipanggil 2x tetap sukses_), memanfaatkan pendekatan query reaktif `updateMany` secara simultan dengan kondisi `id` _AND_ `userId`. Ketiadaan row memicu penolakan 404 (baik untuk salah ID mapun hak akses ID milik user lain) sehingga _client_ tak bisa membedakan mana _row_ tidak ada vs _row_ milik user lain (prinsip keamanan Data Hiding).
   - **Perbaikan Type-Safety (Zero 'Any'):** Masalah dependensi import _type_ asertif `ErrorEnvelope` yang salah `import` (_salah direktori_) serta salah memanggil variabel pada unit _test_ telah diidentifikasi dan ditangani mandiri sehingga tidak menimbulkan peringatan _linter unsafe assignment_ secara jangka panjang.
+
+## [Stage 25] Track F1 — GET /employees/available
+
+- **Selesai:** Endpoint `GET /employees/available` (filter ketersediaan karyawan berdasar shift & izin).
+- **File:** `modules/employees/*` (controller, service, DTO, spec e2e).
+- **Verifikasi:** 221/221 test (Full suite) lolos.
+- **Catatan Penting:**
+  - **Validasi Tanggal Strict:** Pakai `@Matches` regex (YYYY-MM-DD) menolak malformed ISO, cegah invalid `new Date()`.
+  - **No Double-Wrap:** Controller direturn _raw array_, di-assert eksplisit di test agar bebas dari bug _double-wrap_.
+  - **Type-Safety & Cleanup:** Param role dikunci ke Enum `Role` Prisma. Test diisolasi UUID marker, menjamin `deleteMany` aman 100% (Stage 15 compliance).
+  - **Silent Scoping:** SUPERVISOR yang salah query `siteId` di luar aksesnya langsung dibalas `[]` (sembunyikan data tanpa error 403/404).
