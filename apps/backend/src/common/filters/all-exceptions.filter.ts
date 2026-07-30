@@ -33,7 +33,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
       if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
         const resObj = exceptionResponse as HttpExceptionResponseBody;
-        let rawCode = resObj.code || resObj.error || HttpStatus[status] || 'ERROR';
+        let rawCode =
+          resObj.code || resObj.error || HttpStatus[status] || 'ERROR';
         if (rawCode.includes(' ') || rawCode !== rawCode.toUpperCase()) {
           rawCode = rawCode.toUpperCase().replace(/\s+/g, '_');
         }

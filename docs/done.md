@@ -192,3 +192,14 @@
   - **Integrasi Service:** Memanggil `POST /internal/embed` menggunakan Axios dan sukses di-*mock* menggunakan `jest.spyOn()` pada e2e tests sehingga tidak membebani performa CI/CD.
   - **Exception Flattening:** Bug struktur *exception nested* di `FaceVerificationService` yang menyebabkan format *error* tidak terprediksi kini telah diperbaiki agar *flat* sesuai dengan ekspektasi filter.
   - **Global Exception Filter:** Ditemukan _bug_ pada fallback pesan error HTTP bawaan (seperti `Payload Too Large` dan `Unauthorized`). Telah diatasi di `AllExceptionsFilter` dengan melakukan konversi format teks menggunakan enum `HttpStatus` sehingga secara global _error framework_ kini langsung di-cast ke _SNAKE_CASE_ (contoh: `PAYLOAD_TOO_LARGE`).
+
+## [Stage 22] Track C3 — POST /attendance/check-in & POST /attendance/check-out
+
+- **Selesai:** Endpoint check-in & check-out (verifikasi GPS + wajah + liveness), reuse `FaceVerificationService` (C2) & utilitas Haversine/cosine similarity (dibuat di tahap ini).
+- **File dibuat/diubah:** `modules/attendance/*` (DTO, controller, service, spec e2e), `common/utils/geo.util.ts`, `common/utils/vector.util.ts`, `.env.example` (`FACE_MATCH_DISTANCE_THRESHOLD`), `app.module.ts`.
+- **Verifikasi:** 184/184 test (Full suite) lolos.
+- **Keputusan Desain & Catatan Penting:**
+  - **Pemisahan Pipeline vs Precondition:** Hasil _pipeline_ verifikasi (`DI_LUAR_JENDELA_WAKTU`, `GAGAL_LOKASI`, `GAGAL_LIVENESS`, `GAGAL_WAJAH`) direspons sebagai data absensi normal (`success: true`, HTTP 200). Ini secara tegas dibedakan dari _precondition error_ (`JADWAL_TIDAK_DITEMUKAN 404`, `WAJAH_BELUM_TERDAFTAR 400`, `BELUM_CHECKIN 400`, `SUDAH_CHECKIN/SUDAH_CHECKOUT 409`, `FACE_SERVICE_UNAVAILABLE 503`) yang tetap melempar `HttpException` standar. Tabel `PercobaanAbsensi` HANYA dicatat untuk hasil _pipeline_, bukan saat _precondition error_ terjadi.
+  - **Race Conditions:** *Check-in* menggunakan *create* murni + *catch* `P2002` untuk *race condition*. *Check-out* menggunakan *conditional* `updateMany({ where: { waktuCheckOut: null } })` — perbedaan pendekatan transaksi terjadi karena *check-in* membuat *row* baru sedangkan *check-out* mengubah *row* _existing_.
+  - **Threshold Wajah:** `FACE_MATCH_DISTANCE_THRESHOLD=0.40` menggunakan pendekatan *cosine DISTANCE* (bukan *similarity* absolut, sehingga makin kecil makin cocok) sebagai nilai *default* kalkulasi dari *DeepFace* model *Facenet*. Bersifat *configurable* melalui `env` karena tetap butuh _tuning empiris_ pada tingkat operasional (mirip konfigurasi `LIVENESS_CONFIDENCE_THRESHOLD`).
+  - **Validasi Koordinat Dini:** Penggunaan eksklusif `@IsLatitude()` dan `@IsLongitude()` pada DTO untuk *blocking* format *invalid* lebih awal dan akurat ketimbang sekadar melempar angka _out-of-bounds_ ke dalam _kalkulasi Haversine_ buta.

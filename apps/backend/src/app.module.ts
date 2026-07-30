@@ -9,6 +9,7 @@ import { SupervisorSitesModule } from './modules/supervisor-sites/supervisor-sit
 import { SchedulesModule } from './modules/schedules/schedules.module';
 import { LeaveRequestsModule } from './modules/leave-requests/leave-requests.module';
 import { FaceVerificationModule } from './modules/face-verification/face-verification.module';
+import { AttendanceModule } from './modules/attendance/attendance.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { FaceVerificationModule } from './modules/face-verification/face-verific
     SchedulesModule,
     LeaveRequestsModule,
     FaceVerificationModule,
+    AttendanceModule,
   ],
   controllers: [AppController],
   providers: [AppService],
