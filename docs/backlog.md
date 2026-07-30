@@ -11,29 +11,15 @@
 
 ---
 
-## Track A — Site & Struktur Organisasi (sequential)
+## Track A — Site & Struktur Organisasi
 
-Kenapa jadi track prioritas #1: `Site`, `Employees`, `SupervisorSite`, `JadwalShift` adalah prasyarat FK
-buat hampir semua endpoint lain di app ini (schedules butuh siteId+karyawanId valid, dashboard
-butuh SupervisorSite terisi, check-in butuh JadwalShift ada). Urutan internal track ini sequential
-karena tiap step butuh data dari step sebelumnya buat bisa ditest manual secara realistis.
-
-| #   | Task                                                                                                  | Kenapa urutan segini                                                                                                                                     | Status |
-| --- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| A0  | Migration: tambah `Site.statusAktif` ke schema                                                        | Prasyarat `PATCH /sites/:id` (nonaktifkan site)                                                                                                          | `DONE` |
-| A1  | `POST /sites`, `GET /sites`, `PATCH /sites/:id`                                                       | Depend ke A0. Gak depend ke apapun lain — bisa duluan                                                                                                    | `DONE` |
-| A2  | `GET /employees`, `PATCH /employees/:id`                                                              | Gak butuh field password, jadi gak kena Gap 2. Independen dari A1 tapi digabung 1 domain (Employees) buat efisiensi konteks                              | `DONE` |
-| A3  | `POST /employees`                                                                                     | Migration `wajibGantiPassword` sudah selesai. Field password sekarang jelas: sistem generate, ditampilkan sekali di response, tidak diterima dari client | `DONE` |
-| A4  | `POST /supervisor-sites`, `GET /supervisor-sites`, `DELETE /supervisor-sites/:id`                     | Butuh existing user (supervisor) & site — testing manual bisa pakai 3 akun dummy dari `seed.ts`, gak harus nunggu A3 selesai                             | `DONE` |
-| A5  | `POST /schedules`, `GET /schedules?siteId=&tanggal=`, `PATCH /schedules/:id`, `DELETE /schedules/:id` | Butuh Site (A1), karyawan (seed cukup, gak wajib A3), dan SupervisorSite (A4) buat scoping `GET /schedules` yang valid                                   | `DONE` |
+**Status: SELESAI (A0-A5).** Detail lengkap tiap tahap ada di `done.md` Stage 5, 7, 8, 9, 10.
 
 ---
 
 ## Track B — Auth Lanjutan (independen dari Track A)
 
-| #   | Task                                                                         | Kenapa urutan                                                                                                                                                                                         | Status  |
-| --- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| B1  | `POST /auth/forgot-password`, `POST /auth/reset-password` (integrasi Resend) | Dependency eksternal baru (API key Resend) — perlu di-flag ke Antigravity kalau mau nambah package. Gak ada endpoint lain yang depend ke ini, jadi fleksibel dikerjakan kapan saja relatif ke Track A | `DONE` |
+**Status: SELESAI (B1).** Detail lengkap ada di `done.md` Stage 17 dan 18.
 
 ---
 
@@ -52,12 +38,9 @@ gak nyentuh Postgres/JadwalShift/Site sama sekali — beda dari endpoint NestJS 
 
 ## Track D — Pengajuan Izin (Leave Requests)
 
-| #   | Task                                                                              | Kenapa urutan seginis                                                                                                                                                                                                                                                                       | Status                |
-| --- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------- |
-| D1  | `POST /leave-requests`, `GET /leave-requests` (Karyawan — milik sendiri)          | Cuma butuh `User` (sudah ada). Independen total, gak nunggu apapun.                                                                                                                                                                                                                        | `DONE`                |
-| D2  | `PATCH /leave-requests/:id/cancel`                                                | Butuh data `PengajuanIzin` buat ditest realistis — perlu D1 selesai duluan biar ada row `PENDING` yang bisa dibatalin.                                                                                                                                                                     | `DONE`                |
-| D3  | `GET /leave-requests?status=PENDING`, `PATCH /leave-requests/:id/approve\|reject` | Butuh D1 (data izin harus ada). **Perlu sesi discovery dulu sebelum eksekusi**: karyawan gak punya kolom site statis (`TDD.md` §3 poin 2) — scoping approval ke Supervisor kemungkinan besar butuh cross-reference ke `JadwalShift` di rentang tanggal izin, belum dibahas gimana caranya. | `DONE`                |
-| D4  | `GET /leave-requests/history` (HR)                                                | Butuh D1 (data harus ada buat ditampilin). Gak perlu nunggu D2/D3 — ini view read-only, hasilnya tetap valid meski belum ada yang di-cancel/approve/reject.                                                                                                                                | `DONE`                |
+**Status: SELESAI (D1-D4 + fallback HR_ADMIN).** Detail lengkap ada di `done.md` Stage 11-16.
+
+**Known limitation yang masih berlaku** (belum ada resolusi, cuma partial teratasi oleh fallback HR): karyawan yang belum punya `JadwalShift` sama sekali di rentang tanggal izinnya tetap butuh HR sadar & proses manual — belum ada notifikasi otomatis ke HR soal pengajuan orphaned ini.
 
 ---
 
