@@ -53,6 +53,4 @@
 
 ## Track G — Aksi Manual HR (independen penuh)
 
-| #   | Task                                          | Kenapa urutan segini                                                                                                                         | Status  |
-| --- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| G1  | `POST /employees/:id/reset-face-registration` | Cuma nge-reset `faceEmbedding` jadi array kosong — TIDAK manggil Python microservice sama sekali, jadi TIDAK depend ke C1 (beda dari C2/C3). | `READY` |
+**Status: SELESAI (G1).** Detail lengkap ada di `done.md` Stage 32.

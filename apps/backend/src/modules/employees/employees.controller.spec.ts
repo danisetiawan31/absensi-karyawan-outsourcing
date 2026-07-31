@@ -18,6 +18,7 @@ import {
   SuccessEnvelope,
   ErrorEnvelope,
 } from '../../common/types/api-envelope.type';
+import { randomUUID } from 'crypto';
 
 interface EmployeeResponse {
   id: string;
@@ -74,6 +75,11 @@ describe('EmployeesController (e2e)', () => {
 
     prisma = app.get<PrismaService>(PrismaService);
     jwtService = app.get<JwtService>(JwtService);
+
+    // Clean up any stale test users
+    await prisma.user.deleteMany({
+      where: { id: { in: ['test-hr-id', 'test-emp1-id', 'test-emp2-id'] } },
+    });
 
     // Create dummy users
     hrAdmin = await prisma.user.create({
@@ -810,6 +816,141 @@ describe('EmployeesController (e2e)', () => {
       expect(body.success).toBe(true);
       expect(Array.isArray(body.data)).toBe(true);
       expect(body.data.length).toBe(0);
+    });
+  });
+
+  describe('POST /employees/:id/reset-face-registration', () => {
+    let hrUser: User;
+    let supervisorUser: User;
+    let karyawanUser: User;
+    let targetUser: User;
+    let hrToken: string;
+    let supervisorToken: string;
+    let karyawanToken: string;
+
+    beforeAll(async () => {
+      hrUser = await prisma.user.create({
+        data: {
+          email: `hr-reset-${randomUUID()}@test.com`,
+          passwordHash: 'dummy',
+          nama: 'HR Reset Test',
+          role: Role.HR_ADMIN,
+          statusAktif: true,
+        },
+      });
+
+      supervisorUser = await prisma.user.create({
+        data: {
+          email: `sup-reset-${randomUUID()}@test.com`,
+          passwordHash: 'dummy',
+          nama: 'Supervisor Reset Test',
+          role: Role.SUPERVISOR,
+          statusAktif: true,
+        },
+      });
+
+      karyawanUser = await prisma.user.create({
+        data: {
+          email: `karyawan-reset-${randomUUID()}@test.com`,
+          passwordHash: 'dummy',
+          nama: 'Karyawan Reset Test',
+          role: Role.KARYAWAN,
+          statusAktif: true,
+        },
+      });
+
+      targetUser = await prisma.user.create({
+        data: {
+          email: `reset-face-ctrl-${randomUUID()}@test.com`,
+          passwordHash: 'dummy',
+          nama: 'Target Face Reset',
+          role: Role.KARYAWAN,
+          statusAktif: true,
+          faceEmbedding: [0.1, 0.2, 0.3],
+        },
+      });
+
+      hrToken = jwtService.sign({
+        userId: hrUser.id,
+        role: Role.HR_ADMIN,
+      });
+
+      supervisorToken = jwtService.sign({
+        userId: supervisorUser.id,
+        role: Role.SUPERVISOR,
+      });
+
+      karyawanToken = jwtService.sign({
+        userId: karyawanUser.id,
+        role: Role.KARYAWAN,
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.user.deleteMany({
+        where: {
+          id: {
+            in: [hrUser.id, supervisorUser.id, karyawanUser.id, targetUser.id],
+          },
+        },
+      });
+    });
+
+    it('should return 401 if request has no token', async () => {
+      const res = await request(app.getHttpServer() as Server).post(
+        `/employees/${targetUser.id}/reset-face-registration`,
+      );
+
+      expect(res.status).toBe(401);
+    });
+
+    it('should return 403 if caller role is SUPERVISOR', async () => {
+      const res = await request(app.getHttpServer() as Server)
+        .post(`/employees/${targetUser.id}/reset-face-registration`)
+        .set('Authorization', `Bearer ${supervisorToken}`);
+
+      expect(res.status).toBe(403);
+    });
+
+    it('should return 403 if caller role is KARYAWAN', async () => {
+      const res = await request(app.getHttpServer() as Server)
+        .post(`/employees/${targetUser.id}/reset-face-registration`)
+        .set('Authorization', `Bearer ${karyawanToken}`);
+
+      expect(res.status).toBe(403);
+    });
+
+    it('should return 400 if id parameter is not a valid UUID', async () => {
+      const res = await request(app.getHttpServer() as Server)
+        .post('/employees/not-a-uuid/reset-face-registration')
+        .set('Authorization', `Bearer ${hrToken}`);
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 404 if employee does not exist', async () => {
+      const nonExistentId = randomUUID();
+      const res = await request(app.getHttpServer() as Server)
+        .post(`/employees/${nonExistentId}/reset-face-registration`)
+        .set('Authorization', `Bearer ${hrToken}`);
+
+      expect(res.status).toBe(404);
+    });
+
+    it('should return 200 and reset faceEmbedding for HR_ADMIN', async () => {
+      const res = await request(app.getHttpServer() as Server)
+        .post(`/employees/${targetUser.id}/reset-face-registration`)
+        .set('Authorization', `Bearer ${hrToken}`);
+
+      expect(res.status).toBe(200);
+      const body = res.body as SuccessEnvelope<{ success: boolean }>;
+      expect(body.success).toBe(true);
+      expect(body.data).toEqual({ success: true });
+
+      const updatedUser = await prisma.user.findUnique({
+        where: { id: targetUser.id },
+      });
+      expect(updatedUser?.faceEmbedding).toEqual([]);
     });
   });
 });

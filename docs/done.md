@@ -254,7 +254,7 @@
 - **File:** `modules/schedules/*` (controller, service, spec e2e).
 - **Verifikasi:** Lolos lint, build, dan 42/42 test E2E di module schedules.
 - **Catatan Penting:**
-  - **Penanganan Shift Malam (H-1):** Endpoint secara akurat tidak hanya exact-match `tanggal` hari ini, melainkan juga menangkap shift yang jadwalnya dimulai kemarin (H-1) tetapi `jamSelesai`-nya jatuh di hari ini (Sesuai `TDD.md` §3 Poin 13). 
+  - **Penanganan Shift Malam (H-1):** Endpoint secara akurat tidak hanya exact-match `tanggal` hari ini, melainkan juga menangkap shift yang jadwalnya dimulai kemarin (H-1) tetapi `jamSelesai`-nya jatuh di hari ini (Sesuai `TDD.md` §3 Poin 13).
   - **Derivasi Status Kehadiran:** Status `BELUM_CHECKIN`, `SUDAH_CHECKIN`, atau `SELESAI` dikalkulasi _real-time_ berdasarkan data dari `LogKehadiran`.
   - **Sinergi Auto-Mark TIDAK_HADIR:** Integrasi dengan cron dipastikan konsisten. Cron mengset `waktuCheckIn: null`, yang secara otomatis terbaca sebagai `BELUM_CHECKIN` pada layer derivasi (karena faktanya memang tidak check-in).
   - **100% Type-Safe:** Resolusi linter `no-unsafe-assignment` dan `no-unsafe-member-access` dengan deklarasi _interface response shape_ secara eksplisit di file test (Zero `any` compliance).
@@ -287,7 +287,7 @@
 - **File Dibuat/Diubah:** `common/utils/shift-status.util.ts`, `modules/dashboard/dashboard.service.ts`, `modules/attendance/*` (controller, service, DTOs, specs).
 - **Verifikasi:** Full test suite lolos 291/291 test (21 test suites passed), serta 52/52 test di module attendance.
 - **Catatan Penting:**
-  - **Ekstraksi Logic Precedence Status:** Penentuan status shift diekstraksi ke `determineShiftStatus` di `common/utils/shift-status.util.ts` sebagai *single source of truth* untuk `getAttendanceDashboard` (F4) dan `getAttendanceSummary` (F6).
+  - **Ekstraksi Logic Precedence Status:** Penentuan status shift diekstraksi ke `determineShiftStatus` di `common/utils/shift-status.util.ts` sebagai _single source of truth_ untuk `getAttendanceDashboard` (F4) dan `getAttendanceSummary` (F6).
   - **Agregasi HR_ADMIN Tanpa Scoping:** `getAttendanceSummary` menghitung agregasi totalJadwal, totalHadir, totalTerlambat, totalTidakHadir, totalIzin, dan totalBelum per karyawan untuk seluruh site pada periode tertentu. Karyawan tanpa jadwal di-exclude.
   - **Listing Percobaan Absensi Kronologis:** `getAttendanceAttempts` menyajikan daftar riwayat `PercobaanAbsensi` per karyawan yang diurutkan secara `waktu` ascending.
 
@@ -302,3 +302,14 @@
   - **Reuse Data:** Method `generateAttendanceReport` mereuse `getAttendanceSummary` (F6) untuk mengambil data — tidak query ulang ke database secara terpisah.
   - **PDF Table Layout:** Menggunakan tabel berbasis koordinat X/Y tetap per kolom (`PdfColumnDef` interface), garis vektor PDFKit (`moveTo`/`lineTo`/`stroke`), dan auto page break dengan repeat header di setiap halaman baru.
   - **Track F (F1-F7) telah selesai sepenuhnya.**
+
+## [Stage 32] Track G1 — POST /employees/:id/reset-face-registration (Aksi Manual HR)
+
+- **Selesai:** Endpoint `POST /employees/:id/reset-face-registration` untuk role HR_ADMIN me-reset data wajah karyawan (`faceEmbedding` menjadi `[]`).
+- **File Dibuat/Diubah:** `modules/employees/employees.service.ts`, `modules/employees/employees.controller.ts`, `modules/employees/employees.service.spec.ts`, `modules/employees/employees.controller.spec.ts`.
+- **Verifikasi:** Full test suite lolos 309/309 test (23 test suites passed).
+- **Catatan Penting:**
+  - **Exception Handling Reaktif:** Operasi update dieksekusi secara reaktif menangkap `PrismaClientKnownRequestError` (`P2025`) untuk _record not found_, alih-alih menggunakan `findUnique` secara berurutan.
+  - **Isolasi Database Test:** Memperbaiki bug pada _cleanup fixture_ E2E test `employees.controller.spec.ts` dengan memastikan _test user_ unik (`randomUUID()`) dan dibuat/dihapus secara terisolasi per _describe block_ agar tidak memicu `Unique constraint failed` atau konflik dengan token JWT test lain.
+  - **Response Controller:** Route menggunakan dekorator `@HttpCode(HttpStatus.OK)` untuk mengembalikan HTTP 200 (karena secara default `@Post` merespon 201).
+  - **Track G (G1) telah selesai sepenuhnya.** Seluruh backlog MVP (Track A-G) selesai.

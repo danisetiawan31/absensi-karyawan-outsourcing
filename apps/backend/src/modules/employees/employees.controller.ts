@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -71,5 +73,12 @@ export class EmployeesController {
   @Roles(Role.HR_ADMIN)
   async create(@Body() createEmployeeDto: CreateEmployeeDto) {
     return this.employeesService.create(createEmployeeDto);
+  }
+
+  @Post(':id/reset-face-registration')
+  @HttpCode(HttpStatus.OK)
+  @Roles(Role.HR_ADMIN)
+  async resetFaceRegistration(@Param('id', ParseUUIDPipe) id: string) {
+    return this.employeesService.resetFaceRegistration(id);
   }
 }

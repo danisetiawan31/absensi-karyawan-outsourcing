@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { EmployeesService } from './employees.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AppModule } from '../../app.module';
@@ -373,6 +374,49 @@ describe('EmployeesService - findEmployeeSchedules', () => {
       service.findEmployeeSchedules(karyawanId, '2026-09-30', '2026-09-01'),
     ).rejects.toMatchObject({
       response: { code: 'RENTANG_TANGGAL_TIDAK_VALID' },
+    });
+  });
+
+  describe('resetFaceRegistration', () => {
+    let testUser: { id: string };
+
+    beforeAll(async () => {
+      testUser = await prisma.user.create({
+        data: {
+          email: `reset-face-${randomUUID()}@test.com`,
+          passwordHash: 'hashed',
+          nama: `Reset Face Test ${testTrackId}`,
+          role: Role.KARYAWAN,
+          faceEmbedding: [0.1, 0.2, 0.3],
+        },
+      });
+    });
+
+    it('should reset faceEmbedding to [] and return { success: true } for valid employee', async () => {
+      const result = await service.resetFaceRegistration(testUser.id);
+      expect(result).toEqual({ success: true });
+
+      const updatedUser = await prisma.user.findUnique({
+        where: { id: testUser.id },
+      });
+      expect(updatedUser?.faceEmbedding).toEqual([]);
+    });
+
+    it('should throw NotFoundException if employee does not exist', async () => {
+      const nonExistentId = randomUUID();
+      await expect(
+        service.resetFaceRegistration(nonExistentId),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should succeed idempotently if employee faceEmbedding is already []', async () => {
+      const result = await service.resetFaceRegistration(testUser.id);
+      expect(result).toEqual({ success: true });
+
+      const updatedUser = await prisma.user.findUnique({
+        where: { id: testUser.id },
+      });
+      expect(updatedUser?.faceEmbedding).toEqual([]);
     });
   });
 });

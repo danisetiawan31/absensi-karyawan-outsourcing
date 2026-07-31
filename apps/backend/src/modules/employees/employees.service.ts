@@ -268,6 +268,27 @@ export class EmployeesService {
     }
   }
 
+  async resetFaceRegistration(id: string): Promise<{ success: boolean }> {
+    try {
+      await this.prisma.user.update({
+        where: { id },
+        data: { faceEmbedding: [] },
+      });
+      return { success: true };
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException({
+          code: 'KARYAWAN_TIDAK_DITEMUKAN',
+          message: 'Karyawan tidak ditemukan',
+        });
+      }
+      throw error;
+    }
+  }
+
   private mapToResponse(user: EmployeeSelectData) {
     return {
       id: user.id,
