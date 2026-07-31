@@ -258,3 +258,14 @@
   - **Derivasi Status Kehadiran:** Status `BELUM_CHECKIN`, `SUDAH_CHECKIN`, atau `SELESAI` dikalkulasi _real-time_ berdasarkan data dari `LogKehadiran`.
   - **Sinergi Auto-Mark TIDAK_HADIR:** Integrasi dengan cron dipastikan konsisten. Cron mengset `waktuCheckIn: null`, yang secara otomatis terbaca sebagai `BELUM_CHECKIN` pada layer derivasi (karena faktanya memang tidak check-in).
   - **100% Type-Safe:** Resolusi linter `no-unsafe-assignment` dan `no-unsafe-member-access` dengan deklarasi _interface response shape_ secara eksplisit di file test (Zero `any` compliance).
+
+## [Stage 28] Track F4 — GET /dashboard/attendance?tanggal=
+
+- **Selesai:** Endpoint `GET /dashboard/attendance?tanggal=` untuk role SUPERVISOR melihat ringkasan status kehadiran karyawan di site yang diawasi pada tanggal tertentu.
+- **File Dibuat/Diubah:** `modules/dashboard/*` (controller, service, DTO, spec e2e, module), `app.module.ts`.
+- **Verifikasi:** Lolos lint, build, dan 14/14 test di module dashboard (8 service tests + 6 controller e2e tests).
+- **Catatan Penting:**
+  - **Overnight Shift (H-1):** Menyajikan shift malam dari H-1 yang jam selesainya jatuh pada tanggal query (konsisten dengan `findToday` menggunakan `date.util.ts`).
+  - **Strict Precedence Status:** Status ditentukan sesuai urutan prioritas: `TIDAK_HADIR` (cron) > `TERLAMBAT`/`HADIR` (tanpa grace period) > `IZIN` (PengajuanIzin Approved) > `BELUM`.
+  - **Silent Narrow Scoping:** Supervisor tanpa site sama sekali atau query di luar wewenang mengembalikan `[]`.
+  - **Strict Type-Safety:** Menggunakan union type `DashboardAttendanceStatus` dan interface `DashboardAttendanceItem` (Zero `any` compliance).

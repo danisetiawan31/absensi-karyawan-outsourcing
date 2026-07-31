@@ -12,6 +12,7 @@ import { FaceVerificationModule } from './modules/face-verification/face-verific
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AttendanceCronModule } from './modules/attendance-cron/attendance-cron.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
@@ -27,6 +28,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     AttendanceModule,
     NotificationsModule,
     AttendanceCronModule,
+    DashboardModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [AppController],
