@@ -21,6 +21,15 @@ Instruksi kerja untuk AI coding agent (Antigravity). Dibaca otomatis sebelum mel
 | Face processing | Python + DeepFace (microservice terpisah, stateless) |
 | Email           | Resend                                               |
 
+## Mobile — Tech Stack
+
+- Navigasi: Expo Router (file-based, route groups per role: (auth)/(karyawan)/(supervisor)/(hr-admin))
+- Data fetching/server-state: TanStack Query
+- Client state: Zustand (auth token, role, wajibGantiPassword, wajahTerdaftar)
+- Storage token: expo-secure-store (JANGAN AsyncStorage biasa — token gak boleh plaintext)
+- HTTP client: axios, 1 instance terpusat di services/, interceptor attach
+  Authorization Bearer + handle 401 (auto-logout + redirect ke (auth))
+
 ## 3. Prinsip Kerja — ATURAN PALING PENTING DI FILE INI
 
 1. **Selalu rencana dulu, baru eksekusi.** Sebelum menulis kode untuk task apapun, tulis dulu rencana implementasi berupa task list langkah-langkah kecil. Tunggu persetujuan eksplisit dari user sebelum mulai coding.
@@ -46,6 +55,18 @@ Instruksi kerja untuk AI coding agent (Antigravity). Dibaca otomatis sebelum mel
 - Kalau ada test gagal, boleh coba perbaiki maksimal **2x percobaan**.
 - Kalau masih gagal setelah 2x — STOP. Laporkan ke user: test mana yang gagal, pesan error, dugaan penyebab. Jangan lanjut ke langkah berikutnya, jangan update `done.md`.
 - Test scope default per-tahap cukup domain-scoped (npm run test -- src/modules/X). WAJIB jalanin FULL suite (npm run test, tanpa scope) kalau: (a) tahap itu mengubah file common/ atau apapun yang dipakai lintas-module (guard, interceptor, filter, strategy, main.ts); atau (b) sebelum 1 Track resmi ditutup (sebelum entry done.md gabungan ditulis).
+
+## Mobile — Testing
+
+- Unit/component test WAJIB untuk logic kritis: validasi form, gate
+  wajibGantiPassword/wajahTerdaftar, hasil verifikasi check-in/out —
+  pakai Jest + React Native Testing Library. Tidak wajib coverage
+  penuh tiap komponen kosmetik.
+- E2E test pakai Maestro, WAJIB untuk flow inti: login → wajib ganti
+  password → face registration → check-in/check-out. Flow CRUD role
+  Supervisor/HR_ADMIN tidak wajib E2E kecuali diminta eksplisit.
+- Kebijakan retry sama seperti backend (§5): gagal 2x percobaan
+  perbaikan → STOP, laporkan ke user, jangan update done.md.
 
 ## 6. Update done.md
 
@@ -78,6 +99,17 @@ Setelah 1 langkah kecil selesai, test (jika ada) lolos, DAN user sudah approve h
 - **Pola exception handling reaktif Prisma:** Untuk validasi unique constraint (duplikat) atau operasi write (update/delete) pada relasi yang mungkin tidak ada, WAJIB menggunakan pendekatan reaktif dengan menangkap error Prisma (`P2002` untuk duplikat, `P2025` untuk record tidak ditemukan) di dalam blok `try-catch`, BUKAN melakukan query preemptive (`findUnique`) sebelum operasi _write_. Ini menjamin efisiensi query dan mencegah celah _race condition_.
 - Panggilan ke face-service (/internal/embed) berpotensi lambat (~30 detik di CPU tanpa GPU) — endpoint pemanggil WAJIB set timeout HTTP yang sesuai (bukan default axios), dan UI pemanggil WAJIB tampilkan loading state eksplisit.
 
+## Mobile — Konvensi Folder
+
+- Root source code WAJIB di dalam `src/` (bukan langsung di root project) — `src/app/`, `src/components/`, `src/services/`, `src/store/`, `src/types/`, `src/hooks/`, `src/constants/`. Expo Router auto-detect `src/app` sebagai routing root, jadi ini tidak perlu config tambahan.
+- `src/app/` — routing root Expo Router, WAJIB dipecah per route group sesuai role: `(auth)/`, `(karyawan)/`, `(supervisor)/`, `(hr-admin)/`. Screen di luar 4 group ini (mis. langsung di root `app/`) TIDAK diperbolehkan kecuali file konfigurasi routing itu sendiri (`_layout.tsx`).
+- `src/screens/<role>/<NamaScreen>.tsx` — 1 file per screen, isi UI & logic screen. `src/app/` cuma berisi file routing (`_layout.tsx`, file route yang re-export dari `screens/`) — jangan taruh logic screen langsung di file route.
+- `src/components/` HANYA untuk komponen dipakai >1 screen (bukan tempat semua komponen)
+- `src/services/` — API client + fungsi per domain (`auth.service.ts`, dst)
+- `src/store/` — Zustand stores
+- `src/types/` — response type dari API-Contract.md (`SuccessEnvelope<T>`, `ErrorEnvelope`, dst)
+- Boilerplate bawaan template Expo (`explore.tsx`, `themed-text.tsx`, `themed-view.tsx`, `collapsible.tsx`, `animated-icon.tsx`, `hint-row.tsx`, `app-tabs.tsx`, `web-badge.tsx`, `external-link.tsx`, `use-color-scheme.ts`, dst) WAJIB dihapus atau diganti begitu fitur asli mulai dibangun di folder yang sama — jangan dibiarkan menumpuk berdampingan dengan kode asli, supaya tidak ambigu mana kode kerja mana demo.
+
 ## 8. Larangan
 
 - JANGAN generate kode untuk item berstatus "Fitur Lanjutan" di PRD kecuali diminta eksplisit
@@ -96,3 +128,20 @@ Setelah 1 langkah kecil selesai, test (jika ada) lolos, DAN user sudah approve h
   - Untuk file test (`*.spec.ts`), pantang menggunakan `res.body.data: any`. Selalu _cast_ respons menggunakan `SuccessEnvelope<T>` atau `ErrorEnvelope`.
   - Pengecualian pada linter `unbound-method` untuk pengujian (karena penggunaan mock pada `expect(method)`) kini sudah difasilitasi aman oleh konfigurasi global `eslint-plugin-jest`.
 - **GIT STATUS:** Setiap kali _user_ meminta untuk membuat/menyediakan pesan _commit_, Agent **WAJIB** menjalankan perintah `git status` terlebih dahulu untuk melihat kondisi git sebelum memberikan pesan _commit_-nya.
+
+## Mobile — Design Reference
+
+- `docs/DESIGN.md` adalah SATU-SATUNYA source of truth desain (token warna,
+  tipografi, spacing, radius). Kalau ada file DESIGN.md lain ditemukan di
+  folder lain, itu duplikat tidak sengaja — abaikan, JANGAN dipakai.
+- Token warna/tipografi/spacing di DESIGN.md WAJIB diikuti persis (bukan
+  cuma referensi longgar) — khusus warna semantik status (success/warning/
+  info/muted/destructive) WAJIB konsisten dipetakan ke enum HasilVerifikasi
+  yang sama persis di semua role, karena Karyawan/Supervisor/HR_ADMIN semua
+  melihat status yang sama dan harus konsisten secara visual.
+- File `code.html` per screen di docs/<role>/<nama_screen>/ HANYA starting
+  point layout/struktur (hasil auto-generate Stitch) — WAJIB diimprove,
+  BUKAN dipertahankan persis. Jangan copy-paste struktur HTML mentah jadi
+  JSX tanpa evaluasi ulang (spacing, hierarki, aksesibilitas mobile).
+- screen.png per screen TIDAK terbaca otomatis oleh Antigravity dari disk —
+  kalau butuh review visual, minta user upload manual ke sesi chat aktif.

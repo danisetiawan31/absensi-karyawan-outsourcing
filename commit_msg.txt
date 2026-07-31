@@ -1,0 +1,12 @@
+feat(mobile): implement mobile foundation (tahap 1-5)
+
+Implementasi fitur Mobile Foundation telah selesai sesuai spesifikasi `mobile-foundation.md`.
+
+Perubahan utama meliputi:
+- Scaffold `apps/mobile` menggunakan Expo Router dengan pemisahan rute berbasis grup role: `(auth)`, `(karyawan)`, `(supervisor)`, `(hr-admin)`.
+- Implementasi API Client Layer menggunakan Axios beserta interseptor untuk menangani `401 Unauthorized` secara global.
+- Pembuatan `AuthStore` dengan Zustand yang terintegrasi penuh dengan `expo-secure-store` untuk persistensi sesi login yang andal (menyimpan `AuthData` utuh sebagai JSON).
+- Penambahan Root Layout & Routing Guard per role yang secara otomatis menolak dan meredirect user ke halaman login apabila terjadi *cold start role mismatch* atau data *corrupt*.
+- Lolos 17/17 *unit test* untuk validasi penyimpanan token, penjagaan rute (routing guards), dan interseptor Axios (via `axios-mock-adapter`).
+- Memastikan *type-safety* ketat (Zero `any`) di seluruh `apps/mobile`.
+- Pembaruan dokumen `docs/done.md` (Stage 33) dan `AGENTS.md`.

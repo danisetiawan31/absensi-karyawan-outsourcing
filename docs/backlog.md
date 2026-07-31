@@ -54,3 +54,37 @@
 ## Track G — Aksi Manual HR (independen penuh)
 
 **Status: SELESAI (G1).** Detail lengkap ada di `done.md` Stage 32.
+
+## Track H — Mobile Foundation & Auth
+
+**Status: READY**
+
+- mobile-foundation (scaffold, axios+interceptor, Zustand auth store, routing guard per-role)
+- auth-mobile (login, wajib ganti password, forgot/reset password)
+
+## Track I — Karyawan: Gate & Home
+
+**Status: BLOCKED** (depends on Track H)
+
+- face-registration-mobile
+- karyawan-home-jadwal
+
+## Track J — Karyawan: Attendance & Leave
+
+**Status: BLOCKED** (depends on Track I)
+
+- attendance-mobile
+- leave-requests-karyawan
+- notifikasi-mobile (karyawan)
+
+## Track K — Supervisor
+
+**Status: BLOCKED** (depends on Track H)
+
+- supervisor-dashboard
+- supervisor-jadwal-izin
+- notifikasi-mobile (supervisor)
+
+## Track L — HR Admin
+
+**Status: PENDING_DECISION** (jumlah spec)

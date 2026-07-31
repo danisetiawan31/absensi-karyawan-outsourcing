@@ -313,3 +313,14 @@
   - **Isolasi Database Test:** Memperbaiki bug pada _cleanup fixture_ E2E test `employees.controller.spec.ts` dengan memastikan _test user_ unik (`randomUUID()`) dan dibuat/dihapus secara terisolasi per _describe block_ agar tidak memicu `Unique constraint failed` atau konflik dengan token JWT test lain.
   - **Response Controller:** Route menggunakan dekorator `@HttpCode(HttpStatus.OK)` untuk mengembalikan HTTP 200 (karena secara default `@Post` merespon 201).
   - **Track G (G1) telah selesai sepenuhnya.** Seluruh backlog MVP (Track A-G) selesai.
+
+## [Stage 33] Mobile Foundation (Seluruh Tahap 1-5)
+
+- **Selesai:** Tahap 1 (Scaffold & structure), Tahap 2 (API Client Layer & Types), Tahap 3 (AuthStore & SecureStore), Tahap 4 (Routing Guards), dan Tahap 5 (Unit Tests).
+- **File Dibuat/Diubah:** `src/app/*`, `src/screens/*`, `src/types/api.ts`, `src/services/apiClient.ts`, `src/store/authStore.ts`, dan tes di `src/**/__tests__/*`.
+- **Verifikasi:** 17/17 test lolos (store, routing guards, interceptors), build TypeScript bersih (Zero `any`).
+- **Catatan Penting:**
+  - **Auth Hydration (Fix):** Seluruh `AuthData` (termasuk `role`) disimpan sebagai JSON di `expo-secure-store`. Pada *cold start*, aplikasi me-restore state secara utuh tanpa hit API, sehingga *routing guard* bisa segera mengarahkan ke dashboard yang tepat dan menghindari bug *zombie token*.
+  - **Interceptor Axios:** Menginjeksi token otomatis dan merespons 401 dengan menghapus sesi (`clearAuth`) lalu me-redirect ke login.
+  - **Routing Guard:** Proteksi berbasis role berjalan murni via Expo Router Strict Typed Routes. Unit test dilakukan pada level *pure logic* menggunakan _mock_ `expo-router` (workaround kompatibilitas `react-test-renderer` v19).
+  - Seluruh tahapan **Mobile Foundation** telah tuntas sesuai `mobile-foundation.md`.
