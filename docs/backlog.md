@@ -33,7 +33,7 @@
 
 **Status: SELESAI (D1-D4 + fallback HR_ADMIN).** Detail lengkap ada di `done.md` Stage 11-16.
 
-**Known limitation yang masih berlaku** (belum ada resolusi, cuma partial teratasi oleh fallback HR): karyawan yang belum punya `JadwalShift` sama sekali di rentang tanggal izinnya tetap butuh HR sadar & proses manual — belum ada notifikasi otomatis ke HR soal pengajuan orphaned ini.
+**Known limitation yang sudah diselesaikan:** Notifikasi otomatis ke HR_ADMIN untuk pengajuan izin orphaned sudah diimplementasikan, sehingga permasalahan HR yang harus sadar dan memproses manual sudah teratasi.
 
 ---
 

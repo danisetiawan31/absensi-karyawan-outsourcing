@@ -51,8 +51,9 @@ enum TipeAbsensi {
 
 enum TipeNotifikasi {
   PERUBAHAN_JADWAL
-  REMINDER_CHECKIN   // T+5 menit, ke karyawan
-  ALERT_SUPERVISOR   // T+15 menit, eskalasi ke supervisor
+  REMINDER_CHECKIN          // T+5 menit, ke karyawan
+  ALERT_SUPERVISOR          // T+15 menit, eskalasi ke supervisor
+  PENGAJUAN_IZIN_ORPHANED   // ke HR_ADMIN, pengajuan izin tanpa JadwalShift di rentang tanggalnya
 }
 
 // ------------------------------------------------------------

@@ -3,24 +3,28 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateLeaveRequestDto } from './dto/create-leave-request.dto';
 import { ProcessLeaveRequestDto } from './dto/process-leave-request.dto';
 import { FindLeaveRequestsHistoryQueryDto } from './dto/find-leave-requests-history-query.dto';
-import { Prisma, Role } from '@prisma/client';
+import { Prisma, Role, TipeNotifikasi } from '@prisma/client';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import 'multer';
 import {
+  formatJakartaDate,
   getJakartaSingleDayRange,
   getJakartaStartOfDay,
 } from '../../common/utils/date.util';
 
 @Injectable()
 export class LeaveRequestsService {
+  private readonly logger = new Logger(LeaveRequestsService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async create(
@@ -104,10 +108,73 @@ export class LeaveRequestsService {
       },
     });
 
+    // Deteksi & notifikasi orphaned secara async — TIDAK menggagalkan response sukses
+    try {
+      await this.notifyOrphanedLeaveRequest(userId, mulai, selesai);
+    } catch (err: unknown) {
+      this.logger.error(
+        'Gagal membuat notifikasi orphaned leave request',
+        err instanceof Error ? err.stack : String(err),
+      );
+    }
+
     return {
       id: created.id,
       status: created.status,
     };
+  }
+
+  /**
+   * Cek apakah karyawan ini tidak punya JadwalShift APAPUN yang overlap
+   * dengan rentang izin — bila orphaned, broadcast notifikasi ke semua HR_ADMIN aktif.
+   */
+  private async notifyOrphanedLeaveRequest(
+    karyawanId: string,
+    mulai: Date,
+    selesai: Date,
+  ): Promise<void> {
+    const orphaned = await this.isOrphaned(karyawanId, mulai, selesai);
+
+    if (!orphaned) {
+      // Ada jadwal yang overlap (atau tidak orphaned) — skip
+      return;
+    }
+
+    // Ambil semua HR_ADMIN yang aktif
+    const hrAdmins = await this.prisma.user.findMany({
+      where: { role: Role.HR_ADMIN, statusAktif: true },
+      select: { id: true },
+    });
+
+    if (hrAdmins.length === 0) {
+      // Tidak ada HR_ADMIN aktif — skip diam-diam
+      return;
+    }
+
+    // Ambil nama karyawan untuk pesan notifikasi
+    const karyawan = await this.prisma.user.findUnique({
+      where: { id: karyawanId },
+      select: { nama: true },
+    });
+
+    const namaKaryawan = karyawan?.nama ?? karyawanId;
+    const tanggalMulaiFormatted = formatJakartaDate(mulai);
+    const tanggalSelesaiFormatted = formatJakartaDate(selesai);
+    const pesan =
+      `Pengajuan izin ${namaKaryawan} ` +
+      `(${tanggalMulaiFormatted} s/d ${tanggalSelesaiFormatted}) ` +
+      `tidak terhubung ke jadwal manapun — perlu review manual.`;
+
+    await this.prisma.notifikasi.createMany({
+      data: hrAdmins.map((hr) => ({
+        userId: hr.id,
+        jadwalId: null,
+        tipe: TipeNotifikasi.PENGAJUAN_IZIN_ORPHANED,
+        pesan,
+        dibaca: false,
+      })),
+      skipDuplicates: true,
+    });
   }
 
   async findAll(userId: string) {

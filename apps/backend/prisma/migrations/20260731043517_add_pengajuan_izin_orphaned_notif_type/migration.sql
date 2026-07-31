@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "TipeNotifikasi" ADD VALUE 'PENGAJUAN_IZIN_ORPHANED';

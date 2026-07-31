@@ -18,6 +18,7 @@ import {
 } from '../../common/types/api-envelope.type';
 import { RequestIdMiddleware } from '../../common/middlewares/request-id.middleware';
 import * as fs from 'fs';
+import { randomUUID } from 'crypto';
 
 describe('LeaveRequestsController (e2e)', () => {
   let app: INestApplication;
@@ -102,6 +103,13 @@ describe('LeaveRequestsController (e2e)', () => {
 
   afterAll(async () => {
     // Clean up
+    await prisma.notifikasi.deleteMany({
+      where: {
+        userId: {
+          in: [hrAdmin.id, supervisor.id, karyawan.id, 'user-another'],
+        },
+      },
+    });
     await prisma.pengajuanIzin.deleteMany({
       where: { karyawanId: karyawan.id },
     });
@@ -118,6 +126,13 @@ describe('LeaveRequestsController (e2e)', () => {
   });
 
   afterEach(async () => {
+    await prisma.notifikasi.deleteMany({
+      where: {
+        userId: {
+          in: [hrAdmin.id, supervisor.id, karyawan.id, 'user-another'],
+        },
+      },
+    });
     await prisma.pengajuanIzin.deleteMany({
       where: { karyawanId: { in: [karyawan.id, 'user-another'] } },
     });
@@ -379,101 +394,113 @@ describe('LeaveRequestsController (e2e)', () => {
     });
 
     it("should return only the user's leave requests ordered by createdAt DESC", async () => {
-      // Create another karyawan
+      // Create another karyawan with unique ID and email
       const anotherKaryawan = await prisma.user.create({
         data: {
-          id: 'user-another',
+          id: `user-another-${randomUUID()}`,
           nama: 'Another Karyawan',
-          email: 'another@example.com',
+          email: `another.${randomUUID()}@example.com`,
           passwordHash: 'hash',
           role: 'KARYAWAN',
         },
       });
 
-      // Create a request for another karyawan (should NOT be returned)
-      await prisma.pengajuanIzin.create({
-        data: {
-          karyawanId: anotherKaryawan.id,
-          tanggalMulai: new Date('2026-08-01T00:00:00Z'),
-          tanggalSelesai: new Date('2026-08-01T00:00:00Z'),
-          jenis: 'IZIN',
-          alasan: 'Other',
-          status: 'PENDING',
-        },
-      });
+      try {
+        // Create a request for another karyawan (should NOT be returned)
+        await prisma.pengajuanIzin.create({
+          data: {
+            karyawanId: anotherKaryawan.id,
+            tanggalMulai: new Date('2026-08-01T00:00:00Z'),
+            tanggalSelesai: new Date('2026-08-01T00:00:00Z'),
+            jenis: 'IZIN',
+            alasan: 'Other',
+            status: 'PENDING',
+          },
+        });
 
-      // Create 2 requests for the main karyawan
-      const req1 = await prisma.pengajuanIzin.create({
-        data: {
-          karyawanId: karyawan.id,
-          tanggalMulai: new Date('2026-08-10T00:00:00Z'),
-          tanggalSelesai: new Date('2026-08-11T00:00:00Z'),
-          jenis: 'SAKIT',
-          alasan: 'Sakit',
-          status: 'PENDING',
-          dokumenPendukungUrl: 'storage/dokumen-izin/dummy.pdf',
-          createdAt: new Date('2026-07-01T00:00:00Z'),
-        },
-      });
+        // Create 2 requests for the main karyawan
+        const req1 = await prisma.pengajuanIzin.create({
+          data: {
+            karyawanId: karyawan.id,
+            tanggalMulai: new Date('2026-08-10T00:00:00Z'),
+            tanggalSelesai: new Date('2026-08-11T00:00:00Z'),
+            jenis: 'SAKIT',
+            alasan: 'Sakit',
+            status: 'PENDING',
+            dokumenPendukungUrl: 'storage/dokumen-izin/dummy.pdf',
+            createdAt: new Date('2026-07-01T00:00:00Z'),
+          },
+        });
 
-      const req2 = await prisma.pengajuanIzin.create({
-        data: {
-          karyawanId: karyawan.id,
-          tanggalMulai: new Date('2026-09-01T00:00:00Z'),
-          tanggalSelesai: new Date('2026-09-02T00:00:00Z'),
-          jenis: 'CUTI',
-          alasan: 'Liburan',
-          status: 'APPROVED',
-          approvedById: supervisor.id, // simulate approval
-          createdAt: new Date('2026-07-02T00:00:00Z'), // newer
-        },
-      });
+        const req2 = await prisma.pengajuanIzin.create({
+          data: {
+            karyawanId: karyawan.id,
+            tanggalMulai: new Date('2026-09-01T00:00:00Z'),
+            tanggalSelesai: new Date('2026-09-02T00:00:00Z'),
+            jenis: 'CUTI',
+            alasan: 'Liburan',
+            status: 'APPROVED',
+            approvedById: supervisor.id, // simulate approval
+            createdAt: new Date('2026-07-02T00:00:00Z'), // newer
+          },
+        });
 
-      const token = getAuthToken(karyawan);
-      const res = await request(app.getHttpServer() as Server)
-        .get('/leave-requests')
-        .set('Authorization', `Bearer ${token}`);
+        const token = getAuthToken(karyawan);
+        const res = await request(app.getHttpServer() as Server)
+          .get('/leave-requests')
+          .set('Authorization', `Bearer ${token}`);
 
-      type LeaveResponse = {
-        id: string;
-        tanggalMulai: string;
-        tanggalSelesai: string;
-        jenis: string;
-        alasan: string;
-        status: string;
-        createdAt: string;
-        dokumenPendukungUrl?: string;
-        catatanSupervisor?: string | null;
-        approvedBy?: { nama: string } | null;
-      };
+        type LeaveResponse = {
+          id: string;
+          tanggalMulai: string;
+          tanggalSelesai: string;
+          jenis: string;
+          alasan: string;
+          status: string;
+          createdAt: string;
+          dokumenPendukungUrl?: string;
+          catatanSupervisor?: string | null;
+          approvedBy?: { nama: string } | null;
+        };
 
-      const body = res.body as SuccessEnvelope<LeaveResponse[]>;
-      expect(res.status).toBe(200);
-      expect(body.success).toBe(true);
-      expect(body.data.length).toBe(2);
+        const body = res.body as SuccessEnvelope<LeaveResponse[]>;
+        expect(res.status).toBe(200);
+        expect(body.success).toBe(true);
+        expect(body.data.length).toBe(2);
 
-      // Verify order: newest first (req2 then req1)
-      expect(body.data[0].id).toBe(req2.id);
-      expect(body.data[1].id).toBe(req1.id);
+        // Verify order: newest first (req2 then req1)
+        expect(body.data[0].id).toBe(req2.id);
+        expect(body.data[1].id).toBe(req1.id);
 
-      // Verify shape of response
-      const firstData = body.data[0];
-      expect(firstData.id).toBeDefined();
-      expect(firstData.tanggalMulai).toBeDefined();
-      expect(firstData.tanggalSelesai).toBeDefined();
-      expect(firstData.jenis).toBe('CUTI');
-      expect(firstData.alasan).toBe('Liburan');
-      expect(firstData.status).toBe('APPROVED');
-      expect(firstData.createdAt).toBeDefined();
-      expect(firstData.approvedBy!.nama).toBe(supervisor.nama);
+        // Verify shape of response
+        const firstData = body.data[0];
+        expect(firstData.id).toBeDefined();
+        expect(firstData.tanggalMulai).toBeDefined();
+        expect(firstData.tanggalSelesai).toBeDefined();
+        expect(firstData.jenis).toBe('CUTI');
+        expect(firstData.alasan).toBe('Liburan');
+        expect(firstData.status).toBe('APPROVED');
+        expect(firstData.createdAt).toBeDefined();
+        expect(firstData.approvedBy).toEqual({ nama: supervisor.nama });
 
-      const secondData = body.data[1];
-      expect(secondData.jenis).toBe('SAKIT');
-      expect(secondData.dokumenPendukungUrl).toBe(
-        'storage/dokumen-izin/dummy.pdf',
-      );
-      expect(secondData.catatanSupervisor).toBeNull();
-      expect(secondData.approvedBy).toBeNull();
+        const secondData = body.data[1];
+        expect(secondData.jenis).toBe('SAKIT');
+        expect(secondData.dokumenPendukungUrl).toBe(
+          'storage/dokumen-izin/dummy.pdf',
+        );
+        expect(secondData.catatanSupervisor).toBeNull();
+        expect(secondData.approvedBy).toBeNull();
+      } finally {
+        await prisma.notifikasi.deleteMany({
+          where: { userId: anotherKaryawan.id },
+        });
+        await prisma.pengajuanIzin.deleteMany({
+          where: { karyawanId: anotherKaryawan.id },
+        });
+        await prisma.user.delete({
+          where: { id: anotherKaryawan.id },
+        });
+      }
     });
   });
 
@@ -1389,6 +1416,365 @@ describe('LeaveRequestsController (e2e)', () => {
       expect(ids).toContain(approvedRequest.id);
       expect(ids).toContain(otherRequest.id);
       expect(ids).not.toContain(pendingRequest.id);
+    });
+  });
+
+  describe('POST /leave-requests — orphaned notification', () => {
+    let orphanKaryawan: User;
+    let activeHr1: User;
+    let activeHr2: User;
+    let inactiveHr: User;
+
+    // Sites & jadwal untuk test
+    let testSite: Site;
+    let unsupervisedSite: Site;
+    let jadwalId: string;
+    let overnightJadwalId: string;
+    let unsupervisedJadwalId: string;
+
+    beforeAll(async () => {
+      orphanKaryawan = await prisma.user.create({
+        data: {
+          nama: 'Karyawan Orphan Test',
+          email: `orphan.krw.${randomUUID()}@test.com`,
+          passwordHash: 'dummy',
+          role: Role.KARYAWAN,
+          faceEmbedding: [],
+        },
+      });
+
+      activeHr1 = await prisma.user.create({
+        data: {
+          nama: 'HR Orphan Active 1',
+          email: `hr.orphan.a1.${randomUUID()}@test.com`,
+          passwordHash: 'dummy',
+          role: Role.HR_ADMIN,
+          statusAktif: true,
+          faceEmbedding: [],
+        },
+      });
+
+      activeHr2 = await prisma.user.create({
+        data: {
+          nama: 'HR Orphan Active 2',
+          email: `hr.orphan.a2.${randomUUID()}@test.com`,
+          passwordHash: 'dummy',
+          role: Role.HR_ADMIN,
+          statusAktif: true,
+          faceEmbedding: [],
+        },
+      });
+
+      inactiveHr = await prisma.user.create({
+        data: {
+          nama: 'HR Orphan Inactive',
+          email: `hr.orphan.off.${randomUUID()}@test.com`,
+          passwordHash: 'dummy',
+          role: Role.HR_ADMIN,
+          statusAktif: false,
+          faceEmbedding: [],
+        },
+      });
+
+      testSite = await prisma.site.create({
+        data: {
+          nama: `Site Orphan Test ${randomUUID()}`,
+          alamat: 'Jl. Test',
+          latitude: -6.0,
+          longitude: 106.0,
+          radiusToleransi: 100,
+        },
+      });
+
+      // Hubungkan testSite ke supervisor (global) agar terdaftar sebagai supervised site
+      await prisma.supervisorSite.create({
+        data: {
+          supervisorId: supervisor.id,
+          siteId: testSite.id,
+        },
+      });
+
+      unsupervisedSite = await prisma.site.create({
+        data: {
+          nama: `Unsupervised Site ${randomUUID()}`,
+          alamat: 'Jl. No Supervisor',
+          latitude: -6.1,
+          longitude: 106.1,
+          radiusToleransi: 100,
+        },
+      });
+
+      // Buat jadwal shift di tanggal 2026-10-01 untuk non-orphaned test (supervised)
+      const jadwal = await prisma.jadwalShift.create({
+        data: {
+          karyawanId: orphanKaryawan.id,
+          siteId: testSite.id,
+          tanggal: new Date('2026-10-01T00:00:00+07:00'),
+          jamMulai: new Date('2026-10-01T08:00:00+07:00'),
+          jamSelesai: new Date('2026-10-01T16:00:00+07:00'),
+        },
+      });
+      jadwalId = jadwal.id;
+
+      // Buat overnight shift H-1 (2026-10-14 22:00 s/d 2026-10-15 06:00) di supervised site
+      const overnightJadwal = await prisma.jadwalShift.create({
+        data: {
+          karyawanId: orphanKaryawan.id,
+          siteId: testSite.id,
+          tanggal: new Date('2026-10-14T00:00:00+07:00'),
+          jamMulai: new Date('2026-10-14T22:00:00+07:00'),
+          jamSelesai: new Date('2026-10-15T06:00:00+07:00'),
+        },
+      });
+      overnightJadwalId = overnightJadwal.id;
+
+      // Buat jadwal shift di 2026-12-01 tapi di site yang TIDAK punya supervisor
+      const unsupervisedJadwal = await prisma.jadwalShift.create({
+        data: {
+          karyawanId: orphanKaryawan.id,
+          siteId: unsupervisedSite.id,
+          tanggal: new Date('2026-12-01T00:00:00+07:00'),
+          jamMulai: new Date('2026-12-01T08:00:00+07:00'),
+          jamSelesai: new Date('2026-12-01T16:00:00+07:00'),
+        },
+      });
+      unsupervisedJadwalId = unsupervisedJadwal.id;
+    });
+
+    afterAll(async () => {
+      await prisma.notifikasi.deleteMany({
+        where: {
+          userId: { in: [activeHr1.id, activeHr2.id, inactiveHr.id] },
+          tipe: 'PENGAJUAN_IZIN_ORPHANED',
+        },
+      });
+      await prisma.pengajuanIzin.deleteMany({
+        where: { karyawanId: orphanKaryawan.id },
+      });
+      await prisma.jadwalShift.deleteMany({
+        where: {
+          id: {
+            in: [jadwalId, overnightJadwalId, unsupervisedJadwalId],
+          },
+        },
+      });
+      await prisma.supervisorSite.deleteMany({
+        where: { siteId: testSite.id },
+      });
+      await prisma.site.deleteMany({
+        where: { id: { in: [testSite.id, unsupervisedSite.id] } },
+      });
+      await prisma.user.deleteMany({
+        where: {
+          id: {
+            in: [orphanKaryawan.id, activeHr1.id, activeHr2.id, inactiveHr.id],
+          },
+        },
+      });
+    });
+
+    afterEach(async () => {
+      await prisma.pengajuanIzin.deleteMany({
+        where: { karyawanId: orphanKaryawan.id },
+      });
+      await prisma.notifikasi.deleteMany({
+        where: {
+          userId: { in: [activeHr1.id, activeHr2.id, inactiveHr.id] },
+          tipe: 'PENGAJUAN_IZIN_ORPHANED',
+        },
+      });
+    });
+
+    it('should NOT create notification when karyawan has JadwalShift overlapping the izin period', async () => {
+      const token = jwtService.sign({
+        userId: orphanKaryawan.id,
+        role: Role.KARYAWAN,
+      });
+
+      // Izin di tanggal yang ada jadwalnya (2026-10-01)
+      const res = await request(app.getHttpServer() as Server)
+        .post('/leave-requests')
+        .set('Authorization', `Bearer ${token}`)
+        .field('tanggalMulai', '2026-10-01')
+        .field('tanggalSelesai', '2026-10-01')
+        .field('jenis', 'IZIN')
+        .field('alasan', 'Ada keperluan');
+
+      expect(res.status).toBe(201);
+
+      // Tidak boleh ada notifikasi PENGAJUAN_IZIN_ORPHANED
+      const notifCount = await prisma.notifikasi.count({
+        where: {
+          userId: { in: [activeHr1.id, activeHr2.id] },
+          tipe: 'PENGAJUAN_IZIN_ORPHANED',
+        },
+      });
+      expect(notifCount).toBe(0);
+    });
+
+    it('should create notification for ALL active HR_ADMIN when izin is orphaned', async () => {
+      const token = jwtService.sign({
+        userId: orphanKaryawan.id,
+        role: Role.KARYAWAN,
+      });
+
+      // Izin di tanggal yang TIDAK ada jadwalnya (2026-11-15)
+      const res = await request(app.getHttpServer() as Server)
+        .post('/leave-requests')
+        .set('Authorization', `Bearer ${token}`)
+        .field('tanggalMulai', '2026-11-15')
+        .field('tanggalSelesai', '2026-11-15')
+        .field('jenis', 'IZIN')
+        .field('alasan', 'Orphaned test');
+
+      expect(res.status).toBe(201);
+
+      // Notifikasi harus dibuat untuk activeHr1 dan activeHr2
+      const notifHr1 = await prisma.notifikasi.findFirst({
+        where: { userId: activeHr1.id, tipe: 'PENGAJUAN_IZIN_ORPHANED' },
+      });
+      const notifHr2 = await prisma.notifikasi.findFirst({
+        where: { userId: activeHr2.id, tipe: 'PENGAJUAN_IZIN_ORPHANED' },
+      });
+      expect(notifHr1).not.toBeNull();
+      expect(notifHr2).not.toBeNull();
+      expect(notifHr1?.pesan).toContain('Karyawan Orphan Test');
+    });
+
+    it('should NOT send notification to inactive HR_ADMIN even when izin is orphaned', async () => {
+      const token = jwtService.sign({
+        userId: orphanKaryawan.id,
+        role: Role.KARYAWAN,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .post('/leave-requests')
+        .set('Authorization', `Bearer ${token}`)
+        .field('tanggalMulai', '2026-11-20')
+        .field('tanggalSelesai', '2026-11-20')
+        .field('jenis', 'IZIN')
+        .field('alasan', 'Inactive HR test');
+
+      expect(res.status).toBe(201);
+
+      // inactiveHr TIDAK boleh menerima notifikasi
+      const notifInactive = await prisma.notifikasi.findFirst({
+        where: { userId: inactiveHr.id, tipe: 'PENGAJUAN_IZIN_ORPHANED' },
+      });
+      expect(notifInactive).toBeNull();
+    });
+
+    it('should still return 201 success when there are no active HR_ADMIN (silent skip)', async () => {
+      // Nonaktifkan semua HR aktif sementara
+      await prisma.user.updateMany({
+        where: { id: { in: [activeHr1.id, activeHr2.id] } },
+        data: { statusAktif: false },
+      });
+
+      const token = jwtService.sign({
+        userId: orphanKaryawan.id,
+        role: Role.KARYAWAN,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .post('/leave-requests')
+        .set('Authorization', `Bearer ${token}`)
+        .field('tanggalMulai', '2026-11-25')
+        .field('tanggalSelesai', '2026-11-25')
+        .field('jenis', 'IZIN')
+        .field('alasan', 'No HR test');
+
+      // Tetap sukses meski tidak ada HR aktif
+      expect(res.status).toBe(201);
+      const body = res.body as SuccessEnvelope<{ status: string }>;
+      expect(body.success).toBe(true);
+      expect(body.data.status).toBe('PENDING');
+
+      // Tidak ada notifikasi yang dibuat
+      const notifCount = await prisma.notifikasi.count({
+        where: {
+          userId: { in: [activeHr1.id, activeHr2.id, inactiveHr.id] },
+          tipe: 'PENGAJUAN_IZIN_ORPHANED',
+        },
+      });
+      expect(notifCount).toBe(0);
+
+      // Kembalikan statusAktif
+      await prisma.user.updateMany({
+        where: { id: { in: [activeHr1.id, activeHr2.id] } },
+        data: { statusAktif: true },
+      });
+    });
+
+    it('should return 201 success for non-orphaned request (response not affected by orphan check)', async () => {
+      const token = jwtService.sign({
+        userId: orphanKaryawan.id,
+        role: Role.KARYAWAN,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .post('/leave-requests')
+        .set('Authorization', `Bearer ${token}`)
+        .field('tanggalMulai', '2026-10-01')
+        .field('tanggalSelesai', '2026-10-01')
+        .field('jenis', 'CUTI')
+        .field('alasan', 'Cuti tahunan');
+
+      expect(res.status).toBe(201);
+      const body = res.body as SuccessEnvelope<{ status: string; id: string }>;
+      expect(body.success).toBe(true);
+      expect(body.data.status).toBe('PENDING');
+    });
+
+    it('should create notification when karyawan has JadwalShift ONLY on a site without supervisor (orphaned)', async () => {
+      const token = jwtService.sign({
+        userId: orphanKaryawan.id,
+        role: Role.KARYAWAN,
+      });
+
+      // Izin di tanggal 2026-12-01 (ada jadwal tapi di site tanpa supervisor)
+      const res = await request(app.getHttpServer() as Server)
+        .post('/leave-requests')
+        .set('Authorization', `Bearer ${token}`)
+        .field('tanggalMulai', '2026-12-01')
+        .field('tanggalSelesai', '2026-12-01')
+        .field('jenis', 'IZIN')
+        .field('alasan', 'Izin site tanpa supervisor');
+
+      expect(res.status).toBe(201);
+
+      // Harus terdeteksi ORPHANED karena site-nya tidak punya supervisor
+      const notifHr1 = await prisma.notifikasi.findFirst({
+        where: { userId: activeHr1.id, tipe: 'PENGAJUAN_IZIN_ORPHANED' },
+      });
+      expect(notifHr1).not.toBeNull();
+    });
+
+    it('should NOT create notification when karyawan has overnight shift starting H-1 overlapping the izin period', async () => {
+      const token = jwtService.sign({
+        userId: orphanKaryawan.id,
+        role: Role.KARYAWAN,
+      });
+
+      // Izin di tanggal 2026-10-15 (ada overnight shift 2026-10-14 22:00 - 2026-10-15 06:00 di supervised site)
+      const res = await request(app.getHttpServer() as Server)
+        .post('/leave-requests')
+        .set('Authorization', `Bearer ${token}`)
+        .field('tanggalMulai', '2026-10-15')
+        .field('tanggalSelesai', '2026-10-15')
+        .field('jenis', 'IZIN')
+        .field('alasan', 'Izin tanggal 15 Oktober');
+
+      expect(res.status).toBe(201);
+
+      // Tidak boleh dianggap orphaned karena shift overnight H-1 melintas ke tanggal 15
+      const notifCount = await prisma.notifikasi.count({
+        where: {
+          userId: { in: [activeHr1.id, activeHr2.id] },
+          tipe: 'PENGAJUAN_IZIN_ORPHANED',
+        },
+      });
+      expect(notifCount).toBe(0);
     });
   });
 });
