@@ -247,3 +247,14 @@
   - **Reaktif pada Entitas:** Karyawan yang tidak ada (atau bukan role KARYAWAN) dilempar `404 KARYAWAN_TIDAK_DITEMUKAN`.
   - **Empty Result:** Jika rentang valid tapi tidak ada jadwal shift, dikembalikan `[]` dengan HTTP 200 (bukan error).
   - **Type-Safety:** DTO menggunakan regex `@Matches` konsisten untuk parsing tanggal YYYY-MM-DD. Param `id` di controller dikunci via `ParseUUIDPipe`.
+
+## [Stage 27] Track F3 — GET /schedules/today
+
+- **Selesai:** Endpoint `GET /schedules/today` untuk role KARYAWAN melihat jadwal mereka hari ini dan status kehadirannya.
+- **File:** `modules/schedules/*` (controller, service, spec e2e).
+- **Verifikasi:** Lolos lint, build, dan 42/42 test E2E di module schedules.
+- **Catatan Penting:**
+  - **Penanganan Shift Malam (H-1):** Endpoint secara akurat tidak hanya exact-match `tanggal` hari ini, melainkan juga menangkap shift yang jadwalnya dimulai kemarin (H-1) tetapi `jamSelesai`-nya jatuh di hari ini (Sesuai `TDD.md` §3 Poin 13). 
+  - **Derivasi Status Kehadiran:** Status `BELUM_CHECKIN`, `SUDAH_CHECKIN`, atau `SELESAI` dikalkulasi _real-time_ berdasarkan data dari `LogKehadiran`.
+  - **Sinergi Auto-Mark TIDAK_HADIR:** Integrasi dengan cron dipastikan konsisten. Cron mengset `waktuCheckIn: null`, yang secara otomatis terbaca sebagai `BELUM_CHECKIN` pada layer derivasi (karena faktanya memang tidak check-in).
+  - **100% Type-Safe:** Resolusi linter `no-unsafe-assignment` dan `no-unsafe-member-access` dengan deklarasi _interface response shape_ secara eksplisit di file test (Zero `any` compliance).

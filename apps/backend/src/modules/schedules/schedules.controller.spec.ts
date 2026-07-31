@@ -1239,4 +1239,152 @@ describe('SchedulesController (e2e)', () => {
       expect(checkDb).toBeNull();
     });
   });
+
+  describe('GET /schedules/today', () => {
+    let empId: string;
+    let shiftDay: string;
+    let shiftNight: string;
+
+    beforeAll(async () => {
+      // 1. Buat user karyawan baru
+      const emp = await prisma.user.create({
+        data: {
+          email: 'today-tester@test.local',
+          passwordHash: 'dummy',
+          nama: 'Today Tester',
+          role: Role.KARYAWAN,
+          faceEmbedding: [],
+        },
+      });
+      empId = emp.id;
+
+      // 2. Setup waktu "sekarang" secara dinamis seperti di service
+      const now = new Date();
+      const d = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(d.getUTCDate()).padStart(2, '0');
+
+      const todayStr = `${y}-${m}-${day}`;
+      const startOfToday = new Date(`${todayStr}T00:00:00+07:00`);
+
+      const dYesterday = new Date(d.getTime() - 24 * 60 * 60 * 1000);
+      const yYest = dYesterday.getUTCFullYear();
+      const mYest = String(dYesterday.getUTCMonth() + 1).padStart(2, '0');
+      const dayYest = String(dYesterday.getUTCDate()).padStart(2, '0');
+      const yesterdayStr = `${yYest}-${mYest}-${dayYest}`;
+
+      // Buat jadwal shift pagi HARI INI (08:00 - 16:00)
+      const dayJadwal = await prisma.jadwalShift.create({
+        data: {
+          karyawanId: empId,
+          siteId: siteAktif.id,
+          tanggal: startOfToday,
+          jamMulai: new Date(`${todayStr}T08:00:00+07:00`),
+          jamSelesai: new Date(`${todayStr}T16:00:00+07:00`),
+        },
+      });
+      shiftDay = dayJadwal.id;
+
+      // Buat jadwal shift malam KEMARIN (22:00 - 06:00) yang jam selesainya masuk hari ini
+      const nightJadwal = await prisma.jadwalShift.create({
+        data: {
+          karyawanId: empId,
+          siteId: siteAktif.id,
+          tanggal: new Date(`${yesterdayStr}T00:00:00+07:00`),
+          jamMulai: new Date(`${yesterdayStr}T22:00:00+07:00`),
+          jamSelesai: new Date(`${todayStr}T06:00:00+07:00`),
+        },
+      });
+      shiftNight = nightJadwal.id;
+
+      // Set log kehadiran untuk mendemonstrasikan variasi status
+      // shiftDay -> belum checkin sama sekali (BELUM_CHECKIN)
+
+      // shiftNight -> sudah checkin & checkout (SELESAI)
+      await prisma.logKehadiran.create({
+        data: {
+          jadwalId: nightJadwal.id,
+          karyawanId: empId,
+          waktuCheckIn: new Date(),
+          waktuCheckOut: new Date(),
+        },
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.logKehadiran.deleteMany({
+        where: { jadwalId: shiftNight },
+      });
+      await prisma.jadwalShift.deleteMany({
+        where: { id: { in: [shiftDay, shiftNight] } },
+      });
+      await prisma.user.deleteMany({
+        where: { id: empId },
+      });
+    });
+
+    it('should forbid HR_ADMIN or SUPERVISOR', async () => {
+      const tokenHr = jwtService.sign({
+        userId: hrAdmin.id,
+        role: Role.HR_ADMIN,
+      });
+      let res = await request(app.getHttpServer() as Server)
+        .get('/schedules/today')
+        .set('Authorization', `Bearer ${tokenHr}`);
+      expect(res.status).toBe(403);
+
+      const tokenSup = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+      res = await request(app.getHttpServer() as Server)
+        .get('/schedules/today')
+        .set('Authorization', `Bearer ${tokenSup}`);
+      expect(res.status).toBe(403);
+    });
+
+    it('should return 200 with both day shift and night shift (H-1) with correct statusKehadiran', async () => {
+      const token = jwtService.sign({ userId: empId, role: Role.KARYAWAN });
+      const res = await request(app.getHttpServer() as Server)
+        .get('/schedules/today')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+
+      interface TodayScheduleResponse {
+        jadwalId: string;
+        site: {
+          nama: string;
+          alamat: string;
+          latitude: number;
+          longitude: number;
+          radiusToleransi: number;
+        };
+        jamMulai: string;
+        jamSelesai: string;
+        statusKehadiran: string;
+      }
+
+      const body = res.body as SuccessEnvelope<TodayScheduleResponse[]>;
+      expect(body.success).toBe(true);
+      expect(Array.isArray(body.data)).toBe(true);
+      expect(body.data.length).toBe(2);
+
+      const returnedIds = body.data.map((j) => j.jadwalId);
+      expect(returnedIds).toContain(shiftDay);
+      expect(returnedIds).toContain(shiftNight);
+
+      // Verifikasi struktur & derivasi status
+      const nightSchedule = body.data.find((j) => j.jadwalId === shiftNight);
+      expect(nightSchedule).toBeDefined();
+      expect(nightSchedule?.statusKehadiran).toBe('SELESAI');
+      expect(nightSchedule?.site).toHaveProperty('latitude');
+      expect(nightSchedule?.site).toHaveProperty('radiusToleransi');
+
+      const daySchedule = body.data.find((j) => j.jadwalId === shiftDay);
+      expect(daySchedule).toBeDefined();
+      expect(daySchedule?.statusKehadiran).toBe('BELUM_CHECKIN');
+    });
+  });
 });

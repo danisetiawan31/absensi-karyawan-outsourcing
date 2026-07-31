@@ -10,6 +10,14 @@ import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { Role, Prisma } from '@prisma/client';
 import { FindSchedulesQueryDto } from './dto/find-schedules-query.dto';
+import {
+  combineJakartaDateTime,
+  formatJakartaDate,
+  formatJakartaTime,
+  getJakartaSingleDayRange,
+  getJakartaStartOfDay,
+  getJakartaTodayStr,
+} from '../../common/utils/date.util';
 
 @Injectable()
 export class SchedulesService {
@@ -20,9 +28,9 @@ export class SchedulesService {
     jamMulai: string,
     jamSelesai: string,
   ) {
-    const tanggalDate = new Date(`${tanggal}T00:00:00+07:00`);
-    const jamMulaiDate = new Date(`${tanggal}T${jamMulai}:00+07:00`);
-    let jamSelesaiDate = new Date(`${tanggal}T${jamSelesai}:00+07:00`);
+    const tanggalDate = getJakartaStartOfDay(tanggal);
+    const jamMulaiDate = combineJakartaDateTime(tanggal, jamMulai);
+    let jamSelesaiDate = combineJakartaDateTime(tanggal, jamSelesai);
 
     if (jamSelesaiDate < jamMulaiDate) {
       jamSelesaiDate = new Date(jamSelesaiDate.getTime() + 24 * 60 * 60 * 1000);
@@ -218,8 +226,7 @@ export class SchedulesService {
     const supervisedSiteIds = supervisedSites.map((s) => s.siteId);
 
     // 2. Rentang waktu tanggal
-    const awal = new Date(`${tanggal}T00:00:00+07:00`);
-    const akhir = new Date(awal.getTime() + 24 * 60 * 60 * 1000);
+    const { gte: awal, lt: akhir } = getJakartaSingleDayRange(tanggal);
 
     // 3. Bangun where filter
     const whereClause: Prisma.JadwalShiftWhereInput = {
@@ -357,29 +364,12 @@ export class SchedulesService {
 
     // Untuk waktu, kita butuh format string HH:mm untuk diparsing lagi.
     // existing.tanggal adalah UTC yang ketika direpresentasikan sebagai yyyy-mm-dd butuh di format yang benar.
-    // Tapi wait, kita simpan tanggalDate sebagai date dengan offset 07:00.
-    const toYYYYMMDD = (date: Date) => {
-      const d = new Date(date.getTime() + 7 * 60 * 60 * 1000);
-      const y = d.getUTCFullYear();
-      const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(d.getUTCDate()).padStart(2, '0');
-      return `${y}-${m}-${day}`;
-    };
-
-    const toHHmm = (date: Date) => {
-      // get waktu di +07:00
-      const d = new Date(date.getTime() + 7 * 60 * 60 * 1000);
-      const h = String(d.getUTCHours()).padStart(2, '0');
-      const m = String(d.getUTCMinutes()).padStart(2, '0');
-      return `${h}:${m}`;
-    };
-
     const finalTanggalStr =
-      updateScheduleDto.tanggal || toYYYYMMDD(existing.tanggal);
+      updateScheduleDto.tanggal || formatJakartaDate(existing.tanggal);
     const finalJamMulaiStr =
-      updateScheduleDto.jamMulai || toHHmm(existing.jamMulai);
+      updateScheduleDto.jamMulai || formatJakartaTime(existing.jamMulai);
     const finalJamSelesaiStr =
-      updateScheduleDto.jamSelesai || toHHmm(existing.jamSelesai);
+      updateScheduleDto.jamSelesai || formatJakartaTime(existing.jamSelesai);
 
     const { tanggalDate, jamMulaiDate, jamSelesaiDate } =
       this.parseAndValidateDates(
@@ -416,5 +406,82 @@ export class SchedulesService {
     });
 
     return updated;
+  }
+
+  async findToday(karyawanId: string) {
+    const todayStr = getJakartaTodayStr();
+    const { gte: startOfToday, lt: endOfToday } =
+      getJakartaSingleDayRange(todayStr);
+    const startOfYesterday = new Date(
+      startOfToday.getTime() - 24 * 60 * 60 * 1000,
+    );
+
+    const jadwals = await this.prisma.jadwalShift.findMany({
+      where: {
+        karyawanId,
+        OR: [
+          // 1. Shift yang dimulai hari ini
+          {
+            tanggal: {
+              gte: startOfToday,
+              lt: endOfToday,
+            },
+          },
+          // 2. Shift malam H-1 yang berakhir HARI INI
+          {
+            tanggal: {
+              gte: startOfYesterday,
+              lt: startOfToday,
+            },
+            jamSelesai: {
+              gt: startOfToday,
+            },
+          },
+        ],
+      },
+      select: {
+        id: true,
+        jamMulai: true,
+        jamSelesai: true,
+        site: {
+          select: {
+            nama: true,
+            alamat: true,
+            latitude: true,
+            longitude: true,
+            radiusToleransi: true,
+          },
+        },
+        logKehadiran: {
+          select: {
+            waktuCheckIn: true,
+            waktuCheckOut: true,
+          },
+        },
+      },
+      orderBy: { jamMulai: 'asc' },
+    });
+
+    return jadwals.map((j) => {
+      let statusKehadiran = 'BELUM_CHECKIN';
+
+      if (j.logKehadiran) {
+        if (j.logKehadiran.waktuCheckIn) {
+          if (j.logKehadiran.waktuCheckOut) {
+            statusKehadiran = 'SELESAI';
+          } else {
+            statusKehadiran = 'SUDAH_CHECKIN';
+          }
+        }
+      }
+
+      return {
+        jadwalId: j.id,
+        site: j.site,
+        jamMulai: j.jamMulai,
+        jamSelesai: j.jamSelesai,
+        statusKehadiran,
+      };
+    });
   }
 }

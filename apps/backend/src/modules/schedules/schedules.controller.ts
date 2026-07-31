@@ -35,6 +35,13 @@ export class SchedulesController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.KARYAWAN)
+  @Get('today')
+  async findToday(@Request() req: { user: { userId: string; role: Role } }) {
+    return this.schedulesService.findToday(req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERVISOR)
   @Get()
   async findAll(

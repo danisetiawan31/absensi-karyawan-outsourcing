@@ -11,6 +11,11 @@ import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import {
+  getJakartaDateRange,
+  getJakartaSingleDayRange,
+  getJakartaStartOfDay,
+} from '../../common/utils/date.util';
 
 type EmployeeSelectData = {
   id: string;
@@ -79,8 +84,7 @@ export class EmployeesService {
       }
     }
 
-    const startOfDay = new Date(`${tanggal}T00:00:00+07:00`);
-    const endOfDay = new Date(`${tanggal}T23:59:59+07:00`);
+    const { gte: startOfDay, lt: nextDay } = getJakartaSingleDayRange(tanggal);
 
     const users = await this.prisma.user.findMany({
       where: {
@@ -90,14 +94,14 @@ export class EmployeesService {
           none: {
             tanggal: {
               gte: startOfDay,
-              lte: endOfDay,
+              lt: nextDay,
             },
           },
         },
         pengajuanIzin: {
           none: {
             status: StatusIzin.APPROVED,
-            tanggalMulai: { lte: endOfDay },
+            tanggalMulai: { lt: nextDay },
             tanggalSelesai: { gte: startOfDay },
           },
         },
@@ -129,22 +133,27 @@ export class EmployeesService {
       });
     }
 
-    const startDate = new Date(`${tanggalMulai}T00:00:00+07:00`);
-    const endDate = new Date(`${tanggalSelesai}T23:59:59+07:00`);
+    const startMulai = getJakartaStartOfDay(tanggalMulai);
+    const startSelesai = getJakartaStartOfDay(tanggalSelesai);
 
-    if (startDate > endDate) {
+    if (startMulai > startSelesai) {
       throw new BadRequestException({
         code: 'RENTANG_TANGGAL_TIDAK_VALID',
         message: 'tanggalMulai tidak boleh lebih besar dari tanggalSelesai',
       });
     }
 
+    const { gte: startDate, lt: endDate } = getJakartaDateRange(
+      tanggalMulai,
+      tanggalSelesai,
+    );
+
     const jadwals = await this.prisma.jadwalShift.findMany({
       where: {
         karyawanId,
         tanggal: {
           gte: startDate,
-          lte: endDate,
+          lt: endDate,
         },
       },
       select: {

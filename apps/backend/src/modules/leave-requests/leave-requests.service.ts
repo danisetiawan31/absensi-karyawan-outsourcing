@@ -14,6 +14,10 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import 'multer';
+import {
+  getJakartaSingleDayRange,
+  getJakartaStartOfDay,
+} from '../../common/utils/date.util';
 
 @Injectable()
 export class LeaveRequestsService {
@@ -24,9 +28,8 @@ export class LeaveRequestsService {
     dto: CreateLeaveRequestDto,
     file?: Express.Multer.File,
   ) {
-    const tzSuffix = '+07:00';
-    const mulai = new Date(`${dto.tanggalMulai}T00:00:00${tzSuffix}`);
-    const selesai = new Date(`${dto.tanggalSelesai}T00:00:00${tzSuffix}`);
+    const mulai = getJakartaStartOfDay(dto.tanggalMulai);
+    const selesai = getJakartaStartOfDay(dto.tanggalSelesai);
 
     if (selesai.getTime() < mulai.getTime()) {
       throw new BadRequestException({
@@ -419,20 +422,14 @@ export class LeaveRequestsService {
 
     if (query.periodeMulai || query.periodeSelesai) {
       where.tanggalMulai = {};
-      const tzSuffix = '+07:00';
       if (query.periodeMulai) {
-        // Start of the given date in local tz
-        const mulaiDate = new Date(`${query.periodeMulai}T00:00:00${tzSuffix}`);
-        where.tanggalMulai.gte = mulaiDate;
+        where.tanggalMulai.gte = getJakartaStartOfDay(query.periodeMulai);
       }
       if (query.periodeSelesai) {
-        // End of the given date in local tz
-        const selesaiDate = new Date(
-          new Date(`${query.periodeSelesai}T00:00:00${tzSuffix}`).getTime() +
-            24 * 60 * 60 * 1000 -
-            1,
+        const { lt: endNextDay } = getJakartaSingleDayRange(
+          query.periodeSelesai,
         );
-        where.tanggalMulai.lte = selesaiDate;
+        where.tanggalMulai.lt = endNextDay;
       }
     }
 

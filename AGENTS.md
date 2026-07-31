@@ -65,6 +65,14 @@ Setelah 1 langkah kecil selesai, test (jika ada) lolos, DAN user sudah approve h
 - Untuk endpoint yang scoped ke kepemilikan/cakupan (mis. supervisor cuma boleh akses site yang diawasi): endpoint READ (GET) yang query-nya di luar cakupan caller → silently narrow ke hasil kosong ([]), JANGAN error. Endpoint WRITE (POST/PATCH/DELETE) yang target-nya di luar cakupan caller → WAJIB ditolak eksplisit (403 atau sesuai konteks), JANGAN dibiarkan lolos.
 - Hashing password (SEMUA kasus — provisioning karyawan baru, reset password, change password) WAJIB pakai bcrypt dengan 10 salt rounds, konsisten di seluruh project — jangan bikin standar salt rounds baru per fitur.
 - Timezone project WAJIB Asia/Jakarta (`process.env.TZ` di-set global di main.ts). Endpoint/service manapun yang parsing atau menyimpan tanggal/jam dari input client WAJIB pakai offset eksplisit `+07:00` (bukan suffix `Z`/UTC), berlaku untuk semua domain, bukan cuma Schedules.
+- Konversi/parsing tanggal-jam Asia/Jakarta (+07:00) WAJIB lewat util
+  terpusat di `common/utils/date.util.ts` (getJakartaStartOfDay,
+  combineJakartaDateTime, getJakartaSingleDayRange, getJakartaDateRange,
+  getJakartaTodayStr, formatJakartaDate, formatJakartaTime) — JANGAN
+  reimplementasi manual (string interpolation offset +07:00, atau
+  tambah/kurang milidetik manual) di service manapun. Kalau butuh
+  varian baru yang belum ada di util ini, tambahkan fungsi baru ke util
+  ini, bukan bikin logic lokal terpisah di module masing-masing.
 - Untuk operasi yang mengubah STATUS dari satu nilai spesifik ke nilai lain (approve/reject/cancel/dsb) yang berpotensi race condition (lebih dari 1 aktor bisa memproses barengan) — WAJIB pakai `updateMany` dengan kondisi `where: { id, status: <statusSaatIniYangDiharapkan> }` (conditional update), BUKAN `findUnique` lalu `update` terpisah.
 - Prinsip pilih 404 vs 403 untuk resource yang scoped: kalau caller TIDAK punya alasan legitimate untuk tahu resource itu eksis sama sekali (mis. supervisor lain di luar cakupannya) → 404 generic, sembunyikan keberadaan data. Kalau caller punya alasan legitimate untuk tahu resource itu eksis tapi tetap tidak berhak memprosesnya (mis. HR_ADMIN yang melihat pengajuan izin bukan-orphaned) → 403 eksplisit dengan error code spesifik.
 - **Pola exception handling reaktif Prisma:** Untuk validasi unique constraint (duplikat) atau operasi write (update/delete) pada relasi yang mungkin tidak ada, WAJIB menggunakan pendekatan reaktif dengan menangkap error Prisma (`P2002` untuk duplikat, `P2025` untuk record tidak ditemukan) di dalam blok `try-catch`, BUKAN melakukan query preemptive (`findUnique`) sebelum operasi _write_. Ini menjamin efisiensi query dan mencegah celah _race condition_.
