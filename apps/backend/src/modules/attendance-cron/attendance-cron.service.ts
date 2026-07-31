@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { TipeNotifikasi, Prisma } from '@prisma/client';
+import { UNFILLED_SHIFT_THRESHOLD_MS } from '../../common/constants/attendance.constant';
 
 type JadwalWithRelations = Prisma.JadwalShiftGetPayload<{
   include: {
@@ -70,7 +71,9 @@ export class AttendanceCronService {
   async checkAndSendSupervisorAlerts(now: Date) {
     this.logger.debug('Running T+15 supervisor alert check...');
 
-    const fifteenMinsAgo = new Date(now.getTime() - 15 * 60 * 1000);
+    const fifteenMinsAgo = new Date(
+      now.getTime() - UNFILLED_SHIFT_THRESHOLD_MS,
+    );
 
     const jadwals = (await this.prisma.jadwalShift.findMany({
       where: {

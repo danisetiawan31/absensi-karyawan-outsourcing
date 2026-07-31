@@ -428,4 +428,248 @@ describe('DashboardService', () => {
       expect(siteNames.every((name) => name === site1.nama)).toBe(true);
     });
   });
+
+  describe('getUnfilledShifts', () => {
+    const ufDate = '2026-10-10';
+    const ufYesterdayStr = '2026-10-09';
+    let u1Id: string;
+    let u2Id: string;
+    let u3Id: string;
+    let u4Id: string;
+    let u5Id: string;
+    let uOvernightId: string;
+    let uUnsupervisedId: string;
+
+    beforeAll(async () => {
+      // 1. Shift 1 (Karyawan 1): 08:00 - 16:00 (Akan ditest pada jam 08:10 -> belum T+15)
+      const u1 = await prisma.jadwalShift.create({
+        data: {
+          karyawanId: karyawan1.id,
+          siteId: site1.id,
+          tanggal: new Date(`${ufDate}T00:00:00+07:00`),
+          jamMulai: new Date(`${ufDate}T08:00:00+07:00`),
+          jamSelesai: new Date(`${ufDate}T16:00:00+07:00`),
+        },
+      });
+      u1Id = u1.id;
+
+      // 2. Shift 2 (Karyawan 2): 08:00 - 16:00 (Ditest pada jam 08:20 -> T+20, belum checkin -> UNFILLED, menitTerlambat=20)
+      const u2 = await prisma.jadwalShift.create({
+        data: {
+          karyawanId: karyawan2.id,
+          siteId: site1.id,
+          tanggal: new Date(`${ufDate}T00:00:00+07:00`),
+          jamMulai: new Date(`${ufDate}T08:00:00+07:00`),
+          jamSelesai: new Date(`${ufDate}T16:00:00+07:00`),
+        },
+      });
+      u2Id = u2.id;
+
+      // 3. Shift 3 (Karyawan 3): 08:00 - 16:00. Punya log checkin (08:16:00) -> EXCLUDE (sudah checkin)
+      const u3 = await prisma.jadwalShift.create({
+        data: {
+          karyawanId: karyawan3.id,
+          siteId: site1.id,
+          tanggal: new Date(`${ufDate}T00:00:00+07:00`),
+          jamMulai: new Date(`${ufDate}T08:00:00+07:00`),
+          jamSelesai: new Date(`${ufDate}T16:00:00+07:00`),
+        },
+      });
+      u3Id = u3.id;
+      await prisma.logKehadiran.create({
+        data: {
+          jadwalId: u3.id,
+          karyawanId: karyawan3.id,
+          waktuCheckIn: new Date(`${ufDate}T08:16:00+07:00`),
+          hasilVerifikasiCheckIn: HasilVerifikasi.VALID,
+        },
+      });
+
+      // 4. Shift 4 (Karyawan 4): 08:00 - 16:00. Punya PengajuanIzin APPROVED -> EXCLUDE
+      const u4 = await prisma.jadwalShift.create({
+        data: {
+          karyawanId: karyawan4.id,
+          siteId: site1.id,
+          tanggal: new Date(`${ufDate}T00:00:00+07:00`),
+          jamMulai: new Date(`${ufDate}T08:00:00+07:00`),
+          jamSelesai: new Date(`${ufDate}T16:00:00+07:00`),
+        },
+      });
+      u4Id = u4.id;
+      await prisma.pengajuanIzin.create({
+        data: {
+          karyawanId: karyawan4.id,
+          jenis: 'CUTI',
+          tanggalMulai: new Date(`${ufDate}T00:00:00+07:00`),
+          tanggalSelesai: new Date(`${ufDate}T00:00:00+07:00`),
+          alasan: 'Cuti Pribadi',
+          status: StatusIzin.APPROVED,
+        },
+      });
+
+      // 5. Shift 5 (Karyawan 5): 06:00 - 08:00. Ditest pada jam 08:20 (sudah lewat jamSelesai) -> EXCLUDE
+      const u5 = await prisma.jadwalShift.create({
+        data: {
+          karyawanId: karyawan5.id,
+          siteId: site1.id,
+          tanggal: new Date(`${ufDate}T00:00:00+07:00`),
+          jamMulai: new Date(`${ufDate}T06:00:00+07:00`),
+          jamSelesai: new Date(`${ufDate}T08:00:00+07:00`),
+        },
+      });
+      u5Id = u5.id;
+
+      // 6. Overnight Shift (Karyawan 1): Kemarin 22:00 s/d Hari ini 09:00. Ditest pada jam 08:20 -> UNFILLED
+      const uOvernight = await prisma.jadwalShift.create({
+        data: {
+          karyawanId: karyawan1.id,
+          siteId: site1.id,
+          tanggal: new Date(`${ufYesterdayStr}T00:00:00+07:00`),
+          jamMulai: new Date(`${ufYesterdayStr}T22:00:00+07:00`),
+          jamSelesai: new Date(`${ufDate}T09:00:00+07:00`),
+        },
+      });
+      uOvernightId = uOvernight.id;
+
+      // 7. Unsupervised Site Shift (Karyawan 5): Site 2 -> EXCLUDE
+      const uUnsupervised = await prisma.jadwalShift.create({
+        data: {
+          karyawanId: karyawan5.id,
+          siteId: site2.id,
+          tanggal: new Date(`${ufDate}T00:00:00+07:00`),
+          jamMulai: new Date(`${ufDate}T08:00:00+07:00`),
+          jamSelesai: new Date(`${ufDate}T16:00:00+07:00`),
+        },
+      });
+      uUnsupervisedId = uUnsupervised.id;
+    });
+
+    afterAll(async () => {
+      const createdIds = [
+        u1Id,
+        u2Id,
+        u3Id,
+        u4Id,
+        u5Id,
+        uOvernightId,
+        uUnsupervisedId,
+      ].filter((id): id is string => typeof id === 'string');
+
+      await prisma.logKehadiran.deleteMany({
+        where: { jadwalId: { in: createdIds } },
+      });
+      await prisma.jadwalShift.deleteMany({
+        where: { id: { in: createdIds } },
+      });
+      await prisma.pengajuanIzin.deleteMany({
+        where: { karyawanId: karyawan4.id },
+      });
+    });
+
+    it('should return [] for supervisor with no supervised sites', async () => {
+      const now = new Date(`${ufDate}T08:20:00+07:00`);
+      const results = await service.getUnfilledShifts(
+        supervisor2.id,
+        { tanggal: ufDate },
+        now,
+      );
+      expect(results).toEqual([]);
+    });
+
+    it('should exclude shift that has not reached T+15 yet', async () => {
+      // 08:10 is only T+10 for 08:00 shift
+      const nowEarly = new Date(`${ufDate}T08:10:00+07:00`);
+      const results = await service.getUnfilledShifts(
+        supervisor1.id,
+        { tanggal: ufDate },
+        nowEarly,
+      );
+
+      const u1Result = results.find((r) => r.jadwalId === u1Id);
+      expect(u1Result).toBeUndefined();
+    });
+
+    it('should include shift past T+15 without check-in and return accurate menitTerlambat', async () => {
+      // 08:20 is T+20 for 08:00 shift -> 20 minutes late
+      const now = new Date(`${ufDate}T08:20:00+07:00`);
+      const results = await service.getUnfilledShifts(
+        supervisor1.id,
+        { tanggal: ufDate },
+        now,
+      );
+
+      const u2Result = results.find((r) => r.jadwalId === u2Id);
+      expect(u2Result).toBeDefined();
+      expect(u2Result?.karyawan).toBe(karyawan2.nama);
+      expect(u2Result?.site).toBe(site1.nama);
+      expect(u2Result?.menitTerlambat).toBe(20);
+    });
+
+    it('should exclude shift that has check-in log (even if late)', async () => {
+      const now = new Date(`${ufDate}T08:20:00+07:00`);
+      const results = await service.getUnfilledShifts(
+        supervisor1.id,
+        { tanggal: ufDate },
+        now,
+      );
+
+      const u3Result = results.find((r) => r.jadwalId === u3Id);
+      expect(u3Result).toBeUndefined();
+    });
+
+    it('should exclude shift for employee with APPROVED leave', async () => {
+      const now = new Date(`${ufDate}T08:20:00+07:00`);
+      const results = await service.getUnfilledShifts(
+        supervisor1.id,
+        { tanggal: ufDate },
+        now,
+      );
+
+      const u4Result = results.find((r) => r.jadwalId === u4Id);
+      expect(u4Result).toBeUndefined();
+    });
+
+    it('should exclude shift that has passed jamSelesai', async () => {
+      // 08:20 is after 08:00 (jamSelesai for Shift 5)
+      const now = new Date(`${ufDate}T08:20:00+07:00`);
+      const results = await service.getUnfilledShifts(
+        supervisor1.id,
+        { tanggal: ufDate },
+        now,
+      );
+
+      const u5Result = results.find((r) => r.jadwalId === u5Id);
+      expect(u5Result).toBeUndefined();
+    });
+
+    it('should exclude shift from site not supervised by the caller', async () => {
+      const now = new Date(`${ufDate}T08:20:00+07:00`);
+      const results = await service.getUnfilledShifts(
+        supervisor1.id,
+        { tanggal: ufDate },
+        now,
+      );
+
+      const uUnsupervisedResult = results.find(
+        (r) => r.jadwalId === uUnsupervisedId,
+      );
+      expect(uUnsupervisedResult).toBeUndefined();
+    });
+
+    it('should include ongoing overnight shift H-1 past T+15 without check-in', async () => {
+      // Overnight shift started yesterday 22:00, ends today 09:00.
+      // At today 08:20, now - 22:00 yesterday = 10h 20m = 620 minutes
+      const now = new Date(`${ufDate}T08:20:00+07:00`);
+      const results = await service.getUnfilledShifts(
+        supervisor1.id,
+        { tanggal: ufDate },
+        now,
+      );
+
+      const uOvernightResult = results.find((r) => r.jadwalId === uOvernightId);
+      expect(uOvernightResult).toBeDefined();
+      expect(uOvernightResult?.karyawan).toBe(karyawan1.nama);
+      expect(uOvernightResult?.menitTerlambat).toBe(620);
+    });
+  });
 });

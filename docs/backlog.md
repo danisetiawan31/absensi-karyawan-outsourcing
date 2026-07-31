@@ -53,7 +53,7 @@
 | F2  | `GET /employees/:id/schedules?tanggalMulai=&tanggalSelesai=` (HR) | Cuma butuh `JadwalShift` (A5, `DONE`) — ini eks-Gap 3 lama, kontraknya udah resmi, tinggal dieksekusi.                                             | `DONE`  |
 | F3  | `GET /schedules/today` (Karyawan)                                 | Bagian jadwalnya siap (A5), tapi field `statusKehadiran` butuh `LogKehadiran` buat akurat — depend ke C3 biar gak selalu nampilin `BELUM_CHECKIN`. | `DONE`  |
 | F4  | `GET /dashboard/attendance?tanggal=`                              | Butuh `SupervisorSite` (A4, `DONE`) buat scoping, DAN `LogKehadiran` buat status real-time — depend ke C3.                                         | `DONE`  |
-| F5  | `GET /dashboard/unfilled-shifts?tanggal=`                         | Sama kayak F4, "belum ter-cover T+15" butuh data check-in real — depend ke C3.                                                                     | `READY` |
+| F5  | `GET /dashboard/unfilled-shifts?tanggal=`                         | Sama kayak F4, "belum ter-cover T+15" butuh data check-in real — depend ke C3.                                                                     | `DONE`  |
 | F6  | `GET /attendance/summary`, `GET /attendance/attempts` (HR)        | Butuh `LogKehadiran`/`PercobaanAbsensi` beneran ada isinya — depend ke C3.                                                                         | `READY` |
 | F7  | `GET /reports/export?format=pdf\|xlsx`                            | Butuh data dari F6 buat digenerate — depend ke C3 (tidak langsung, lewat F6).                                                                      | `READY` |
 

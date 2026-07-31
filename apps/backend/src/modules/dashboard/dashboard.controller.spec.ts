@@ -10,7 +10,10 @@ import { AllExceptionsFilter } from '../../common/filters/all-exceptions.filter'
 import { ResponseInterceptor } from '../../common/interceptors/response.interceptor';
 import { RequestIdMiddleware } from '../../common/middlewares/request-id.middleware';
 import { SuccessEnvelope } from '../../common/types/api-envelope.type';
-import { DashboardAttendanceItem } from './dashboard.service';
+import {
+  DashboardAttendanceItem,
+  UnfilledShiftItem,
+} from './dashboard.service';
 import { randomUUID } from 'crypto';
 
 describe('DashboardController (e2e)', () => {
@@ -201,5 +204,84 @@ describe('DashboardController (e2e)', () => {
     expect(body.data[0].karyawan).toBe(karyawan.nama);
     expect(body.data[0].site).toBe(site.nama);
     expect(body.data[0].status).toBe('BELUM');
+  });
+
+  describe('GET /dashboard/unfilled-shifts', () => {
+    it('should return 401 if request has no token', async () => {
+      const res = await request(app.getHttpServer() as Server).get(
+        `/dashboard/unfilled-shifts?tanggal=${testDate}`,
+      );
+
+      expect(res.status).toBe(401);
+    });
+
+    it('should return 403 if caller role is KARYAWAN', async () => {
+      const token = jwtService.sign({
+        userId: karyawan.id,
+        role: Role.KARYAWAN,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .get(`/dashboard/unfilled-shifts?tanggal=${testDate}`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(403);
+    });
+
+    it('should return 403 if caller role is HR_ADMIN', async () => {
+      const token = jwtService.sign({
+        userId: hrAdmin.id,
+        role: Role.HR_ADMIN,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .get(`/dashboard/unfilled-shifts?tanggal=${testDate}`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(403);
+    });
+
+    it('should return 400 if tanggal format is invalid (not YYYY-MM-DD)', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .get('/dashboard/unfilled-shifts?tanggal=20-09-2026')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 400 if tanggal query parameter is missing', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .get('/dashboard/unfilled-shifts')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 200 with raw array of unfilled shifts data for SUPERVISOR', async () => {
+      const token = jwtService.sign({
+        userId: supervisor.id,
+        role: Role.SUPERVISOR,
+      });
+
+      const res = await request(app.getHttpServer() as Server)
+        .get(`/dashboard/unfilled-shifts?tanggal=${testDate}`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+
+      const body = res.body as SuccessEnvelope<UnfilledShiftItem[]>;
+      expect(body.success).toBe(true);
+      expect(Array.isArray(body.data)).toBe(true);
+    });
   });
 });

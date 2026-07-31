@@ -269,3 +269,14 @@
   - **Strict Precedence Status:** Status ditentukan sesuai urutan prioritas: `TIDAK_HADIR` (cron) > `TERLAMBAT`/`HADIR` (tanpa grace period) > `IZIN` (PengajuanIzin Approved) > `BELUM`.
   - **Silent Narrow Scoping:** Supervisor tanpa site sama sekali atau query di luar wewenang mengembalikan `[]`.
   - **Strict Type-Safety:** Menggunakan union type `DashboardAttendanceStatus` dan interface `DashboardAttendanceItem` (Zero `any` compliance).
+
+## [Stage 29] Track F5 — GET /dashboard/unfilled-shifts?tanggal=
+
+- **Selesai:** Endpoint `GET /dashboard/unfilled-shifts?tanggal=` untuk role SUPERVISOR melihat daftar shift yang sedang berlangsung tetapi belum di-check-in setelah melewati ambang T+15 menit dari jamMulai.
+- **File Dibuat/Diubah:** `common/constants/attendance.constant.ts`, `modules/attendance-cron/attendance-cron.service.ts`, `modules/dashboard/*` (controller, service, spec e2e).
+- **Verifikasi:** Full test suite lolos 258/258 test, serta 28/28 test di module dashboard (16 service unit tests + 12 controller e2e tests).
+- **Catatan Penting:**
+  - **Konsolidasi Threshold T+15:** Ambang T+15 diekstrak ke `UNFILLED_SHIFT_THRESHOLD_MS` di `common/constants/attendance.constant.ts` dan direuse bersama oleh `attendance-cron.service.ts` dan `dashboard.service.ts`.
+  - **Kriteria Shift Kosong Actionable:** Hanya menyajikan shift yang `now >= jamMulai + T+15`, `now < jamSelesai` (belum berakhir), belum check-in, dan karyawan TIDAK memiliki `PengajuanIzin` status `APPROVED` yang overlap.
+  - **Kalkulasi Keterlambatan:** Menghitung `menitTerlambat = Math.floor((now - jamMulai) / 60000)`.
+  - **Overnight Shift (H-1):** Tetap mendeteksi shift malam dari H-1 yang jam selesainya belum berakhir pada waktu sekarang.

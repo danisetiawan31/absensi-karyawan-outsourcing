@@ -19,4 +19,14 @@ export class DashboardController {
   ) {
     return this.dashboardService.getAttendanceDashboard(req.user.userId, query);
   }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERVISOR)
+  @Get('unfilled-shifts')
+  async getUnfilledShifts(
+    @Request() req: { user: { userId: string; role: Role } },
+    @Query() query: GetAttendanceDashboardQueryDto,
+  ) {
+    return this.dashboardService.getUnfilledShifts(req.user.userId, query);
+  }
 }
