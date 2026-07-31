@@ -3,9 +3,39 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { FaceVerificationService } from '../face-verification/face-verification.service';
 import { haversineDistance } from '../../common/utils/geo.util';
 import { cosineSimilarity } from '../../common/utils/vector.util';
-import { TipeAbsensi, HasilVerifikasi, Prisma } from '@prisma/client';
+import {
+  TipeAbsensi,
+  HasilVerifikasi,
+  StatusIzin,
+  Prisma,
+} from '@prisma/client';
 import { CheckInDto } from './dto/check-in.dto';
 import { CheckOutDto } from './dto/check-out.dto';
+import { GetAttendanceSummaryQueryDto } from './dto/get-attendance-summary-query.dto';
+import { GetAttendanceAttemptsQueryDto } from './dto/get-attendance-attempts-query.dto';
+import { getJakartaDateRange } from '../../common/utils/date.util';
+import { determineShiftStatus } from '../../common/utils/shift-status.util';
+
+export interface AttendanceSummaryItem {
+  karyawanId: string;
+  nama: string;
+  totalJadwal: number;
+  totalHadir: number;
+  totalTerlambat: number;
+  totalTidakHadir: number;
+  totalIzin: number;
+  totalBelum: number;
+}
+
+export interface AttendanceAttemptItem {
+  id: string;
+  tipe: TipeAbsensi;
+  waktu: Date;
+  latitude: number;
+  longitude: number;
+  hasil: HasilVerifikasi;
+  jadwalId: string;
+}
 
 export interface VerificationPipelineResult {
   hasilVerifikasi: HasilVerifikasi;
@@ -400,5 +430,145 @@ export class AttendanceService {
       waktuCheckOut: now,
       hasilVerifikasi: HasilVerifikasi.VALID,
     };
+  }
+
+  async getAttendanceSummary(
+    query: GetAttendanceSummaryQueryDto,
+  ): Promise<AttendanceSummaryItem[]> {
+    const { gte: startOfPeriode, lt: endOfPeriode } = getJakartaDateRange(
+      query.periodeMulai,
+      query.periodeSelesai,
+    );
+
+    // 1. Query semua JadwalShift dalam rentang periode
+    const jadwals = await this.prisma.jadwalShift.findMany({
+      where: {
+        tanggal: {
+          gte: startOfPeriode,
+          lt: endOfPeriode,
+        },
+      },
+      select: {
+        id: true,
+        karyawanId: true,
+        jamMulai: true,
+        karyawan: {
+          select: {
+            nama: true,
+          },
+        },
+        logKehadiran: {
+          select: {
+            waktuCheckIn: true,
+            hasilVerifikasiCheckIn: true,
+          },
+        },
+      },
+    });
+
+    if (jadwals.length === 0) {
+      return [];
+    }
+
+    // 2. Query PengajuanIzin APPROVED yang overlap periode ini
+    const karyawanIds = Array.from(new Set(jadwals.map((j) => j.karyawanId)));
+    const approvedLeaves = await this.prisma.pengajuanIzin.findMany({
+      where: {
+        karyawanId: { in: karyawanIds },
+        status: StatusIzin.APPROVED,
+        tanggalMulai: { lt: endOfPeriode },
+        tanggalSelesai: { gte: startOfPeriode },
+      },
+      select: {
+        karyawanId: true,
+      },
+    });
+
+    const leaveKaryawanIds = new Set(approvedLeaves.map((l) => l.karyawanId));
+
+    // 3. Agregasi per karyawan
+    const summaryMap = new Map<string, AttendanceSummaryItem>();
+
+    for (const j of jadwals) {
+      let item = summaryMap.get(j.karyawanId);
+      if (!item) {
+        item = {
+          karyawanId: j.karyawanId,
+          nama: j.karyawan.nama,
+          totalJadwal: 0,
+          totalHadir: 0,
+          totalTerlambat: 0,
+          totalTidakHadir: 0,
+          totalIzin: 0,
+          totalBelum: 0,
+        };
+        summaryMap.set(j.karyawanId, item);
+      }
+
+      item.totalJadwal += 1;
+      const hasApprovedLeave = leaveKaryawanIds.has(j.karyawanId);
+      const status = determineShiftStatus(
+        j.jamMulai,
+        j.logKehadiran,
+        hasApprovedLeave,
+      );
+
+      switch (status) {
+        case 'HADIR':
+          item.totalHadir += 1;
+          break;
+        case 'TERLAMBAT':
+          item.totalTerlambat += 1;
+          break;
+        case 'TIDAK_HADIR':
+          item.totalTidakHadir += 1;
+          break;
+        case 'IZIN':
+          item.totalIzin += 1;
+          break;
+        case 'BELUM':
+          item.totalBelum += 1;
+          break;
+      }
+    }
+
+    // 4. Urutkan per nama karyawan ascending
+    const result = Array.from(summaryMap.values());
+    result.sort((a, b) => a.nama.localeCompare(b.nama));
+
+    return result;
+  }
+
+  async getAttendanceAttempts(
+    query: GetAttendanceAttemptsQueryDto,
+  ): Promise<AttendanceAttemptItem[]> {
+    const { gte: startOfPeriode, lt: endOfPeriode } = getJakartaDateRange(
+      query.periodeMulai,
+      query.periodeSelesai,
+    );
+
+    const attempts = await this.prisma.percobaanAbsensi.findMany({
+      where: {
+        karyawanId: query.karyawanId,
+        waktu: {
+          gte: startOfPeriode,
+          lt: endOfPeriode,
+        },
+      },
+      select: {
+        id: true,
+        tipe: true,
+        waktu: true,
+        latitude: true,
+        longitude: true,
+        hasil: true,
+        jadwalId: true,
+      },
+      orderBy: {
+        waktu: 'asc',
+      },
+    });
+
+    return attempts;
   }
 }

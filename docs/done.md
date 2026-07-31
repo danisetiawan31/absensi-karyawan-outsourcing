@@ -280,3 +280,13 @@
   - **Kriteria Shift Kosong Actionable:** Hanya menyajikan shift yang `now >= jamMulai + T+15`, `now < jamSelesai` (belum berakhir), belum check-in, dan karyawan TIDAK memiliki `PengajuanIzin` status `APPROVED` yang overlap.
   - **Kalkulasi Keterlambatan:** Menghitung `menitTerlambat = Math.floor((now - jamMulai) / 60000)`.
   - **Overnight Shift (H-1):** Tetap mendeteksi shift malam dari H-1 yang jam selesainya belum berakhir pada waktu sekarang.
+
+## [Stage 30] Track F6 — GET /attendance/summary & GET /attendance/attempts
+
+- **Selesai:** Endpoint `GET /attendance/summary` dan `GET /attendance/attempts` untuk role HR_ADMIN melihat agregasi ringkasan kehadiran karyawan dan riwayat percobaan absensi dalam periode tertentu.
+- **File Dibuat/Diubah:** `common/utils/shift-status.util.ts`, `modules/dashboard/dashboard.service.ts`, `modules/attendance/*` (controller, service, DTOs, specs).
+- **Verifikasi:** Full test suite lolos 291/291 test (21 test suites passed), serta 52/52 test di module attendance.
+- **Catatan Penting:**
+  - **Ekstraksi Logic Precedence Status:** Penentuan status shift diekstraksi ke `determineShiftStatus` di `common/utils/shift-status.util.ts` sebagai *single source of truth* untuk `getAttendanceDashboard` (F4) dan `getAttendanceSummary` (F6).
+  - **Agregasi HR_ADMIN Tanpa Scoping:** `getAttendanceSummary` menghitung agregasi totalJadwal, totalHadir, totalTerlambat, totalTidakHadir, totalIzin, dan totalBelum per karyawan untuk seluruh site pada periode tertentu. Karyawan tanpa jadwal di-exclude.
+  - **Listing Percobaan Absensi Kronologis:** `getAttendanceAttempts` menyajikan daftar riwayat `PercobaanAbsensi` per karyawan yang diurutkan secara `waktu` ascending.

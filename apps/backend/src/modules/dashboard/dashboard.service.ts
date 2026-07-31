@@ -1,12 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { GetAttendanceDashboardQueryDto } from './dto/get-attendance-dashboard-query.dto';
-import { HasilVerifikasi, StatusIzin } from '@prisma/client';
+import { StatusIzin } from '@prisma/client';
 import { getJakartaSingleDayRange } from '../../common/utils/date.util';
 import { UNFILLED_SHIFT_THRESHOLD_MS } from '../../common/constants/attendance.constant';
+import {
+  determineShiftStatus,
+  ShiftAttendanceStatus,
+} from '../../common/utils/shift-status.util';
 
-export type DashboardAttendanceStatus =
-  'HADIR' | 'BELUM' | 'TERLAMBAT' | 'IZIN' | 'TIDAK_HADIR';
+export type DashboardAttendanceStatus = ShiftAttendanceStatus;
 
 export interface DashboardAttendanceItem {
   karyawan: string;
@@ -123,25 +126,13 @@ export class DashboardService {
 
     // 5. Tentukan status kehadiran berdasarkan urutan prioritas (Precedence)
     return jadwals.map((j) => {
-      let status: DashboardAttendanceStatus = 'BELUM';
-      let waktuCheckIn: Date | null = null;
-
-      if (
-        j.logKehadiran?.hasilVerifikasiCheckIn === HasilVerifikasi.TIDAK_HADIR
-      ) {
-        status = 'TIDAK_HADIR';
-      } else if (j.logKehadiran?.waktuCheckIn) {
-        waktuCheckIn = j.logKehadiran.waktuCheckIn;
-        if (waktuCheckIn.getTime() > j.jamMulai.getTime()) {
-          status = 'TERLAMBAT';
-        } else {
-          status = 'HADIR';
-        }
-      } else if (leaveKaryawanIds.has(j.karyawanId)) {
-        status = 'IZIN';
-      } else {
-        status = 'BELUM';
-      }
+      const hasApprovedLeave = leaveKaryawanIds.has(j.karyawanId);
+      const status = determineShiftStatus(
+        j.jamMulai,
+        j.logKehadiran,
+        hasApprovedLeave,
+      );
+      const waktuCheckIn = j.logKehadiran?.waktuCheckIn ?? null;
 
       return {
         karyawan: j.karyawan.nama,

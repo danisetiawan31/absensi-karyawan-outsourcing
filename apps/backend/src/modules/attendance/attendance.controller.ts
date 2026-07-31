@@ -1,6 +1,8 @@
 import {
   Controller,
   Post,
+  Get,
+  Query,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -11,6 +13,7 @@ import {
   HttpCode,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { GetAttendanceAttemptsQueryDto } from './dto/get-attendance-attempts-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -107,5 +110,12 @@ export class AttendanceController {
     }
 
     return this.attendanceService.checkOut(req.user.userId, dto, file);
+  }
+
+  @Get('attempts')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.HR_ADMIN)
+  async getAttempts(@Query() query: GetAttendanceAttemptsQueryDto) {
+    return this.attendanceService.getAttendanceAttempts(query);
   }
 }
