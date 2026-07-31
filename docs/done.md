@@ -290,3 +290,15 @@
   - **Ekstraksi Logic Precedence Status:** Penentuan status shift diekstraksi ke `determineShiftStatus` di `common/utils/shift-status.util.ts` sebagai *single source of truth* untuk `getAttendanceDashboard` (F4) dan `getAttendanceSummary` (F6).
   - **Agregasi HR_ADMIN Tanpa Scoping:** `getAttendanceSummary` menghitung agregasi totalJadwal, totalHadir, totalTerlambat, totalTidakHadir, totalIzin, dan totalBelum per karyawan untuk seluruh site pada periode tertentu. Karyawan tanpa jadwal di-exclude.
   - **Listing Percobaan Absensi Kronologis:** `getAttendanceAttempts` menyajikan daftar riwayat `PercobaanAbsensi` per karyawan yang diurutkan secara `waktu` ascending.
+
+## [Stage 31] Track F7 — GET /reports/export?format=pdf|xlsx (Penutupan Track F)
+
+- **Selesai:** Endpoint `GET /reports/export?format=pdf|xlsx&periodeMulai=&periodeSelesai=` untuk role HR_ADMIN mengekspor laporan ringkasan kehadiran karyawan dalam format PDF atau XLSX.
+- **File Dibuat/Diubah:** `modules/attendance/attendance.service.ts`, `modules/attendance/reports.controller.ts`, `modules/attendance/attendance.module.ts`, `modules/attendance/dto/get-attendance-report-query.dto.ts`, `modules/attendance/reports.service.spec.ts`, `modules/attendance/reports.controller.spec.ts`, `package.json` (dependency baru).
+- **Verifikasi:** Full test suite lolos 300/300 test (23 test suites passed).
+- **Catatan Penting:**
+  - **Dependency Baru:** `exceljs` (XLSX generation), `pdfkit` + `@types/pdfkit` (PDF generation).
+  - **Bypass ResponseInterceptor:** Endpoint ekspor menggunakan `@Res()` (Express Response) untuk mengirimkan binary file stream langsung, mem-bypass `ResponseInterceptor` global yang secara default membungkus response menjadi JSON `{success, data, meta}`. Hanya berlaku untuk route ini, tidak mengubah behavior route lain.
+  - **Reuse Data:** Method `generateAttendanceReport` mereuse `getAttendanceSummary` (F6) untuk mengambil data — tidak query ulang ke database secara terpisah.
+  - **PDF Table Layout:** Menggunakan tabel berbasis koordinat X/Y tetap per kolom (`PdfColumnDef` interface), garis vektor PDFKit (`moveTo`/`lineTo`/`stroke`), dan auto page break dengan repeat header di setiap halaman baru.
+  - **Track F (F1-F7) telah selesai sepenuhnya.**
