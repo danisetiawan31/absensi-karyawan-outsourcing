@@ -13,7 +13,7 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email: 'hr@test.local' },
-    update: {},
+    update: { passwordHash: password },
     create: {
       nama: 'HR Admin',
       email: 'hr@test.local',
@@ -25,7 +25,7 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email: 'spv@test.local' },
-    update: {},
+    update: { passwordHash: password },
     create: {
       nama: 'Supervisor Utama',
       email: 'spv@test.local',
@@ -37,7 +37,7 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email: 'karyawan@test.local' },
-    update: {},
+    update: { passwordHash: password },
     create: {
       nama: 'Karyawan Reguler',
       email: 'karyawan@test.local',

@@ -24,7 +24,6 @@ export default function ForgotPasswordScreen() {
   const [networkError, setNetworkError] = useState<string | null>(null);
 
   async function handleSubmit() {
-    // Validasi format email sebelum hit API
     if (!email.trim()) {
       setEmailError("Email wajib diisi.");
       return;

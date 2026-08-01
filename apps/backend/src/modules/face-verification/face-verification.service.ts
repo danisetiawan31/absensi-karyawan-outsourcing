@@ -22,12 +22,23 @@ export class FaceVerificationService {
     this.faceServiceUrl =
       process.env.FACE_SERVICE_URL || 'http://localhost:8000';
     this.timeoutMs = parseInt(
-      process.env.FACE_SERVICE_TIMEOUT_MS || '60000',
+      process.env.FACE_SERVICE_TIMEOUT_MS || '190000',
       10,
     );
   }
 
   async embedFace(fotoBase64: string): Promise<EmbedFaceResponse> {
+    // BYPASS SEMENTARA — lihat AGENTS.md, hapus setelah RAM upgrade
+    if (process.env.SKIP_FACE_VERIFICATION === 'true') {
+      return {
+        embedding: [0.1, 0.2, 0.3],
+        liveness: {
+          isLive: true,
+          confidence: 1.0,
+        },
+      };
+    }
+
     const url = `${this.faceServiceUrl}/internal/embed`;
 
     const response = await firstValueFrom(

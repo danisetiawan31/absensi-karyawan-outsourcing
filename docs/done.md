@@ -370,3 +370,37 @@
   - **State Lintas Layar:** Email diteruskan ke ResetPassword via URL param (transien & tidak sensitif).
   - **Error Flow:** Jika token invalid (`TOKEN_TIDAK_VALID`), user tetap di layar Reset (tidak dilempar balik).
   - **Penutupan Track H:** Tahap 1–4 Auth Mobile selesai. Validasi `MinLength(8)` konsisten di backend & mobile.(Reset Password) telah selesai dan diverifikasi. `MinLength(8)` konsisten di seluruh aplikasi (catatan pending Stage 18 sudah ditutup di Stage 35). Track H sepenuhnya **SELESAI**.
+
+## [Stage 37] Technical Debt — Bypass Sementara Verifikasi Wajah (RAM Constraint)
+
+- **Tanggal Dibuat:** 2026-08-01
+- **Target Dihapus:** 2026-08-05 (Setelah upgrade RAM ke 24 GB)
+- **Keterangan:**
+  - Menambahkan environment variable `SKIP_FACE_VERIFICATION=true` di `apps/backend/.env` dan `SKIP_FACE_VERIFICATION=false` di `.env.example`.
+  - Di `FaceVerificationService` (`apps/backend/src/modules/face-verification/face-verification.service.ts`), jika `process.env.SKIP_FACE_VERIFICATION === 'true'`, service langsung mengembalikan dummy `EmbedFaceResponse` (`embedding: [0.1, 0.2, 0.3]`, `liveness: { isLive: true, confidence: 1.0 }`) tanpa memanggil `POST /internal/embed` di Python `face-service`.
+  - Hal ini dilakukan agar pengembangan dan pengujian mobile app tidak terhambat oleh _timeout_ / _resource bottleneck_ saat memproses model AI di mesin dev RAM 12 GB.
+- **PENTING saat bypass dihapus:** Semua user yang registrasi wajah SAAT bypass aktif
+  (embedding dummy 3-dim, bukan 128-dim asli) WAJIB reset & registrasi ulang wajah
+  via endpoint HR (POST /employees/:id/reset-face-registration) — embedding dummy
+  tidak valid untuk perbandingan cosine similarity yang sebenarnya.
+
+## [Stage 38] Track I — Karyawan: Registrasi Wajah Mobile (face-registration-mobile)
+
+- **Selesai:** Implementasi UI & logic registrasi wajah karyawan (`FaceCameraScreen`, `FacePreviewScreen`, `FaceConfirmScreen`), route `(karyawan)/face-registration*`, dan unit test suite.
+- **File Dibuat/Diubah:**
+  - `apps/mobile/src/`:
+    - `screens/karyawan/FaceCameraScreen.tsx` _(NEW)_
+    - `screens/karyawan/FacePreviewScreen.tsx` _(NEW)_
+    - `screens/karyawan/FaceConfirmScreen.tsx` _(NEW)_
+    - `screens/karyawan/__tests__/FaceCameraScreen.test.tsx` _(NEW)_
+    - `screens/karyawan/__tests__/FacePreviewScreen.test.tsx` _(NEW)_
+    - `screens/karyawan/__tests__/FaceConfirmScreen.test.tsx` _(NEW)_
+    - `app/(karyawan)/face-registration.tsx` _(NEW)_
+    - `app/(karyawan)/face-registration-preview.tsx` _(NEW)_
+    - `app/(karyawan)/face-registration-confirm.tsx` _(NEW)_
+    - `store/authStore.ts`
+- **Verifikasi:** Unit test suite & `tsc` PASS.
+- **Catatan Penting:**
+  - **Camera Permission & UI:** Screen kamera menyajikan panduan posisi wajah oval statis, pengolahan izin akses kamera native Expo, dan tombol _capture_ single snapshot.
+  - **Single Photo Preview & Submit:** Foto ditampilkan penuh (full-screen) dengan opsi ambil ulang atau konfirmasi submit multipart/form-data ke `POST /users/me/face-registration`.
+  - **State Update & Navigation:** Setelah sukses submit, `wajahTerdaftar` di `authStore` otomatis di-update menjadi `true` dan pengguna diarahkan ke Home Karyawan.

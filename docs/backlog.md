@@ -66,7 +66,7 @@
 
 **Status: READY**
 
-- face-registration-mobile
+- face-registration-mobile - SELESAI
 - karyawan-home-jadwal
 
 ## Track J — Karyawan: Attendance & Leave

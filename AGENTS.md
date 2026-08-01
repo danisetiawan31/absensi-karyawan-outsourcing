@@ -134,6 +134,8 @@ Setelah 1 langkah kecil selesai, test (jika ada) lolos, DAN user sudah approve h
   yang butuh: push notification (expo-notifications, remote push tidak didukung
   Expo Go), atau background location. Kamera (face registration/attendance) TETAP
   kompatibel Expo Go, tidak perlu dev build untuk itu.
+- **BYPASS SEMENTARA VERIFIKASI WAJAH (TECHNICAL DEBT — Target Hapus: 2026-08-04):** `SKIP_FACE_VERIFICATION=true` di `apps/backend/.env`. `FaceVerificationService.embedFace()` langsung mengembalikan dummy embedding `[0.1, 0.2, 0.3]` dan `isLive: true` tanpa memanggil Python `face-service`. Dibuat karena keterbatasan RAM dev (12 GB) yang memicu HTTP timeout pada pemrosesan DeepFace di mobile client. Wajib dihapus setelah RAM di-upgrade ke 24 GB.
+
 
 ## Mobile — Design Reference
 

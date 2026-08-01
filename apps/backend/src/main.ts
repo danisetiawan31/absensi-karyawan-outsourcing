@@ -43,7 +43,8 @@ async function bootstrap() {
   // Global Exception Filter
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  await app.listen(process.env.PORT ?? 3000);
+  app.setGlobalPrefix('api/v1');
+  await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
 }
 bootstrap().catch((err) => {
   console.error('Error starting server:', err);

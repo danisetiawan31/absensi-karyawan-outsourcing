@@ -23,6 +23,7 @@ export interface AuthState {
   clearAuth: () => Promise<void>;
   setPendingPasswordLama: (password: string) => void;
   clearPendingPasswordLama: () => void;
+  setWajahTerdaftar: (status: boolean) => Promise<void>;
   /**
    * Mengembalikan boolean true jika sesi berhasil di-hydrate dari storage.
    */
@@ -78,6 +79,20 @@ export const useAuthStore = create<AuthState>((set) => ({
   clearPendingPasswordLama: () => {
     set({ pendingPasswordLama: null });
   },
+
+    setWajahTerdaftar: async (status: boolean) => {
+      try {
+        const authDataStr = await SecureStore.getItemAsync(AUTH_STORAGE_KEY);
+        if (authDataStr) {
+          const data: AuthData = JSON.parse(authDataStr);
+          data.wajahTerdaftar = status;
+          await SecureStore.setItemAsync(AUTH_STORAGE_KEY, JSON.stringify(data));
+        }
+      } catch {
+        // Fallback: proceed with memory state update
+      }
+      set({ wajahTerdaftar: status });
+    },
 
   hydrateAuth: async () => {
     try {

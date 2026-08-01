@@ -28,6 +28,14 @@ def decode_base64_image(base64_str: str) -> np.ndarray:
         
         if img is None:
             raise ValueError("Gambar tidak valid")
+
+        # Resize image if max dimension > 1024 to speed up MTCNN detection on CPU
+        h, w = img.shape[:2]
+        max_dim = max(h, w)
+        if max_dim > 1024:
+            scale = 1024.0 / max_dim
+            new_w, new_h = int(w * scale), int(h * scale)
+            img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
             
         return img
     except Exception:

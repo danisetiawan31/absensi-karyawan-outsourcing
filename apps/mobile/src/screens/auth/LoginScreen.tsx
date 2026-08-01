@@ -20,9 +20,9 @@ import { ErrorEnvelope, SuccessEnvelope, UserRole } from '@/types/api';
 
 // Reuse role-routing logic yang sudah ada di root layout — tidak duplikasi
 const ROLE_ROUTES: Record<UserRole, string> = {
-  KARYAWAN: '/(karyawan)/index',
-  SUPERVISOR: '/(supervisor)/index',
-  HR_ADMIN: '/(hr-admin)/index',
+  KARYAWAN: '/(karyawan)',
+  SUPERVISOR: '/(supervisor)',
+  HR_ADMIN: '/(hr-admin)',
 };
 
 interface LoginResponseData {
@@ -92,7 +92,12 @@ export default function LoginScreen() {
       }
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
-        const body = err.response?.data as ErrorEnvelope | undefined;
+        if (!err.response) {
+          setErrorMsg('Gagal terhubung ke server. Periksa koneksi jaringan Anda.');
+          return;
+        }
+
+        const body = err.response.data as ErrorEnvelope | undefined;
         const code = body?.error?.code;
 
         if (code === 'AKUN_NONAKTIF') {

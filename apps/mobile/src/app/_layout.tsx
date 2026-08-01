@@ -18,9 +18,9 @@ SplashScreen.preventAutoHideAsync();
 const VALID_ROLES: UserRole[] = ["KARYAWAN", "SUPERVISOR", "HR_ADMIN"];
 
 const ROLE_ROUTES = {
-  KARYAWAN: "/(karyawan)/index" as const,
-  SUPERVISOR: "/(supervisor)/index" as const,
-  HR_ADMIN: "/(hr-admin)/index" as const,
+  KARYAWAN: "/(karyawan)" as const,
+  SUPERVISOR: "/(supervisor)" as const,
+  HR_ADMIN: "/(hr-admin)" as const,
 } satisfies Record<UserRole, string>;
 
 export default function RootLayout() {

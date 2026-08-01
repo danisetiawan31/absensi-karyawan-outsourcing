@@ -1,14 +1,9 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 export default function SupervisorHomeScreen() {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Dashboard Supervisor</Text>
+    <View className="flex-1 justify-center items-center bg-white">
+      <Text className="text-[20px] font-bold">Dashboard Supervisor</Text>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
-  title: { fontSize: 20, fontWeight: 'bold' },
-});
