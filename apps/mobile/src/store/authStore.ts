@@ -1,9 +1,9 @@
-import * as SecureStore from 'expo-secure-store';
-import { create } from 'zustand';
+import * as SecureStore from "expo-secure-store";
+import { create } from "zustand";
 
-import { AuthData, UserRole } from '@/types/api';
+import { AuthData, UserRole } from "@/types/api";
 
-export const AUTH_STORAGE_KEY = 'user_auth_data';
+export const AUTH_STORAGE_KEY = "user_auth_data";
 
 export interface AuthState {
   accessToken: string | null;
@@ -13,8 +13,16 @@ export interface AuthState {
   wajahTerdaftar: boolean;
   wajibGantiPassword: boolean;
 
+  /**
+   * WAJIB di-clear segera setelah request change-password selesai (sukses/gagal).
+   * TIDAK masuk ke SecureStore — hilang kalau app di-kill (by design).
+   */
+  pendingPasswordLama: string | null;
+
   setAuth: (data: AuthData) => Promise<void>;
   clearAuth: () => Promise<void>;
+  setPendingPasswordLama: (password: string) => void;
+  clearPendingPasswordLama: () => void;
   /**
    * Mengembalikan boolean true jika sesi berhasil di-hydrate dari storage.
    */
@@ -28,6 +36,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   nama: null,
   wajahTerdaftar: false,
   wajibGantiPassword: false,
+  pendingPasswordLama: null,
 
   setAuth: async (data: AuthData) => {
     try {
@@ -60,6 +69,14 @@ export const useAuthStore = create<AuthState>((set) => ({
       wajahTerdaftar: false,
       wajibGantiPassword: false,
     });
+  },
+
+  setPendingPasswordLama: (password: string) => {
+    set({ pendingPasswordLama: password });
+  },
+
+  clearPendingPasswordLama: () => {
+    set({ pendingPasswordLama: null });
   },
 
   hydrateAuth: async () => {

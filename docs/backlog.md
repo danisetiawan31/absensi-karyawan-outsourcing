@@ -57,14 +57,14 @@
 
 ## Track H — Mobile Foundation & Auth
 
-**Status: READY**
+**Status: SELESAI (H1-H4).** Detail lengkap ada di `done.md` Stage 33-36.
 
 - mobile-foundation (scaffold, axios+interceptor, Zustand auth store, routing guard per-role)
 - auth-mobile (login, wajib ganti password, forgot/reset password)
 
 ## Track I — Karyawan: Gate & Home
 
-**Status: BLOCKED** (depends on Track H)
+**Status: READY**
 
 - face-registration-mobile
 - karyawan-home-jadwal
@@ -79,7 +79,7 @@
 
 ## Track K — Supervisor
 
-**Status: BLOCKED** (depends on Track H)
+**Status: READY**
 
 - supervisor-dashboard
 - supervisor-jadwal-izin

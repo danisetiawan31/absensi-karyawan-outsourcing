@@ -3,7 +3,12 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { LoginDto } from './dto/login.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { BadRequestException } from '@nestjs/common';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import {
+  BadRequestException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
+import { User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { Resend } from 'resend';
@@ -54,7 +59,36 @@ export class AuthService {
       role: user.role,
       userId: user.id,
       nama: user.nama,
+      wajahTerdaftar: user.faceEmbedding.length > 0,
+      wajibGantiPassword: user.wajibGantiPassword,
     };
+  }
+
+  async changePassword(
+    currentUser: User,
+    dto: ChangePasswordDto,
+  ): Promise<void> {
+    const isOldPasswordValid = await bcrypt.compare(
+      dto.passwordLama,
+      currentUser.passwordHash,
+    );
+
+    if (!isOldPasswordValid) {
+      throw new UnprocessableEntityException({
+        code: 'PASSWORD_LAMA_SALAH',
+        message: 'Password lama yang Anda masukkan tidak sesuai',
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(dto.passwordBaru, 10);
+
+    await this.prisma.user.update({
+      where: { id: currentUser.id },
+      data: {
+        passwordHash,
+        wajibGantiPassword: false,
+      },
+    });
   }
 
   async forgotPassword(email: string): Promise<void> {

@@ -167,7 +167,7 @@
   - **Penambahan parameter `email`:** wajib ditambahkan ke payload untuk disambiguasi kode 6 digit yang rentan kolisi antar pengguna — konsekuensi dari keputusan token pendek (demi UX mobile, ganti dari token panjang unik di draft awal).
   - **Validasi gabungan (anti-enumeration):** kombinasi email tidak ditemukan, token null, token salah, atau token kedaluwarsa disatukan ke satu pesan error `400 TOKEN_TIDAK_VALID` — mencegah attacker membedakan jenis kegagalan lewat respons.
   - **Reset otomatis `wajibGantiPassword`:** kalau sebelumnya `true`, endpoint ini ikut men-set `false` — konsisten dengan efek samping `POST /auth/change-password`, mencegah karyawan nyangkut di redirect ganti password meski sudah reset lewat jalur ini, bukan jalur `change-password`.
-  - **Asumsi panjang password (perlu disinkronkan nanti):** karena `change-password.dto.ts` belum ada di project ini, dipakai `@MinLength(8)` di sini sebagai default wajar. **Catatan untuk implementasi `change-password` mendatang:** aturan validasinya wajib disamakan ke DTO ini, bukan sebaliknya — supaya tidak ada 2 standar panjang password berbeda untuk 2 endpoint yang sama-sama fungsinya ganti password.
+  - **Panjang password disinkronkan (`@MinLength(8)`):** menggunakan `@MinLength(8)` sebagai standar terpadu (telah disinkronkan ke `ChangePasswordDto` di Stage 35).
 
 ## [Stage 19] Maintenance — Press done.md & Extend AGENTS.md
 
@@ -320,7 +320,53 @@
 - **File Dibuat/Diubah:** `src/app/*`, `src/screens/*`, `src/types/api.ts`, `src/services/apiClient.ts`, `src/store/authStore.ts`, dan tes di `src/**/__tests__/*`.
 - **Verifikasi:** 17/17 test lolos (store, routing guards, interceptors), build TypeScript bersih (Zero `any`).
 - **Catatan Penting:**
-  - **Auth Hydration (Fix):** Seluruh `AuthData` (termasuk `role`) disimpan sebagai JSON di `expo-secure-store`. Pada *cold start*, aplikasi me-restore state secara utuh tanpa hit API, sehingga *routing guard* bisa segera mengarahkan ke dashboard yang tepat dan menghindari bug *zombie token*.
+  - **Auth Hydration (Fix):** Seluruh `AuthData` (termasuk `role`) disimpan sebagai JSON di `expo-secure-store`. Pada _cold start_, aplikasi me-restore state secara utuh tanpa hit API, sehingga _routing guard_ bisa segera mengarahkan ke dashboard yang tepat dan menghindari bug _zombie token_.
   - **Interceptor Axios:** Menginjeksi token otomatis dan merespons 401 dengan menghapus sesi (`clearAuth`) lalu me-redirect ke login.
-  - **Routing Guard:** Proteksi berbasis role berjalan murni via Expo Router Strict Typed Routes. Unit test dilakukan pada level *pure logic* menggunakan _mock_ `expo-router` (workaround kompatibilitas `react-test-renderer` v19).
+  - **Routing Guard:** Proteksi berbasis role berjalan murni via Expo Router Strict Typed Routes. Unit test dilakukan pada level _pure logic_ menggunakan _mock_ `expo-router` (workaround kompatibilitas `react-test-renderer` v19).
   - Seluruh tahapan **Mobile Foundation** telah tuntas sesuai `mobile-foundation.md`.
+
+## [Stage 34] Auth Mobile — Setup NativeWind & Custom Fonts (Tahap 1.5)
+
+- **Selesai:** Konfigurasi NativeWind v4 dengan Tailwind CSS v3.4, integrasi font `Plus Jakarta Sans`, dan konversi UI LoginScreen dari `StyleSheet` manual ke kelas NativeWind.
+- **File Dibuat/Diubah:** `tailwind.config.js`, `babel.config.js`, `metro.config.js`, `src/global.css`, `src/app/_layout.tsx`, `src/screens/auth/LoginScreen.tsx`, `nativewind-env.d.ts`.
+- **Verifikasi:** Build TypeScript lolos tanpa error, font lokal berhasil di-load menggunakan `useFonts` sebelum UI dirender (Splash screen disembunyikan hanya saat auth dan font ready).
+- **Catatan Penting:**
+  - **Kebutuhan `--legacy-peer-deps`:** Instalasi `nativewind` beserta dependensinya wajib menggunakan flag `--legacy-peer-deps`. Ini diakibatkan oleh konflik _peer dependency_ React 19 yang dibawa secara bawaan oleh ekosistem Expo (bentrok dengan paket-paket jest-expo yang masih mereferensikan React 19 lama/berbeda).
+  - **Local Font Loading:** Menghindari _Flash of Unstyled Text (FOUT)_ dengan cara menahan `SplashScreen` hingga file TTF fisik (Regular, SemiBold, Bold, ExtraBold) dari `assets/fonts/` sepenuhnya siap. Nama font dikustomisasi di konfigurasi Tailwind (misal: `font-sans-bold`) guna menyelaraskan sintaks dengan _key_ statis di `useFonts`.
+
+## [Stage 35] Auth Mobile — Tahap 2: Wajib Ganti Password Screen & Endpoint POST /auth/change-password
+
+- **Selesai:** Implementasi UI & logic screen `(auth)/change-password-required` (Tahap 2 Auth Mobile) dan endpoint `POST /auth/change-password` di NestJS backend.
+- **File Dibuat/Diubah:**
+  - Backend (`apps/backend/src/modules/auth/`): `dto/change-password.dto.ts` _(NEW)_, `auth.service.ts`, `auth.controller.ts`.
+  - Mobile (`apps/mobile/src/`):
+    - `screens/auth/ChangePasswordRequiredScreen.tsx` _(NEW)_ & test-nya _(NEW)_
+    - `screens/auth/LoginScreen.tsx`
+    - `app/(auth)/change-password-required.tsx`
+    - `components/KeyboardScreen.tsx` _(NEW)_
+- **Verifikasi:**
+  - Mobile: 4/4 test suites (25/25 unit tests) PASS.
+  - Backend: 23/23 test suites (316/316 integration tests) PASS.
+  - TypeScript: 0 error di mobile & backend (`tsc --noEmit`).
+- **Catatan Penting & Penutupan Catatan Stage 18:**
+  - **Penutupan Catatan Pending Stage 18:** Implementasi `ChangePasswordDto` di backend mengeksekusi secara eksplisit penutupan catatan dari **Stage 18**. Aturan validasi panjang minimal password baru (`@MinLength(8)`) disinkronkan persis dengan `ResetPasswordDto` (`reset-password.dto.ts`), menjamin konsistensi 100% antara endpoint reset password dan ganti password.
+  - **Access Gate:** `ChangePasswordRequiredScreen` secara ketat memvalidasi `pendingPasswordLama`. Jika pengguna mengakses layar secara langsung tanpa melalui alur login resmi, layar otomatis melakukan redirect paksa ke `/(auth)/login`.
+  - **Penanganan Error Retry (`PASSWORD_LAMA_SALAH`):** Saat backend mengembalikan kode error `PASSWORD_LAMA_SALAH`, state `pendingPasswordLama` sengaja dipertahankan di `authStore` agar pengguna dapat mencoba ulang (_retry_) tanpa harus terlempar balik ke layar login.
+  - **Komponen Reusable `<KeyboardScreen>`:** Dibangun di `src/components/KeyboardScreen.tsx` membungkus `KeyboardAvoidingView` (`behavior="padding"` + `keyboardVerticalOffset` untuk Android) dan `ScrollView`, dan diterapkan pada `LoginScreen` serta `ChangePasswordRequiredScreen`.
+
+## [Stage 36] Auth Mobile — Tahap 3 & 4: Lupa Password & Penutupan Track H
+
+- **Selesai:** Implementasi ForgotPassword & ResetPassword, melengkapi seluruh alur Track H (Auth Mobile).
+- **File Dibuat/Diubah:**
+  - `apps/mobile/src/`:
+    - `screens/auth/ForgotPasswordScreen.tsx` _(NEW)_ & test-nya
+    - `screens/auth/ResetPasswordScreen.tsx` _(NEW)_ & test-nya
+    - `app/(auth)/{forgot,reset}-password.tsx` (re-exports)
+  - Fix: Gate redirect di layar Change/Reset Password dipindah ke `useEffect` (cegah crash `assertIsReady`).
+- **Verifikasi:** 6/6 test suites (40 tests) & `tsc` (mobile/backend) PASS.
+- **Catatan Penting:**
+  - **Visual Konsisten:** Mengikuti standar LoginScreen (card `bg-surface`, input `h-[46]`, `KeyboardScreen`).
+  - **Anti-Enumeration vs Network Error:** API `forgot-password` selalu return 200 (anti-enumeration). Network error/5xx tetap ditampilkan jelas agar user bisa retry.
+  - **State Lintas Layar:** Email diteruskan ke ResetPassword via URL param (transien & tidak sensitif).
+  - **Error Flow:** Jika token invalid (`TOKEN_TIDAK_VALID`), user tetap di layar Reset (tidak dilempar balik).
+  - **Penutupan Track H:** Tahap 1–4 Auth Mobile selesai. Validasi `MinLength(8)` konsisten di backend & mobile.(Reset Password) telah selesai dan diverifikasi. `MinLength(8)` konsisten di seluruh aplikasi (catatan pending Stage 18 sudah ditutup di Stage 35). Track H sepenuhnya **SELESAI**.

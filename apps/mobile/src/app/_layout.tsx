@@ -1,9 +1,11 @@
+import "../global.css";
 import {
   DarkTheme,
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
-import { router, Stack } from "expo-router";
+import { useFonts } from "expo-font";
+import { router, Stack, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, useColorScheme, View } from "react-native";
@@ -24,49 +26,59 @@ const ROLE_ROUTES = {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const { hydrateAuth, clearAuth } = useAuthStore();
+  
+  // Use selectors to prevent unnecessary re-renders
+  const hydrateAuth = useAuthStore((s) => s.hydrateAuth);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
+  const role = useAuthStore((s) => s.role);
+
+  const segments = useSegments();
+
+  const [fontsLoaded, fontError] = useFonts({
+    "PlusJakartaSans-Regular": require("../../assets/fonts/PlusJakartaSans-Regular.ttf"),
+    "PlusJakartaSans-SemiBold": require("../../assets/fonts/PlusJakartaSans-SemiBold.ttf"),
+    "PlusJakartaSans-Bold": require("../../assets/fonts/PlusJakartaSans-Bold.ttf"),
+    "PlusJakartaSans-ExtraBold": require("../../assets/fonts/PlusJakartaSans-ExtraBold.ttf"),
+  });
 
   useEffect(() => {
-    async function checkAuth() {
+    async function initAuth() {
       try {
-        const isHydrated = await hydrateAuth();
-
-        if (!isHydrated) {
-          router.replace("/(auth)/login");
-          return;
-        }
-
-        const { role } = useAuthStore.getState();
-
-        if (!role || !VALID_ROLES.includes(role)) {
-          // Edge case: role tidak valid atau korup (mismatch)
-          // Panggil clearAuth secara eksplisit untuk menghapus token zombie
-          await clearAuth();
-          router.replace("/(auth)/login");
-          return;
-        }
-
-        router.replace(ROLE_ROUTES[role]);
-      } catch {
-        // Unexpected error saat cek auth
-        router.replace("/(auth)/login");
+        await hydrateAuth();
       } finally {
         setIsCheckingAuth(false);
-        SplashScreen.hideAsync();
       }
     }
+    initAuth();
+  }, [hydrateAuth]);
 
-    checkAuth();
-  }, []);
+  useEffect(() => {
+    if (isCheckingAuth || (!fontsLoaded && !fontError)) return;
+    
+    // Now layout is mounted, auth is checked, and fonts are loaded.
+    const inAuthGroup = segments[0] === "(auth)";
 
-  if (isCheckingAuth) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
+    if (!role || !VALID_ROLES.includes(role)) {
+      if (!inAuthGroup) {
+        // Clear corrupt state (if any) and redirect to login
+        clearAuth().then(() => router.replace("/(auth)/login"));
+      }
+    } else {
+      // If user is authenticated and trying to access auth screens (or root), redirect to their dashboard
+      if (inAuthGroup || !segments[0]) {
+        router.replace(ROLE_ROUTES[role] as never);
+      }
+    }
+  }, [isCheckingAuth, fontsLoaded, fontError, role, segments, clearAuth]);
 
+  useEffect(() => {
+    if ((fontsLoaded || fontError) && !isCheckingAuth) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, fontError, isCheckingAuth]);
+
+  // Always render the navigator (Stack) to satisfy Expo Router's strict mounting requirements.
+  // The SplashScreen prevents the user from seeing any intermediate states.
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <Stack screenOptions={{ headerShown: false }} />

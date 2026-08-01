@@ -8,6 +8,7 @@ Instruksi kerja untuk AI coding agent (Antigravity). Dibaca otomatis sebelum mel
 - `docs/TDD.md` — arsitektur sistem, ringkasan keputusan ERD, ringkasan API contract
 - `docs/API-Contract.md` — kontrak endpoint lengkap (request/response, validasi)
 - `apps/backend/prisma/schema.prisma` — skema database final
+- `docs/DESIGN.md` — design system
 
 **Dokumen di atas TIDAK BOLEH diubah oleh agent.** Itu hasil proses discovery yang sudah difinalisasi terpisah. Kalau implementasi butuh sesuatu yang tidak ada di dokumen ini — STOP, tanya ke user. Jangan berimprovisasi menambah atau mengubah requirement sendiri.
 
@@ -128,17 +129,38 @@ Setelah 1 langkah kecil selesai, test (jika ada) lolos, DAN user sudah approve h
   - Untuk file test (`*.spec.ts`), pantang menggunakan `res.body.data: any`. Selalu _cast_ respons menggunakan `SuccessEnvelope<T>` atau `ErrorEnvelope`.
   - Pengecualian pada linter `unbound-method` untuk pengujian (karena penggunaan mock pada `expect(method)`) kini sudah difasilitasi aman oleh konfigurasi global `eslint-plugin-jest`.
 - **GIT STATUS:** Setiap kali _user_ meminta untuk membuat/menyediakan pesan _commit_, Agent **WAJIB** menjalankan perintah `git status` terlebih dahulu untuk melihat kondisi git sebelum memberikan pesan _commit_-nya.
+- Development client: Expo Go untuk MVP awal. WAJIB pindah ke custom dev build
+  (expo prebuild / eas build --profile development) begitu mulai kerjakan fitur
+  yang butuh: push notification (expo-notifications, remote push tidak didukung
+  Expo Go), atau background location. Kamera (face registration/attendance) TETAP
+  kompatibel Expo Go, tidak perlu dev build untuk itu.
 
 ## Mobile — Design Reference
 
-- `docs/DESIGN.md` adalah SATU-SATUNYA source of truth desain (token warna,
-  tipografi, spacing, radius). Kalau ada file DESIGN.md lain ditemukan di
-  folder lain, itu duplikat tidak sengaja — abaikan, JANGAN dipakai.
-- Token warna/tipografi/spacing di DESIGN.md WAJIB diikuti persis (bukan
-  cuma referensi longgar) — khusus warna semantik status (success/warning/
-  info/muted/destructive) WAJIB konsisten dipetakan ke enum HasilVerifikasi
-  yang sama persis di semua role, karena Karyawan/Supervisor/HR_ADMIN semua
-  melihat status yang sama dan harus konsisten secara visual.
+- `docs/DESIGN.md` adalah titik AWAL (konsep dasar: nuansa warna, tipografi, prinsip
+  "flat, aksen kuning selektif") — BUKAN spec kaku yang wajib diikuti persis nilainya.
+  Boleh diimprove/ditafsir ulang secara visual (hex, spacing eksak, radius, komposisi
+  layout) selama TIDAK mengubah pemetaan semantik di bawah.
+
+- **WAJIB tetap konsisten (non-negotiable, beda dari sekadar "selera"):**
+  pemetaan warna status → makna, mengikuti enum HasilVerifikasi/status dashboard
+  (persis seperti tabel "Warna Semantik — Status Kehadiran" di DESIGN.md):
+  Hadir/Valid = warna sukses, Terlambat = warna warning, Izin = warna info,
+  Belum = warna muted, Tidak Hadir = warna destructive. Nilai HEX spesifiknya
+  boleh diubah, tapi maknanya (warna hijau-ish utk sukses, dst) tidak boleh
+  ditukar-tukar, dan HARUS konsisten di semua role (Karyawan/Supervisor/HR_ADMIN
+  melihat warna yang sama utk status yang sama).
+
+- **Screen pertama yang dibangun di tiap fitur besar (mis. layar Login di
+  auth-mobile) jadi REFERENSI VISUAL yang dikunci** setelah di-approve user —
+  screen-screen berikutnya WAJIB konsisten ke situ (warna aksen, tipografi,
+  radius, spacing yang dipakai), bukan menafsir ulang dari DESIGN.md dari nol
+  tiap kali. Ini mencegah drift visual antar sesi Antigravity yang tidak
+  punya memori bersama.
+
+- Penyimpangan/interpretasi ulang dari DESIGN.md WAJIB dicatat di entry
+  done.md (sama seperti aturan penyimpangan teknis lain, AGENTS.md §4).
+
 - File `code.html` per screen di docs/<role>/<nama_screen>/ HANYA starting
   point layout/struktur (hasil auto-generate Stitch) — WAJIB diimprove,
   BUKAN dipertahankan persis. Jangan copy-paste struktur HTML mentah jadi

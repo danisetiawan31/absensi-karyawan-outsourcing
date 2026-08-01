@@ -11,87 +11,35 @@ colors:
   muted: "#64748B"
   border: "#E4E4DF"
   success: "#16A34A"
+  success-bg: "#DCFCE7"
+  success-text: "#166534"
   warning: "#EA580C"
+  warning-bg: "#FFEDD5"
+  warning-text: "#9A3412"
   info: "#2563EB"
+  info-bg: "#DBEAFE"
+  info-text: "#1E40AF"
   destructive: "#DC2626"
-  surface-dim: "#e3d9c8"
-  surface-bright: "#fff8f1"
-  surface-container-lowest: "#ffffff"
-  surface-container-low: "#fdf2e1"
-  surface-container: "#f7eddc"
-  surface-container-high: "#f1e7d6"
-  surface-container-highest: "#ece1d0"
-  on-surface: "#201b11"
-  on-surface-variant: "#4f4632"
-  inverse-surface: "#353025"
-  inverse-on-surface: "#faefde"
-  outline: "#817660"
-  outline-variant: "#d2c5ac"
-  surface-tint: "#765a00"
-  primary-container: "#ffc81e"
-  on-primary-container: "#6f5500"
-  inverse-primary: "#f5bf0e"
-  secondary: "#625e57"
-  on-secondary: "#ffffff"
-  secondary-container: "#e6ded6"
-  on-secondary-container: "#67625b"
-  tertiary: "#006875"
-  on-tertiary: "#ffffff"
-  tertiary-container: "#00e4fd"
-  on-tertiary-container: "#00626d"
-  error: "#ba1a1a"
-  on-error: "#ffffff"
-  error-container: "#ffdad6"
-  on-error-container: "#93000a"
-  primary-fixed: "#ffdf95"
-  primary-fixed-dim: "#f5bf0e"
-  on-primary-fixed: "#251a00"
-  on-primary-fixed-variant: "#594400"
-  secondary-fixed: "#e9e1d9"
-  secondary-fixed-dim: "#ccc5bd"
-  on-secondary-fixed: "#1e1b16"
-  on-secondary-fixed-variant: "#4a4640"
-  tertiary-fixed: "#9af0ff"
-  tertiary-fixed-dim: "#00daf2"
-  on-tertiary-fixed: "#001f24"
-  on-tertiary-fixed-variant: "#004f58"
-  on-background: "#201b11"
-  surface-variant: "#ece1d0"
+  destructive-bg: "#FEE2E2"
+  destructive-text: "#991B1B"
 typography:
   family: Plus Jakarta Sans
-  body-md:
-    fontSize: 16px
-    fontWeight: 400
-    fontFamily: Plus Jakarta Sans
-    lineHeight: 24px
-  label-sm:
-    fontSize: 12px
-    fontWeight: 600
-    fontFamily: Plus Jakarta Sans
-    lineHeight: 16px
-    letterSpacing: 0.02em
-  display:
-    fontFamily: Plus Jakarta Sans
-    fontSize: 28px
-    fontWeight: "800"
-    lineHeight: 34px
-  heading:
-    fontFamily: Plus Jakarta Sans
-    fontSize: 20px
-    fontWeight: "700"
-    lineHeight: 26px
-  title:
-    fontFamily: Plus Jakarta Sans
-    fontSize: 16px
-    fontWeight: "600"
-    lineHeight: 24px
+  display: { fontSize: 28px, fontWeight: "800", lineHeight: 34px }
+  heading: { fontSize: 20px, fontWeight: "700", lineHeight: 26px }
+  title: { fontSize: 16px, fontWeight: "600", lineHeight: 24px }
+  body: { fontSize: 16px, fontWeight: "400", lineHeight: 24px }
+  label:
+    {
+      fontSize: 12px,
+      fontWeight: "600",
+      lineHeight: 16px,
+      letterSpacing: 0.02em,
+    }
 rounded:
   sm: 6px
   md: 8px
   lg: 12px
   full: 999px
-  DEFAULT: 0.5rem
-  xl: 1.5rem
 spacing:
   container-margin: 1rem
   stack-gap: 1rem
@@ -103,69 +51,48 @@ spacing:
 
 ## Overview
 
-Flat Design, light mode saja, dengan satu warna aksen kuning (`#FFC81E`) yang dipakai **selektif** — bukan warna dominan di seluruh layar. Sistem ini melayani 3 role dengan kebutuhan sangat berbeda (Karyawan Lapangan: aksi cepat di lapangan; Supervisor: monitoring; HR/Admin: data-dense) lewat satu bahasa visual yang sama, supaya konsisten saat direview lintas mockup Stitch.
+Flat design, light mode saja, satu warna aksen kuning (`#FFC81E`) dipakai **selektif** — bukan warna dominan di seluruh layar. Ini KONSEP DASAR, bukan spec kaku (lihat AGENTS.md § Design Reference) — hex, radius, dan komposisi layout boleh ditafsir ulang, tapi pemetaan semantik warna status di bawah WAJIB konsisten di semua role.
 
 Prinsip inti:
 
-- **Serius secara default, hidup di titik krusial.** Warna kuning dipakai buat menandai _satu aksi terpenting_ di tiap layar, bukan tempelan dekoratif.
-- **Warna = makna, bukan hiasan.** Setiap warna status memetakan langsung ke enum `HasilVerifikasi` / status dashboard — tidak ada warna "bebas pakai" di luar sistem ini.
-- **Tidak ada shadow/gradient.** Pemisahan visual pakai border & kontras background (khas Flat Design), bukan elevation.
+- **Serius secara default, hidup di titik krusial** — kuning menandai satu aksi terpenting per layar, bukan tempelan dekoratif.
+- **Warna = makna** — tiap warna status memetakan langsung ke enum `HasilVerifikasi`/status dashboard.
+- **Tidak ada shadow/gradient** — pemisahan visual pakai border & kontras background.
+- **Satu undertone neutral** — semua abu di sistem ini cool-gray (searah `muted`), tidak dicampur dengan neutral warm/cream.
 
----
+## Warna Dasar
 
-## Warna
+| Token        | Hex            | Pemakaian                                        |
+| ------------ | -------------- | ------------------------------------------------ |
+| `primary`    | `#FFC81E`      | Aksen utama: CTA terpenting per layar, tab aktif |
+| `on-primary` | `#1E1B16`      | Wajib teks/ikon gelap di atas kuning             |
+| `background` | `#FAFAF8`      | Latar layar                                      |
+| `surface`    | `#FFFFFF`      | Card, sheet, input field                         |
+| `foreground` | `#1E1B16`      | Teks utama                                       |
+| `muted`      | `#64748B`      | Teks sekunder, label, placeholder                |
+| `border`     | `#E4E4DF`      | Pembatas card/list                               |
+| Token        | `full` (999px) |                                                  |
 
-### Warna Dasar
+## Warna Semantik — Status Kehadiran
 
-| Token        | Hex       | Kontras (on bg)             | Pemakaian                                                                                   |
-| ------------ | --------- | --------------------------- | ------------------------------------------------------------------------------------------- |
-| `primary`    | `#FFC81E` | —                           | Aksen utama: tombol Absensi (center nav), CTA paling penting per layar, indikator tab aktif |
-| `on-primary` | `#1E1B16` | ~11:1 di atas primary (AAA) | **Wajib** teks/ikon gelap di atas kuning — putih gagal kontras total                        |
-| `background` | `#FAFAF8` | —                           | Latar layar                                                                                 |
-| `surface`    | `#FFFFFF` | —                           | Card, sheet, input field                                                                    |
-| `foreground` | `#1E1B16` | 15.8:1 di atas surface      | Teks utama                                                                                  |
-| `muted`      | `#64748B` | 4.6:1 di atas surface       | Teks sekunder, label, placeholder                                                           |
-| `border`     | `#E4E4DF` | —                           | Pembatas card/list, bukan shadow                                                            |
+Tiap status: warna solid (ikon/aksen tegas) + pasangan bg/text soft (badge) + ikon Ionicons (dari `@expo/vector-icons`, bawaan Expo).
 
-### Warna Semantik — Status Kehadiran
-
-Dipakai konsisten di semua role: layar hasil check-in Karyawan, dashboard Supervisor, tabel audit HR.
-
-| Status         | Token         | Hex       | Sumber data                                            |
-| -------------- | ------------- | --------- | ------------------------------------------------------ |
-| Hadir / Valid  | `success`     | `#16A34A` | `HasilVerifikasi.VALID`, dashboard `HADIR`             |
-| Terlambat      | `warning`     | `#EA580C` | dashboard `TERLAMBAT`                                  |
-| Izin           | `info`        | `#2563EB` | dashboard `IZIN`                                       |
-| Belum check-in | `muted`       | `#64748B` | dashboard `BELUM`                                      |
-| Tidak hadir    | `destructive` | `#DC2626` | `HasilVerifikasi.TIDAK_HADIR`, dashboard `TIDAK_HADIR` |
-
----
+| Status         | Solid     | Badge bg  | Badge text | Icon (Ionicons)         | Sumber data                                  |
+| -------------- | --------- | --------- | ---------- | ----------------------- | -------------------------------------------- |
+| Hadir/Valid    | `#16A34A` | `#DCFCE7` | `#166534`  | `checkmark-circle`      | `HasilVerifikasi.VALID`, `HADIR`             |
+| Terlambat      | `#EA580C` | `#FFEDD5` | `#9A3412`  | `time-outline`          | `TERLAMBAT`                                  |
+| Izin           | `#2563EB` | `#DBEAFE` | `#1E40AF`  | `document-text-outline` | `IZIN`                                       |
+| Belum check-in | `#64748B` | `#F1F5F9` | `#475569`  | `ellipse-outline`       | `BELUM`                                      |
+| Tidak hadir    | `#DC2626` | `#FEE2E2` | `#991B1B`  | `close-circle`          | `HasilVerifikasi.TIDAK_HADIR`, `TIDAK_HADIR` |
 
 ## Tipografi
 
-**Plus Jakarta Sans**
-
-| Level   | Size | Weight          | Pemakaian             |
-| ------- | ---- | --------------- | --------------------- |
-| Display | 28px | 800 (ExtraBold) | Judul layar utama     |
-| Heading | 20px | 700 (Bold)      | Judul section         |
-| Title   | 16px | 600 (SemiBold)  | Judul card            |
-| Body    | 16px | 400 (Regular)   | Teks utama            |
-| Label   | 12px | 600 (SemiBold)  | Section header, badge |
-
----
+**Plus Jakarta Sans** — Display 28px/800, Heading 20px/700, Title 16px/600, Body 16px/400, Label 12px/600.
 
 ## Komponen Kunci
 
-### Tombol
-
-- **Primary button**: fill `primary`, teks `on-primary`, radius `md`.
-- **Secondary button**: outline 1px `border`, teks `foreground`.
-
-### Status Badge
-
-Pill kecil (`radius: sm`), background soft (opacity ~15%) + teks warna solid + ikon.
-
-### Bottom Navigation
-
-State aktif pakai warna `primary`. Karyawan Lapangan memiliki tombol **Absensi** yang menonjol di tengah.
+- **Primary button**: fill `primary`, teks `on-primary`, radius `md` (8px).
+- **Secondary button**: outline 1px `border`, teks `foreground`, radius `md`.
+- **Status badge**: pill (radius `full`), bg soft dari tabel semantik, ikon Ionicons 14-16px + teks warna gelap pasangannya, padding horizontal ≈12-14px supaya bentuk pill gak kepenyet.
+- **Card**: `surface` bg, border 1px `border`, radius `lg` (12px).
+- **Bottom Navigation**: state aktif pakai `primary`. Karyawan Lapangan punya tombol Absensi menonjol di tengah.
