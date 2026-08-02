@@ -136,7 +136,6 @@ Setelah 1 langkah kecil selesai, test (jika ada) lolos, DAN user sudah approve h
   kompatibel Expo Go, tidak perlu dev build untuk itu.
 - **BYPASS SEMENTARA VERIFIKASI WAJAH (TECHNICAL DEBT — Target Hapus: 2026-08-04):** `SKIP_FACE_VERIFICATION=true` di `apps/backend/.env`. `FaceVerificationService.embedFace()` langsung mengembalikan dummy embedding `[0.1, 0.2, 0.3]` dan `isLive: true` tanpa memanggil Python `face-service`. Dibuat karena keterbatasan RAM dev (12 GB) yang memicu HTTP timeout pada pemrosesan DeepFace di mobile client. Wajib dihapus setelah RAM di-upgrade ke 24 GB.
 
-
 ## Mobile — Design Reference
 
 - `docs/DESIGN.md` adalah titik AWAL (konsep dasar: nuansa warna, tipografi, prinsip
@@ -167,5 +166,16 @@ Setelah 1 langkah kecil selesai, test (jika ada) lolos, DAN user sudah approve h
   point layout/struktur (hasil auto-generate Stitch) — WAJIB diimprove,
   BUKAN dipertahankan persis. Jangan copy-paste struktur HTML mentah jadi
   JSX tanpa evaluasi ulang (spacing, hierarki, aksesibilitas mobile).
-- screen.png per screen TIDAK terbaca otomatis oleh Antigravity dari disk —
-  kalau butuh review visual, minta user upload manual ke sesi chat aktif.
+
+## 10. Kebijakan Verifikasi Visual (Screenshot)
+
+- Screenshot/verifikasi visual manual HANYA diminta 1x per fitur (di akhir, setelah semua
+  tahap fitur itu selesai) — BUKAN di setiap tahap kecil. Testing otomatis (tsc --noEmit,
+  Jest) tetap wajib di setiap tahap sesuai §5, tapi review visual manual oleh user cukup
+  sekali di titik fitur dianggap selesai secara fungsional.
+- Pengecualian: screenshot per-tahap boleh diminta HANYA kalau tahap itu menetapkan
+  referensi visual baru yang akan dikunci (contoh: screen pertama sebuah fitur besar,
+  sesuai § Design Reference), atau kalau ada perubahan visual signifikan yang perlu
+  dikonfirmasi sebelum tahap-tahap berikutnya melanjutkan pola yang sama.
+- Di luar 2 kondisi itu, laporan tahap cukup: file yang diubah, hasil test otomatis,
+  cara verifikasi singkat (boleh tekstual, tidak wajib screenshot).

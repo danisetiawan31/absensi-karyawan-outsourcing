@@ -481,6 +481,8 @@ export class SchedulesService {
         jamMulai: j.jamMulai,
         jamSelesai: j.jamSelesai,
         statusKehadiran,
+        waktuCheckIn: j.logKehadiran?.waktuCheckIn ?? null,
+        waktuCheckOut: j.logKehadiran?.waktuCheckOut ?? null,
       };
     });
   }

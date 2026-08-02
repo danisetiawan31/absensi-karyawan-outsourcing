@@ -404,3 +404,28 @@
   - **Camera Permission & UI:** Screen kamera menyajikan panduan posisi wajah oval statis, pengolahan izin akses kamera native Expo, dan tombol _capture_ single snapshot.
   - **Single Photo Preview & Submit:** Foto ditampilkan penuh (full-screen) dengan opsi ambil ulang atau konfirmasi submit multipart/form-data ke `POST /users/me/face-registration`.
   - **State Update & Navigation:** Setelah sukses submit, `wajahTerdaftar` di `authStore` otomatis di-update menjadi `true` dan pengguna diarahkan ke Home Karyawan.
+
+## [Stage 39] Track I — Karyawan: Home & Jadwal (karyawan-home-jadwal) & Penutupan Track I
+
+- **Selesai:** Implementasi penuh alur Karyawan Home & Jadwal (Tahap 1 Tab Skeleton, Tahap 2 Data & UI Utama, Tahap 3 Polish, Empty State, Quick Action, Reminder Banner, Pull-to-Refresh & Testing).
+- **File Dibuat/Diubah:**
+  - `apps/mobile/src/`:
+    - `components/ComingSoonPlaceholder.tsx` *(NEW)*
+    - `types/schedule.ts` *(NEW)*
+    - `services/schedule.service.ts` *(NEW)*
+    - `screens/karyawan/BerandaScreen.tsx` *(NEW)*
+    - `screens/karyawan/__tests__/BerandaScreen.test.tsx` *(NEW)*
+    - `app/(karyawan)/_layout.tsx`
+    - `app/(karyawan)/izin.tsx` *(NEW)*
+    - `app/(karyawan)/absensi.tsx` *(NEW)*
+    - `app/(karyawan)/notifikasi.tsx` *(NEW)*
+    - `app/_layout.tsx` (QueryClientProvider wrapper)
+- **Verifikasi:** Full test suite mobile (8/8 passed, 64 tests) & backend (20/20 passed, 316 tests) PASS 100%. `npx tsc --noEmit` PASS (0 error).
+- **Catatan Penting:**
+  - **Tabs Navigation Skeleton:** Navigasi `(karyawan)` menggunakan Expo Router `<Tabs>` dengan 4 tab. Tab Absensi didesain menonjol di tengah (elevated circle `#FFC81E`). Gate check `wajahTerdaftar` tetap berfungsi sebelum Tab Navigator dirender.
+  - **Dynamic Insets:** Menggunakan `useSafeAreaInsets` agar tinggi dan padding Tab Bar secara otomatis menyesuaikan tombol navigasi/gesture bar di HP fisik Android.
+  - **TanStack Query & Service:** `getTodaySchedules` memanggil `GET /schedules/today`. Dipasang `QueryClientProvider` di root layout.
+  - **Reminder Banner:** Banner peringatan warna `warning` aktif jika status `BELUM_CHECKIN` dan waktu sekarang berada pada rentang **30 menit sebelum `jamMulai` hingga `jamSelesai`**.
+  - **Quick Action & Help Modal:** Tombol Izin mengarahkan ke tab Izin, tombol Bantuan membuka modal berisi kontak & FAQ HR.
+  - **Penutupan Track I:** Seluruh requirement Track I (Gate & Home) telah **SELESAI 100%**.
+

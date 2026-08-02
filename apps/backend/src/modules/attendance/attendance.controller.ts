@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { GetAttendanceAttemptsQueryDto } from './dto/get-attendance-attempts-query.dto';
+import { GetAttendanceSummaryQueryDto } from './dto/get-attendance-summary-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -117,5 +118,12 @@ export class AttendanceController {
   @Roles(Role.HR_ADMIN)
   async getAttempts(@Query() query: GetAttendanceAttemptsQueryDto) {
     return this.attendanceService.getAttendanceAttempts(query);
+  }
+
+  @Get('summary')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.HR_ADMIN)
+  async getSummary(@Query() query: GetAttendanceSummaryQueryDto) {
+    return this.attendanceService.getAttendanceSummary(query);
   }
 }

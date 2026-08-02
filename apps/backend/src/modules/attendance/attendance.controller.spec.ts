@@ -27,7 +27,10 @@ import {
   SuccessEnvelope,
   ErrorEnvelope,
 } from '../../common/types/api-envelope.type';
-import { AttendanceAttemptItem } from './attendance.service';
+import {
+  AttendanceAttemptItem,
+  AttendanceSummaryItem,
+} from './attendance.service';
 import { randomUUID } from 'crypto';
 
 describe('AttendanceController (e2e)', () => {
@@ -814,6 +817,104 @@ describe('AttendanceController (e2e)', () => {
 
       expect(res.status).toBe(200);
       const body = res.body as SuccessEnvelope<AttendanceAttemptItem[]>;
+      expect(body.success).toBe(true);
+      expect(Array.isArray(body.data)).toBe(true);
+    });
+  });
+
+  describe('GET /attendance/summary', () => {
+    let hrUser: User;
+    let supervisorUser: User;
+    let hrToken: string;
+    let supervisorToken: string;
+
+    beforeAll(async () => {
+      hrUser = await prisma.user.create({
+        data: {
+          id: '00000000-0000-0000-0099-000000000001',
+          nama: 'HR Summary Test',
+          email: 'hr-summary-test@test.local',
+          passwordHash: 'x',
+          role: Role.HR_ADMIN,
+        },
+      });
+
+      supervisorUser = await prisma.user.create({
+        data: {
+          id: '00000000-0000-0000-0099-000000000002',
+          nama: 'Supervisor Summary Test',
+          email: 'supervisor-summary-test@test.local',
+          passwordHash: 'x',
+          role: Role.SUPERVISOR,
+        },
+      });
+
+      hrToken = jwtService.sign({
+        userId: hrUser.id,
+        email: hrUser.email,
+        role: hrUser.role,
+      });
+
+      supervisorToken = jwtService.sign({
+        userId: supervisorUser.id,
+        email: supervisorUser.email,
+        role: supervisorUser.role,
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.user.deleteMany({
+        where: { id: { in: [hrUser.id, supervisorUser.id] } },
+      });
+    });
+
+    it('should return 401 if request has no token', async () => {
+      const res = await request(app.getHttpServer() as Server).get(
+        '/attendance/summary?periodeMulai=2026-12-01&periodeSelesai=2026-12-31',
+      );
+
+      expect(res.status).toBe(401);
+    });
+
+    it('should return 403 if caller role is KARYAWAN', async () => {
+      const res = await request(app.getHttpServer() as Server)
+        .get(
+          '/attendance/summary?periodeMulai=2026-12-01&periodeSelesai=2026-12-31',
+        )
+        .set('Authorization', `Bearer ${karyawanToken}`);
+
+      expect(res.status).toBe(403);
+    });
+
+    it('should return 403 if caller role is SUPERVISOR', async () => {
+      const res = await request(app.getHttpServer() as Server)
+        .get(
+          '/attendance/summary?periodeMulai=2026-12-01&periodeSelesai=2026-12-31',
+        )
+        .set('Authorization', `Bearer ${supervisorToken}`);
+
+      expect(res.status).toBe(403);
+    });
+
+    it('should return 400 if tanggal format is invalid', async () => {
+      const res = await request(app.getHttpServer() as Server)
+        .get(
+          '/attendance/summary?periodeMulai=01-12-2026&periodeSelesai=2026-12-31',
+        )
+        .set('Authorization', `Bearer ${hrToken}`);
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 200 with raw array of summary for HR_ADMIN', async () => {
+      const res = await request(app.getHttpServer() as Server)
+        .get(
+          '/attendance/summary?periodeMulai=2026-12-01&periodeSelesai=2026-12-31',
+        )
+        .set('Authorization', `Bearer ${hrToken}`);
+
+      expect(res.status).toBe(200);
+      const body = res.body as SuccessEnvelope<AttendanceSummaryItem[]>;
       expect(body.success).toBe(true);
       expect(Array.isArray(body.data)).toBe(true);
     });

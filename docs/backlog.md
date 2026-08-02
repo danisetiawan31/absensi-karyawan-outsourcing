@@ -64,10 +64,10 @@
 
 ## Track I — Karyawan: Gate & Home
 
-**Status: READY**
+**Status: SELESAI**
 
 - face-registration-mobile - SELESAI
-- karyawan-home-jadwal
+- karyawan-home-jadwal - SELESAI    
 
 ## Track J — Karyawan: Attendance & Leave
 

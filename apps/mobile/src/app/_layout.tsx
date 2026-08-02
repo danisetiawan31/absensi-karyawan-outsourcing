@@ -4,6 +4,7 @@ import {
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
 import { router, Stack, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -14,6 +15,15 @@ import { useAuthStore } from "@/store/authStore";
 import { UserRole } from "@/types/api";
 
 SplashScreen.preventAutoHideAsync();
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      staleTime: 1000 * 60 * 5,
+    },
+  },
+});
 
 const VALID_ROLES: UserRole[] = ["KARYAWAN", "SUPERVISOR", "HR_ADMIN"];
 
@@ -80,8 +90,10 @@ export default function RootLayout() {
   // Always render the navigator (Stack) to satisfy Expo Router's strict mounting requirements.
   // The SplashScreen prevents the user from seeing any intermediate states.
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack screenOptions={{ headerShown: false }} />
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+        <Stack screenOptions={{ headerShown: false }} />
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
