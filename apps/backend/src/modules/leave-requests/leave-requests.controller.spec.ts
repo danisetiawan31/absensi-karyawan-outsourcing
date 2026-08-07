@@ -20,10 +20,15 @@ import { RequestIdMiddleware } from '../../common/middlewares/request-id.middlew
 import * as fs from 'fs';
 import { randomUUID } from 'crypto';
 
+import { LeaveRequestsService } from './leave-requests.service';
+import { DashboardService } from '../dashboard/dashboard.service';
+
 describe('LeaveRequestsController (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let jwtService: JwtService;
+  let leaveRequestsService: LeaveRequestsService;
+  let dashboardService: DashboardService;
 
   let hrAdmin: User;
   let supervisor: User;
@@ -62,6 +67,8 @@ describe('LeaveRequestsController (e2e)', () => {
 
     prisma = app.get(PrismaService);
     jwtService = app.get(JwtService);
+    leaveRequestsService = app.get(LeaveRequestsService);
+    dashboardService = app.get(DashboardService);
 
     // Mock fs
     writeFileSpy = jest
@@ -1775,6 +1782,150 @@ describe('LeaveRequestsController (e2e)', () => {
         },
       });
       expect(notifCount).toBe(0);
+    });
+  });
+
+  describe('processRequest (Dashboard Cache Invalidation)', () => {
+    let siteA: Site;
+    let siteB: Site;
+    let testEmp: User;
+    let testSup: User;
+    const localTrackId = randomUUID();
+
+    beforeAll(async () => {
+      testSup = await prisma.user.create({
+        data: {
+          email: `sup-cache-${localTrackId}@test.local`,
+          passwordHash: 'dummy',
+          nama: 'Supervisor Cache',
+          role: Role.SUPERVISOR,
+        },
+      });
+
+      testEmp = await prisma.user.create({
+        data: {
+          email: `emp-cache-${localTrackId}@test.local`,
+          passwordHash: 'dummy',
+          nama: 'Karyawan Cache',
+          role: Role.KARYAWAN,
+        },
+      });
+
+      siteA = await prisma.site.create({
+        data: {
+          nama: `Site A ${localTrackId}`,
+          alamat: 'Alamat Site A',
+          latitude: -6.1,
+          longitude: 106.8,
+          radiusToleransi: 100,
+        },
+      });
+
+      siteB = await prisma.site.create({
+        data: {
+          nama: `Site B ${localTrackId}`,
+          alamat: 'Alamat Site B',
+          latitude: -6.2,
+          longitude: 106.9,
+          radiusToleransi: 100,
+        },
+      });
+
+      await prisma.supervisorSite.createMany({
+        data: [
+          { supervisorId: testSup.id, siteId: siteA.id },
+          { supervisorId: testSup.id, siteId: siteB.id },
+        ],
+      });
+    });
+
+    beforeEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('should call invalidateDashboardCache for ALL unique (siteId, date) pairs on APPROVED action', async () => {
+      const invalidateSpy = jest
+        .spyOn(dashboardService, 'invalidateDashboardCache')
+        .mockResolvedValue(undefined);
+
+      await prisma.jadwalShift.createMany({
+        data: [
+          {
+            karyawanId: testEmp.id,
+            siteId: siteA.id,
+            tanggal: new Date('2026-12-01T00:00:00+07:00'),
+            jamMulai: new Date('2026-12-01T08:00:00+07:00'),
+            jamSelesai: new Date('2026-12-01T16:00:00+07:00'),
+          },
+          {
+            karyawanId: testEmp.id,
+            siteId: siteB.id,
+            tanggal: new Date('2026-12-02T00:00:00+07:00'),
+            jamMulai: new Date('2026-12-02T08:00:00+07:00'),
+            jamSelesai: new Date('2026-12-02T16:00:00+07:00'),
+          },
+        ],
+      });
+
+      const leave = await prisma.pengajuanIzin.create({
+        data: {
+          karyawanId: testEmp.id,
+          tanggalMulai: new Date('2026-12-01T00:00:00+07:00'),
+          tanggalSelesai: new Date('2026-12-02T00:00:00+07:00'),
+          jenis: 'IZIN',
+          alasan: 'Izin 2 hari di 2 site',
+          status: 'PENDING',
+        },
+      });
+
+      await leaveRequestsService.processRequest(
+        leave.id,
+        Role.SUPERVISOR,
+        testSup.id,
+        'APPROVED',
+        {},
+      );
+
+      expect(invalidateSpy).toHaveBeenCalledTimes(2);
+      expect(invalidateSpy).toHaveBeenCalledWith(siteA.id, '2026-12-01');
+      expect(invalidateSpy).toHaveBeenCalledWith(siteB.id, '2026-12-02');
+    });
+
+    it('should NOT call invalidateDashboardCache on REJECTED action', async () => {
+      const invalidateSpy = jest
+        .spyOn(dashboardService, 'invalidateDashboardCache')
+        .mockResolvedValue(undefined);
+
+      await prisma.jadwalShift.create({
+        data: {
+          karyawanId: testEmp.id,
+          siteId: siteA.id,
+          tanggal: new Date('2026-12-05T00:00:00+07:00'),
+          jamMulai: new Date('2026-12-05T08:00:00+07:00'),
+          jamSelesai: new Date('2026-12-05T16:00:00+07:00'),
+        },
+      });
+
+      const leave = await prisma.pengajuanIzin.create({
+        data: {
+          karyawanId: testEmp.id,
+          tanggalMulai: new Date('2026-12-05T00:00:00+07:00'),
+          tanggalSelesai: new Date('2026-12-05T00:00:00+07:00'),
+          jenis: 'IZIN',
+          alasan: 'Izin ditolak',
+          status: 'PENDING',
+        },
+      });
+
+      await leaveRequestsService.processRequest(
+        leave.id,
+        Role.SUPERVISOR,
+        testSup.id,
+        'REJECTED',
+        {},
+      );
+
+      expect(invalidateSpy).not.toHaveBeenCalled();
     });
   });
 });

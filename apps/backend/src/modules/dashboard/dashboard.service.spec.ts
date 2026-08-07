@@ -4,10 +4,18 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { PrismaModule } from '../../common/prisma/prisma.module';
 import { HasilVerifikasi, Role, StatusIzin, User, Site } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { CacheService } from '../../common/cache/cache.service';
 
 describe('DashboardService', () => {
   let service: DashboardService;
   let prisma: PrismaService;
+
+  const mockCacheService = {
+    get: jest.fn().mockResolvedValue(null),
+    set: jest.fn().mockResolvedValue(undefined),
+    del: jest.fn().mockResolvedValue(undefined),
+    delByPattern: jest.fn().mockResolvedValue(undefined),
+  };
 
   // Test markers for strict scoping
   const trackId = `dash-test-${randomUUID()}`;
@@ -29,7 +37,13 @@ describe('DashboardService', () => {
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [PrismaModule],
-      providers: [DashboardService],
+      providers: [
+        DashboardService,
+        {
+          provide: CacheService,
+          useValue: mockCacheService,
+        },
+      ],
     }).compile();
 
     service = module.get<DashboardService>(DashboardService);
@@ -670,6 +684,130 @@ describe('DashboardService', () => {
       expect(uOvernightResult).toBeDefined();
       expect(uOvernightResult?.karyawan).toBe(karyawan1.nama);
       expect(uOvernightResult?.menitTerlambat).toBe(620);
+    });
+  });
+
+  describe('getAttendanceDashboard (Redis Caching)', () => {
+    let testJadwalId: string;
+
+    beforeAll(async () => {
+      const j = await prisma.jadwalShift.create({
+        data: {
+          karyawanId: karyawan1.id,
+          siteId: site1.id,
+          tanggal: new Date(`${testDate}T00:00:00+07:00`),
+          jamMulai: new Date(`${testDate}T08:00:00+07:00`),
+          jamSelesai: new Date(`${testDate}T16:00:00+07:00`),
+        },
+      });
+      testJadwalId = j.id;
+    });
+
+    afterAll(async () => {
+      await prisma.jadwalShift.deleteMany({
+        where: { id: testJadwalId },
+      });
+    });
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('1. Cache-hit: returns cached data without calling Prisma findMany', async () => {
+      const mockCachedData = [
+        {
+          karyawan: 'Karyawan Cached',
+          site: 'Site Cached',
+          status: 'HADIR' as const,
+          waktuCheckIn: '2026-09-15T07:55:00.000Z',
+        },
+      ];
+
+      mockCacheService.get.mockResolvedValueOnce(mockCachedData);
+      const findManySpy = jest.spyOn(prisma.supervisorSite, 'findMany');
+
+      const results = await service.getAttendanceDashboard(supervisor1.id, {
+        tanggal: testDate,
+      });
+
+      expect(mockCacheService.get).toHaveBeenCalledWith(
+        `dashboard:attendance:${supervisor1.id}:${testDate}`,
+      );
+      expect(findManySpy).not.toHaveBeenCalled();
+      expect(results).toEqual(mockCachedData);
+
+      findManySpy.mockRestore();
+    });
+
+    it('2. Cache-miss: queries Prisma and sets cache with TTL 30 seconds', async () => {
+      mockCacheService.get.mockResolvedValueOnce(null);
+
+      const results = await service.getAttendanceDashboard(supervisor1.id, {
+        tanggal: testDate,
+      });
+
+      const expectedKey = `dashboard:attendance:${supervisor1.id}:${testDate}`;
+      expect(mockCacheService.get).toHaveBeenCalledWith(expectedKey);
+      expect(mockCacheService.set).toHaveBeenCalledWith(
+        expectedKey,
+        results,
+        30,
+      );
+
+      // Verify each item passed to set is in formatted final shape
+      for (const item of results) {
+        expect(item).toHaveProperty('karyawan');
+        expect(item).toHaveProperty('site');
+        expect(item).toHaveProperty('status');
+        expect(item).toHaveProperty('waktuCheckIn');
+      }
+    });
+
+    it('3. Cache-miss early return (no supervised sites): sets [] to cache with TTL 30', async () => {
+      mockCacheService.get.mockResolvedValueOnce(null);
+
+      const results = await service.getAttendanceDashboard(supervisor2.id, {
+        tanggal: testDate,
+      });
+
+      expect(results).toEqual([]);
+      const expectedKey = `dashboard:attendance:${supervisor2.id}:${testDate}`;
+      expect(mockCacheService.set).toHaveBeenCalledWith(expectedKey, [], 30);
+    });
+
+    it('4. Cache-miss early return (no shifts on date): sets [] to cache with TTL 30', async () => {
+      mockCacheService.get.mockResolvedValueOnce(null);
+      const futureDate = '2099-01-01';
+
+      const results = await service.getAttendanceDashboard(supervisor1.id, {
+        tanggal: futureDate,
+      });
+
+      expect(results).toEqual([]);
+      const expectedKey = `dashboard:attendance:${supervisor1.id}:${futureDate}`;
+      expect(mockCacheService.set).toHaveBeenCalledWith(expectedKey, [], 30);
+    });
+  });
+
+  describe('invalidateDashboardCache', () => {
+    it('should delete cache for all supervisors supervising the site', async () => {
+      await service.invalidateDashboardCache(site1.id, testDate);
+
+      expect(mockCacheService.del).toHaveBeenCalledWith(
+        `dashboard:attendance:${supervisor1.id}:${testDate}`,
+      );
+    });
+
+    it('should fail-open gracefully when Prisma query throws an error', async () => {
+      const findManySpy = jest
+        .spyOn(prisma.supervisorSite, 'findMany')
+        .mockRejectedValueOnce(new Error('Database connection lost'));
+
+      await expect(
+        service.invalidateDashboardCache(site1.id, testDate),
+      ).resolves.toBeUndefined();
+
+      findManySpy.mockRestore();
     });
   });
 });

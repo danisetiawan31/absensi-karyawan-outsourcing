@@ -4,6 +4,8 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { TipeNotifikasi, Prisma } from '@prisma/client';
 import { UNFILLED_SHIFT_THRESHOLD_MS } from '../../common/constants/attendance.constant';
+import { formatJakartaDate } from '../../common/utils/date.util';
+import { DashboardService } from '../dashboard/dashboard.service';
 
 type JadwalWithRelations = Prisma.JadwalShiftGetPayload<{
   include: {
@@ -25,6 +27,7 @@ export class AttendanceCronService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly dashboardService: DashboardService,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -165,6 +168,10 @@ export class AttendanceCronService {
               hasilVerifikasiCheckIn: 'TIDAK_HADIR',
             },
           });
+          await this.dashboardService.invalidateDashboardCache(
+            jadwal.siteId,
+            formatJakartaDate(jadwal.tanggal),
+          );
           this.logger.log(
             `Auto-marked TIDAK_HADIR (created new log) for Jadwal ${jadwal.id}`,
           );
@@ -192,6 +199,10 @@ export class AttendanceCronService {
         });
 
         if (result.count > 0) {
+          await this.dashboardService.invalidateDashboardCache(
+            jadwal.siteId,
+            formatJakartaDate(jadwal.tanggal),
+          );
           this.logger.log(
             `Auto-marked TIDAK_HADIR (updated existing log) for Jadwal ${jadwal.id}`,
           );

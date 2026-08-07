@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { CacheService } from '../../common/cache/cache.service';
 import { GetAttendanceDashboardQueryDto } from './dto/get-attendance-dashboard-query.dto';
 import { StatusIzin } from '@prisma/client';
 import { getJakartaSingleDayRange } from '../../common/utils/date.util';
@@ -15,7 +16,7 @@ export interface DashboardAttendanceItem {
   karyawan: string;
   site: string;
   status: DashboardAttendanceStatus;
-  waktuCheckIn: Date | null;
+  waktuCheckIn: Date | string | null;
 }
 
 export interface UnfilledShiftItem {
@@ -29,12 +30,24 @@ export interface UnfilledShiftItem {
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(DashboardService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cacheService: CacheService,
+  ) {}
 
   async getAttendanceDashboard(
     supervisorId: string,
     query: GetAttendanceDashboardQueryDto,
   ): Promise<DashboardAttendanceItem[]> {
+    const cacheKey = `dashboard:attendance:${supervisorId}:${query.tanggal}`;
+    const cached =
+      await this.cacheService.get<DashboardAttendanceItem[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     // 1. Ambil daftar siteId yang diawasi oleh supervisor
     const supervisedSites = await this.prisma.supervisorSite.findMany({
       where: { supervisorId },
@@ -42,6 +55,7 @@ export class DashboardService {
     });
 
     if (supervisedSites.length === 0) {
+      await this.cacheService.set(cacheKey, [], 30);
       return [];
     }
 
@@ -105,6 +119,7 @@ export class DashboardService {
     });
 
     if (jadwals.length === 0) {
+      await this.cacheService.set(cacheKey, [], 30);
       return [];
     }
 
@@ -125,7 +140,7 @@ export class DashboardService {
     const leaveKaryawanIds = new Set(approvedLeaves.map((l) => l.karyawanId));
 
     // 5. Tentukan status kehadiran berdasarkan urutan prioritas (Precedence)
-    return jadwals.map((j) => {
+    const result: DashboardAttendanceItem[] = jadwals.map((j) => {
       const hasApprovedLeave = leaveKaryawanIds.has(j.karyawanId);
       const status = determineShiftStatus(
         j.jamMulai,
@@ -141,6 +156,9 @@ export class DashboardService {
         waktuCheckIn,
       };
     });
+
+    await this.cacheService.set(cacheKey, result, 30);
+    return result;
   }
 
   async getUnfilledShifts(
@@ -268,5 +286,28 @@ export class DashboardService {
     }
 
     return result;
+  }
+
+  async invalidateDashboardCache(
+    siteId: string,
+    tanggal: string,
+  ): Promise<void> {
+    try {
+      const supervisors = await this.prisma.supervisorSite.findMany({
+        where: { siteId },
+        select: { supervisorId: true },
+      });
+
+      for (const s of supervisors) {
+        await this.cacheService.del(
+          `dashboard:attendance:${s.supervisorId}:${tanggal}`,
+        );
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to invalidate dashboard cache for site "${siteId}", date "${tanggal}": ${msg}`,
+      );
+    }
   }
 }

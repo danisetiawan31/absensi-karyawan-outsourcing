@@ -77,6 +77,9 @@ describe('EmployeesController (e2e)', () => {
     jwtService = app.get<JwtService>(JwtService);
 
     // Clean up any stale test users
+    await prisma.notifikasi.deleteMany({
+      where: { id: { in: ['test-hr-id', 'test-emp1-id', 'test-emp2-id'] } },
+    });
     await prisma.user.deleteMany({
       where: { id: { in: ['test-hr-id', 'test-emp1-id', 'test-emp2-id'] } },
     });

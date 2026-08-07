@@ -1,5 +1,6 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { CacheService } from '../../common/cache/cache.service';
 import { FaceVerificationService } from '../face-verification/face-verification.service';
 import { haversineDistance } from '../../common/utils/geo.util';
 import { cosineSimilarity } from '../../common/utils/vector.util';
@@ -14,8 +15,12 @@ import { CheckOutDto } from './dto/check-out.dto';
 import { GetAttendanceSummaryQueryDto } from './dto/get-attendance-summary-query.dto';
 import { GetAttendanceAttemptsQueryDto } from './dto/get-attendance-attempts-query.dto';
 import { GetAttendanceReportQueryDto } from './dto/get-attendance-report-query.dto';
-import { getJakartaDateRange } from '../../common/utils/date.util';
+import {
+  getJakartaDateRange,
+  formatJakartaDate,
+} from '../../common/utils/date.util';
 import { determineShiftStatus } from '../../common/utils/shift-status.util';
+import { DashboardService } from '../dashboard/dashboard.service';
 import * as ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 
@@ -63,6 +68,8 @@ export class AttendanceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly faceVerificationService: FaceVerificationService,
+    private readonly cacheService: CacheService,
+    private readonly dashboardService: DashboardService,
   ) {}
 
   // Part A: Verification Pipeline (Shared for Check-In and Check-Out)
@@ -269,6 +276,11 @@ export class AttendanceService {
         }),
       ]);
 
+      await this.dashboardService.invalidateDashboardCache(
+        jadwal.siteId,
+        formatJakartaDate(jadwal.tanggal),
+      );
+
       return {
         logId: logKehadiran.id,
         waktuCheckIn: logKehadiran.waktuCheckIn,
@@ -441,6 +453,11 @@ export class AttendanceService {
       );
     }
 
+    await this.dashboardService.invalidateDashboardCache(
+      jadwal.siteId,
+      formatJakartaDate(jadwal.tanggal),
+    );
+
     return {
       logId: existingLog.id,
       waktuCheckOut: now,
@@ -451,6 +468,13 @@ export class AttendanceService {
   async getAttendanceSummary(
     query: GetAttendanceSummaryQueryDto,
   ): Promise<AttendanceSummaryItem[]> {
+    const cacheKey = `attendance:summary:${query.periodeMulai}:${query.periodeSelesai}`;
+    const cached =
+      await this.cacheService.get<AttendanceSummaryItem[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const { gte: startOfPeriode, lt: endOfPeriode } = getJakartaDateRange(
       query.periodeMulai,
       query.periodeSelesai,
@@ -483,6 +507,7 @@ export class AttendanceService {
     });
 
     if (jadwals.length === 0) {
+      await this.cacheService.set(cacheKey, [], 300);
       return [];
     }
 
@@ -552,6 +577,7 @@ export class AttendanceService {
     const result = Array.from(summaryMap.values());
     result.sort((a, b) => a.nama.localeCompare(b.nama));
 
+    await this.cacheService.set(cacheKey, result, 300);
     return result;
   }
 

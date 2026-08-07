@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AttendanceService } from './attendance.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { CacheService } from '../../common/cache/cache.service';
+import { DashboardService } from '../dashboard/dashboard.service';
 import { AppModule } from '../../app.module';
 import { INestApplication } from '@nestjs/common';
 import { Role, User, Site, HasilVerifikasi, StatusIzin } from '@prisma/client';
@@ -10,6 +12,8 @@ describe('AttendanceService - getAttendanceSummary', () => {
   let app: INestApplication;
   let service: AttendanceService;
   let prisma: PrismaService;
+  let cacheService: CacheService;
+  let dashboardService: DashboardService;
 
   const trackId = `att-sum-${randomUUID()}`;
 
@@ -31,12 +35,14 @@ describe('AttendanceService - getAttendanceSummary', () => {
 
     service = app.get<AttendanceService>(AttendanceService);
     prisma = app.get<PrismaService>(PrismaService);
+    cacheService = app.get<CacheService>(CacheService);
+    dashboardService = app.get<DashboardService>(DashboardService);
 
     emp1 = await prisma.user.create({
       data: {
         email: `emp1-${trackId}@test.local`,
         passwordHash: 'dummy',
-        nama: 'Asep Supriatna',
+        nama: 'Employee Summary One',
         role: Role.KARYAWAN,
       },
     });
@@ -161,6 +167,9 @@ describe('AttendanceService - getAttendanceSummary', () => {
   });
 
   afterAll(async () => {
+    await prisma.percobaanAbsensi.deleteMany({
+      where: { karyawanId: { in: [emp1.id, emp2.id, empNoShifts.id] } },
+    });
     await prisma.logKehadiran.deleteMany({
       where: { karyawanId: { in: [emp1.id, emp2.id, empNoShifts.id] } },
     });
@@ -373,6 +382,238 @@ describe('AttendanceService - getAttendanceSummary', () => {
       });
 
       expect(results).toEqual([]);
+    });
+  });
+
+  describe('getAttendanceSummary & generateAttendanceReport (Redis Caching)', () => {
+    beforeEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('1. Cache-hit: returns cached summary without querying Prisma findMany', async () => {
+      const mockSummary = [
+        {
+          karyawanId: emp1.id,
+          nama: emp1.nama,
+          totalJadwal: 2,
+          totalHadir: 2,
+          totalTerlambat: 0,
+          totalTidakHadir: 0,
+          totalIzin: 0,
+          totalBelum: 0,
+        },
+      ];
+
+      const getSpy = jest
+        .spyOn(cacheService, 'get')
+        .mockResolvedValueOnce(mockSummary);
+      const findManySpy = jest.spyOn(prisma.jadwalShift, 'findMany');
+
+      const results = await service.getAttendanceSummary({
+        periodeMulai,
+        periodeSelesai,
+      });
+
+      const expectedKey = `attendance:summary:${periodeMulai}:${periodeSelesai}`;
+      expect(getSpy).toHaveBeenCalledWith(expectedKey);
+      expect(findManySpy).not.toHaveBeenCalled();
+      expect(results).toEqual(mockSummary);
+    });
+
+    it('2. Cache-miss: queries Prisma and sets cache with TTL 300 seconds', async () => {
+      const getSpy = jest
+        .spyOn(cacheService, 'get')
+        .mockResolvedValueOnce(null);
+      const setSpy = jest.spyOn(cacheService, 'set');
+
+      const results = await service.getAttendanceSummary({
+        periodeMulai,
+        periodeSelesai,
+      });
+
+      const expectedKey = `attendance:summary:${periodeMulai}:${periodeSelesai}`;
+      expect(getSpy).toHaveBeenCalledWith(expectedKey);
+      expect(setSpy).toHaveBeenCalledWith(expectedKey, results, 300);
+    });
+
+    it('3. Cache-miss early return (no shifts in period): sets [] to cache with TTL 300', async () => {
+      const futureMulai = '2099-01-01';
+      const futureSelesai = '2099-01-05';
+
+      const getSpy = jest
+        .spyOn(cacheService, 'get')
+        .mockResolvedValueOnce(null);
+      const setSpy = jest.spyOn(cacheService, 'set');
+
+      const results = await service.getAttendanceSummary({
+        periodeMulai: futureMulai,
+        periodeSelesai: futureSelesai,
+      });
+
+      expect(results).toEqual([]);
+      const expectedKey = `attendance:summary:${futureMulai}:${futureSelesai}`;
+      expect(getSpy).toHaveBeenCalledWith(expectedKey);
+      expect(setSpy).toHaveBeenCalledWith(expectedKey, [], 300);
+    });
+
+    it('4. generateAttendanceReport() reuses cached getAttendanceSummary without duplicate DB query', async () => {
+      const mockSummary = [
+        {
+          karyawanId: emp1.id,
+          nama: emp1.nama,
+          totalJadwal: 1,
+          totalHadir: 1,
+          totalTerlambat: 0,
+          totalTidakHadir: 0,
+          totalIzin: 0,
+          totalBelum: 0,
+        },
+      ];
+
+      jest.spyOn(cacheService, 'get').mockResolvedValueOnce(mockSummary);
+      const findManySpy = jest.spyOn(prisma.jadwalShift, 'findMany');
+
+      const report = await service.generateAttendanceReport({
+        periodeMulai,
+        periodeSelesai,
+        format: 'xlsx',
+      });
+
+      expect(report.buffer).toBeInstanceOf(Buffer);
+      expect(findManySpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('checkIn & checkOut (Dashboard Cache Invalidation)', () => {
+    beforeEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('should call invalidateDashboardCache when checkIn write DB succeeds', async () => {
+      const invalidateSpy = jest
+        .spyOn(dashboardService, 'invalidateDashboardCache')
+        .mockResolvedValueOnce(undefined);
+
+      const now = new Date();
+      const todayStr = '2026-11-02';
+      const j = await prisma.jadwalShift.create({
+        data: {
+          karyawanId: emp1.id,
+          siteId: site.id,
+          tanggal: new Date(`${todayStr}T00:00:00+07:00`),
+          jamMulai: new Date(now.getTime() - 10 * 60000),
+          jamSelesai: new Date(now.getTime() + 8 * 3600000),
+        },
+      });
+
+      await prisma.user.update({
+        where: { id: emp1.id },
+        data: { faceEmbedding: [0.1, 0.2, 0.3] },
+      });
+
+      const mockFile = {
+        buffer: Buffer.from('fake-image-data'),
+      } as Express.Multer.File;
+
+      const res = await service.checkIn(
+        emp1.id,
+        { jadwalId: j.id, latitude: -6.2, longitude: 106.8 },
+        mockFile,
+      );
+
+      expect(res.hasilVerifikasi).toBe(HasilVerifikasi.VALID);
+      expect(invalidateSpy).toHaveBeenCalledWith(site.id, todayStr);
+    });
+
+    it('should NOT call invalidateDashboardCache when checkIn DB transaction fails', async () => {
+      const invalidateSpy = jest
+        .spyOn(dashboardService, 'invalidateDashboardCache')
+        .mockResolvedValueOnce(undefined);
+
+      jest
+        .spyOn(prisma, '$transaction')
+        .mockRejectedValueOnce(new Error('DB transaction error'));
+
+      const mockFile = {
+        buffer: Buffer.from('fake-image-data'),
+      } as Express.Multer.File;
+
+      await expect(
+        service.checkIn(
+          emp1.id,
+          { jadwalId: 'non-existent-id', latitude: -6.2, longitude: 106.8 },
+          mockFile,
+        ),
+      ).rejects.toThrow();
+
+      expect(invalidateSpy).not.toHaveBeenCalled();
+    });
+
+    it('should call invalidateDashboardCache when checkOut write DB succeeds', async () => {
+      const invalidateSpy = jest
+        .spyOn(dashboardService, 'invalidateDashboardCache')
+        .mockResolvedValueOnce(undefined);
+
+      const now = new Date();
+      const todayStr = '2026-11-03';
+      const j = await prisma.jadwalShift.create({
+        data: {
+          karyawanId: emp1.id,
+          siteId: site.id,
+          tanggal: new Date(`${todayStr}T00:00:00+07:00`),
+          jamMulai: new Date(now.getTime() - 2 * 3600000),
+          jamSelesai: new Date(now.getTime() + 6 * 3600000),
+        },
+      });
+
+      // Existing check-in log
+      await prisma.logKehadiran.create({
+        data: {
+          jadwalId: j.id,
+          karyawanId: emp1.id,
+          waktuCheckIn: new Date(now.getTime() - 2 * 3600000),
+          latitudeCheckIn: -6.2,
+          longitudeCheckIn: 106.8,
+          hasilVerifikasiCheckIn: HasilVerifikasi.VALID,
+        },
+      });
+
+      const mockFile = {
+        buffer: Buffer.from('fake-image-data'),
+      } as Express.Multer.File;
+
+      const res = await service.checkOut(
+        emp1.id,
+        { jadwalId: j.id, latitude: -6.2, longitude: 106.8 },
+        mockFile,
+      );
+
+      expect(res.hasilVerifikasi).toBe(HasilVerifikasi.VALID);
+      expect(invalidateSpy).toHaveBeenCalledWith(site.id, todayStr);
+    });
+
+    it('should NOT call invalidateDashboardCache when checkOut DB transaction fails', async () => {
+      const invalidateSpy = jest
+        .spyOn(dashboardService, 'invalidateDashboardCache')
+        .mockResolvedValueOnce(undefined);
+
+      jest
+        .spyOn(prisma, '$transaction')
+        .mockRejectedValueOnce(new Error('DB transaction error'));
+
+      const mockFile = {
+        buffer: Buffer.from('fake-image-data'),
+      } as Express.Multer.File;
+
+      await expect(
+        service.checkOut(
+          emp1.id,
+          { jadwalId: 'non-existent-id', latitude: -6.2, longitude: 106.8 },
+          mockFile,
+        ),
+      ).rejects.toThrow();
+
+      expect(invalidateSpy).not.toHaveBeenCalled();
     });
   });
 });

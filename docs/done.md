@@ -410,15 +410,15 @@
 - **Selesai:** Implementasi penuh alur Karyawan Home & Jadwal (Tahap 1 Tab Skeleton, Tahap 2 Data & UI Utama, Tahap 3 Polish, Empty State, Quick Action, Reminder Banner, Pull-to-Refresh & Testing).
 - **File Dibuat/Diubah:**
   - `apps/mobile/src/`:
-    - `components/ComingSoonPlaceholder.tsx` *(NEW)*
-    - `types/schedule.ts` *(NEW)*
-    - `services/schedule.service.ts` *(NEW)*
-    - `screens/karyawan/BerandaScreen.tsx` *(NEW)*
-    - `screens/karyawan/__tests__/BerandaScreen.test.tsx` *(NEW)*
+    - `components/ComingSoonPlaceholder.tsx` _(NEW)_
+    - `types/schedule.ts` _(NEW)_
+    - `services/schedule.service.ts` _(NEW)_
+    - `screens/karyawan/BerandaScreen.tsx` _(NEW)_
+    - `screens/karyawan/__tests__/BerandaScreen.test.tsx` _(NEW)_
     - `app/(karyawan)/_layout.tsx`
-    - `app/(karyawan)/izin.tsx` *(NEW)*
-    - `app/(karyawan)/absensi.tsx` *(NEW)*
-    - `app/(karyawan)/notifikasi.tsx` *(NEW)*
+    - `app/(karyawan)/izin.tsx` _(NEW)_
+    - `app/(karyawan)/absensi.tsx` _(NEW)_
+    - `app/(karyawan)/notifikasi.tsx` _(NEW)_
     - `app/_layout.tsx` (QueryClientProvider wrapper)
 - **Verifikasi:** Full test suite mobile (8/8 passed, 64 tests) & backend (20/20 passed, 316 tests) PASS 100%. `npx tsc --noEmit` PASS (0 error).
 - **Catatan Penting:**
@@ -444,4 +444,12 @@
     2. Assertion state `isRunning` terbukti `true` saat tick pertama sedang in-flight, dan kembali `false` setelah selesai baik pada eksekusi normal maupun saat sub-fungsi melempar exception.
   - **Keputusan Arsitektur (Technical Debt Track E Resolved):** Karena cron job dijalankan dalam 1 proses tunggal NestJS (single-instance runner), solusi in-memory mutex ini cukup dan efisien tanpa memerlukan distributed lock Redis (item distributed lock di Track M resmi dibatalkan/direvisi di `backlog.md`).
 
+## [Stage 41] Track M — Implementasi Redis Caching & Cache Invalidation (redis-cache-dashboard-reports)
 
+- **Selesai:** Infra `ioredis` (`redis:7-alpine`), `CacheService` global fail-open, cache-aside pada `getAttendanceDashboard()` (TTL 30s) & `getAttendanceSummary()` (TTL 300s, reused oleh `/reports/export`), serta invalidasi cache dashboard terpusat.
+- **File Diubah:** `docker-compose.yml`, `package.json`, `.env`, `.env.example`, `app.module.ts`, `common/cache/` (CacheService, CacheModule, spec), `dashboard/` (service, module, spec), `attendance/` (service, module, spec), `leave-requests/` (service, module, spec), `attendance-cron/` (service, module, spec).
+- **Verifikasi:** Full test suite backend PASS 100% (24/24 test suites, 348/348 tests passed). `npm run lint` & `npm run build` PASS.
+- **Catatan Penting:**
+  - **Fail-Open:** Seluruh method `CacheService` & invalidasi dibungkus `try-catch` agar kegagalan Redis/Prisma di layer cache tidak pernah menghentikan transaksi DB atau melempar exception ke client.
+  - **Cache-Aside & Early-Return:** Dashboard (`dashboard:attendance:{supervisorId}:{tanggal}`, TTL 30s) & Summary (`attendance:summary:{periodeMulai}:{periodeSelesai}`, TTL 300s). Early-return hasil kosong `[]` tetap di-cache untuk mencegah leak query. `generateAttendanceReport()` otomatis me-reuse cache summary.
+  - **Invalidasi Terpusat:** `invalidateDashboardCache(siteId, tanggal)` meng-evict cache semua supervisor terkait pada event: check-in/out sukses, pengajuan izin `APPROVED`, dan cron auto-mark `TIDAK_HADIR`. Action `REJECTED` sengaja tidak di-evict karena tidak mengubah status dashboard.

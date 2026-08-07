@@ -17,15 +17,20 @@ import * as path from 'path';
 import 'multer';
 import {
   formatJakartaDate,
+  getJakartaDateRange,
   getJakartaSingleDayRange,
   getJakartaStartOfDay,
 } from '../../common/utils/date.util';
+import { DashboardService } from '../dashboard/dashboard.service';
 
 @Injectable()
 export class LeaveRequestsService {
   private readonly logger = new Logger(LeaveRequestsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly dashboardService: DashboardService,
+  ) {}
 
   async create(
     userId: string,
@@ -443,6 +448,42 @@ export class LeaveRequestsService {
         code: 'IZIN_SUDAH_DIPROSES',
         message: 'Pengajuan sudah diproses, tidak bisa diubah lagi',
       });
+    }
+
+    if (action === 'APPROVED') {
+      try {
+        const { gte: startOfPeriode, lt: endOfPeriode } = getJakartaDateRange(
+          formatJakartaDate(leaveRequest.tanggalMulai),
+          formatJakartaDate(leaveRequest.tanggalSelesai),
+        );
+
+        const jadwals = await this.prisma.jadwalShift.findMany({
+          where: {
+            karyawanId: leaveRequest.karyawanId,
+            tanggal: {
+              gte: startOfPeriode,
+              lt: endOfPeriode,
+            },
+          },
+          select: { siteId: true, tanggal: true },
+        });
+
+        const pairSet = new Set<string>();
+        for (const j of jadwals) {
+          const tStr = formatJakartaDate(j.tanggal);
+          pairSet.add(`${j.siteId}|${tStr}`);
+        }
+
+        for (const pair of pairSet) {
+          const [sId, tStr] = pair.split('|');
+          await this.dashboardService.invalidateDashboardCache(sId, tStr);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.logger.warn(
+          `Failed to invalidate dashboard cache for approved leave ${id}: ${msg}`,
+        );
+      }
     }
 
     // g. Return

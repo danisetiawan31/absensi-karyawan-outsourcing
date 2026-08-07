@@ -5,9 +5,12 @@ import { AppModule } from '../../app.module';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 
+import { DashboardService } from '../dashboard/dashboard.service';
+
 describe('AttendanceCronService (Integration)', () => {
   let service: AttendanceCronService;
   let prisma: PrismaService;
+  let dashboardService: DashboardService;
 
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -16,6 +19,7 @@ describe('AttendanceCronService (Integration)', () => {
 
     service = module.get<AttendanceCronService>(AttendanceCronService);
     prisma = module.get<PrismaService>(PrismaService);
+    dashboardService = module.get<DashboardService>(DashboardService);
   });
 
   afterAll(async () => {
@@ -833,6 +837,79 @@ describe('AttendanceCronService (Integration)', () => {
       );
 
       spyReminders.mockRestore();
+    });
+  });
+
+  describe('checkAndMarkAbsent (Dashboard Cache Invalidation)', () => {
+    beforeEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('should call invalidateDashboardCache when creating a new LogKehadiran with TIDAK_HADIR', async () => {
+      const invalidateSpy = jest
+        .spyOn(dashboardService, 'invalidateDashboardCache')
+        .mockResolvedValue(undefined);
+
+      const userId = `user-cron-inv-${crypto.randomUUID()}`;
+      const siteId = `site-cron-inv-${crypto.randomUUID()}`;
+      const jadwalId = `jadwal-cron-inv-${crypto.randomUUID()}`;
+      const todayStr = '2026-11-03';
+
+      await createDummyUser(userId);
+      await createDummySite(siteId);
+
+      await prisma.jadwalShift.create({
+        data: {
+          id: jadwalId,
+          karyawanId: userId,
+          siteId,
+          tanggal: new Date(`${todayStr}T00:00:00+07:00`),
+          jamMulai: new Date('2026-11-03T08:00:00+07:00'),
+          jamSelesai: new Date('2026-11-03T16:00:00+07:00'),
+        },
+      });
+
+      const now = new Date('2026-11-03T17:00:00+07:00');
+      await service.checkAndMarkAbsent(now);
+
+      expect(invalidateSpy).toHaveBeenCalledWith(siteId, todayStr);
+    });
+
+    it('should call invalidateDashboardCache when updating existing LogKehadiran to TIDAK_HADIR', async () => {
+      const invalidateSpy = jest
+        .spyOn(dashboardService, 'invalidateDashboardCache')
+        .mockResolvedValue(undefined);
+
+      const userId = `user-cron-upd-${crypto.randomUUID()}`;
+      const siteId = `site-cron-upd-${crypto.randomUUID()}`;
+      const jadwalId = `jadwal-cron-upd-${crypto.randomUUID()}`;
+      const todayStr = '2026-11-04';
+
+      await createDummyUser(userId);
+      await createDummySite(siteId);
+
+      await prisma.jadwalShift.create({
+        data: {
+          id: jadwalId,
+          karyawanId: userId,
+          siteId,
+          tanggal: new Date(`${todayStr}T00:00:00+07:00`),
+          jamMulai: new Date('2026-11-04T08:00:00+07:00'),
+          jamSelesai: new Date('2026-11-04T16:00:00+07:00'),
+        },
+      });
+
+      await prisma.logKehadiran.create({
+        data: {
+          jadwalId,
+          karyawanId: userId,
+        },
+      });
+
+      const now = new Date('2026-11-04T17:00:00+07:00');
+      await service.checkAndMarkAbsent(now);
+
+      expect(invalidateSpy).toHaveBeenCalledWith(siteId, todayStr);
     });
   });
 });
