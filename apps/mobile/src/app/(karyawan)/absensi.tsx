@@ -1,9 +1,5 @@
-import React from 'react';
+import AbsensiScreen from '@/screens/karyawan/AbsensiScreen';
 
-import ComingSoonPlaceholder from '@/components/ComingSoonPlaceholder';
-
-export default function AbsensiTabScreen() {
-  return (
-    <ComingSoonPlaceholder judul="Presensi Absensi" iconName="camera-outline" />
-  );
+export default function Page() {
+  return <AbsensiScreen />;
 }

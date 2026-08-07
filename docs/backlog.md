@@ -71,9 +71,9 @@
 
 ## Track J — Karyawan: Attendance & Leave
 
-**Status: BLOCKED** (depends on Track I)
+**Status: IN PROGRESS (attendance-mobile SELESAI).** Detail lengkap ada di `done.md` Stage 43.
 
-- attendance-mobile
+- attendance-mobile - **SELESAI**
 - leave-requests-karyawan
 - notifikasi-mobile (karyawan)
 

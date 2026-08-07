@@ -28,6 +28,9 @@ export default function KaryawanLayout() {
         "face-registration",
         "face-registration-preview",
         "face-registration-confirm",
+        "attendance-camera",
+        "attendance-preview",
+        "attendance-success",
       ].includes(currentRoute);
 
     if (!wajahTerdaftar && !isFaceRegFlow) {
@@ -128,6 +131,27 @@ export default function KaryawanLayout() {
       />
       <Tabs.Screen
         name="face-registration-confirm"
+        options={{
+          href: null,
+          tabBarStyle: { display: "none" },
+        }}
+      />
+      <Tabs.Screen
+        name="attendance-camera"
+        options={{
+          href: null,
+          tabBarStyle: { display: "none" },
+        }}
+      />
+      <Tabs.Screen
+        name="attendance-preview"
+        options={{
+          href: null,
+          tabBarStyle: { display: "none" },
+        }}
+      />
+      <Tabs.Screen
+        name="attendance-success"
         options={{
           href: null,
           tabBarStyle: { display: "none" },

@@ -1,0 +1,49 @@
+appId: com.outsourcing.absensikaryawan
+---
+# 1. Flow Login
+- launchApp
+- tapOn:
+    id: "input-email"
+- inputText: "karyawan@example.com"
+- tapOn:
+    id: "input-password"
+- inputText: "Password123!"
+- tapOn:
+    id: "button-login"
+
+# 2. Flow Wajib Ganti Password (jika flag wajibGantiPassword=true)
+- assertVisible: "Ganti Password Wajib"
+- tapOn:
+    id: "input-new-password"
+- inputText: "PasswordBaru123!"
+- tapOn:
+    id: "input-confirm-password"
+- inputText: "PasswordBaru123!"
+- tapOn:
+    id: "button-change-password"
+
+# 3. Flow Registrasi Wajah (jika wajahTerdaftar=false)
+- assertVisible: "Registrasi Wajah"
+- tapOn:
+    id: "button-start-face-registration"
+- tapOn:
+    id: "capture-face-button"
+- tapOn:
+    id: "button-submit-face"
+- assertVisible: "Wajah Berhasil Terdaftar"
+
+# 4. Flow Check-in Presensi (Tab Absensi)
+- tapOn: "Absensi"
+- assertVisible: "Presensi & Absensi"
+- tapOn:
+    id: "button-checkin"
+- assertVisible: "Posisikan wajah Anda"
+- tapOn:
+    id: "capture-button"
+- assertVisible: "Preview foto presensi"
+- tapOn:
+    id: "button-submit"
+- assertVisible: "Absensi Hadir Berhasil!"
+- tapOn:
+    id: "button-back-to-home"
+- assertVisible: "Halo, Karyawan"

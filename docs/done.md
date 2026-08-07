@@ -463,3 +463,14 @@
   - **Fail-Open & IP Tracking:** Error Redis/timeout di-catch oleh `FailOpenThrottlerGuard` agar request lolos (`return true`) tanpa HTTP 500. IP dilacak murni via `req.ip`. Error 429 menggunakan envelope standar (`TERLALU_BANYAK_PERCOBAAN`).
   - **Scoped Test Cleanup:** Cleanup test di `auth-rate-limit.spec.ts` di-scope ke pattern `*{*:default}:*` tanpa `FLUSHALL`/`FLUSHDB`.
   - **Penutupan Track M:** Requirement Track M resmi **SELESAI 100%**.
+
+## [Stage 43] Track J — Attendance Mobile (attendance-mobile)
+
+- **Selesai:** Implementasi penuh fitur presensi karyawan (`check-in` & `check-out`): API service (`attendance.service.ts`), kamera & GPS (`AttendanceCameraScreen.tsx`), preview foto & 3-cabang response handling (`AttendancePreviewScreen.tsx`), rincian sukses (`AttendanceSuccessScreen.tsx`), wiring tab Absensi (`AbsensiScreen.tsx`), serta skrip Maestro E2E flow (`e2e/karyawan-flow.yaml`).
+- **File Dibuat/Diubah:** `package.json`, `types/attendance.ts` _(NEW)_, `services/attendance.service.ts` _(NEW)_, `services/__tests__/attendance.service.test.ts` _(NEW)_, `screens/karyawan/` (`AttendanceCameraScreen.tsx` _(NEW)_, `AttendancePreviewScreen.tsx` _(NEW)_, `AttendanceSuccessScreen.tsx` _(NEW)_, `AbsensiScreen.tsx` _(NEW)_), `screens/karyawan/__tests__/` (`AttendanceCameraScreen.test.tsx` _(NEW)_, `AttendancePreviewScreen.test.tsx` _(NEW)_, `AbsensiScreen.test.tsx` _(NEW)_), `app/(karyawan)/` (`_layout.tsx`, `absensi.tsx`, `attendance-camera.tsx` _(NEW)_, `attendance-preview.tsx` _(NEW)_, `attendance-success.tsx` _(NEW)_), `e2e/karyawan-flow.yaml` _(NEW)_.
+- **Verifikasi:** Full mobile test suite (12/12 test suites, 89/89 tests pass), `npx tsc --noEmit` PASS (0 error, ZERO `as any`).
+- **Catatan Penting:**
+  - **Isolasi Kamera & UX:** `AttendanceCameraScreen.tsx` dipisah dari `FaceCameraScreen.tsx` (duplikasi visual, tanpa refaktor shared component) untuk mencegah regresi. Izin kamera + lokasi (`expo-location` ~19.0.7) diminta bersamaan saat mount.
+  - **Descriptor Pattern & Double-Tap Guard:** UI kamera di-gate `renderAttendanceCameraScreenDescriptor` langsung di JSX (`{descriptor.hasCaptureButton && ...}`). Submit di-guard via `useRef` lock (`isSubmittingRef`) secara sinkron mencegah race condition.
+  - **3-Cabang Response Handling:** (a) `VALID` → navigasi ke `AttendanceSuccessScreen`; (b) HTTP 200 non-`VALID` (`GAGAL_LOKASI`/`DI_LUAR_JENDELA_WAKTU`) → banner error di preview + retry tanpa paksa balik kamera; (c) HTTP 400/404/409 (`SUDAH_CHECKIN`, dst) → error server + tombol kembali ke tab Absensi.
+  - **Wiring Tab Absensi & Multi-Shift:** `AbsensiScreen.tsx` me-reuse `getTodaySchedules`, merender state kosong jika tanpa jadwal, dan merender daftar shift dengan tombol aksi sesuai `statusKehadiran`.
