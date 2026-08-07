@@ -3,6 +3,8 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { Role } from '@prisma/client';
 
+import { FailOpenThrottlerGuard } from '../../common/guards/fail-open-throttler.guard';
+
 describe('AuthController', () => {
   let controller: AuthController;
   let service: AuthService;
@@ -25,7 +27,10 @@ describe('AuthController', () => {
           },
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(FailOpenThrottlerGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<AuthController>(AuthController);
     service = module.get<AuthService>(AuthService);

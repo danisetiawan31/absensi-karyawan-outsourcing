@@ -14,12 +14,19 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { User } from '@prisma/client';
+import { Throttle, seconds } from '@nestjs/throttler';
+import { FailOpenThrottlerGuard } from '../../common/guards/fail-open-throttler.guard';
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(FailOpenThrottlerGuard)
+  @Throttle({
+    default: { limit: 5, ttl: seconds(60), blockDuration: seconds(60) },
+  })
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
@@ -37,6 +44,10 @@ export class AuthController {
 
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(FailOpenThrottlerGuard)
+  @Throttle({
+    default: { limit: 3, ttl: seconds(300), blockDuration: seconds(300) },
+  })
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
     await this.authService.forgotPassword(forgotPasswordDto.email);
     return { success: true };

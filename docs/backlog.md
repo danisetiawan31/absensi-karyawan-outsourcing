@@ -89,15 +89,11 @@
 
 ## Track M — Redis (Infrastruktur Caching & Reliability)
 
-**Status: SELESAI (M1 - redis-cache-dashboard-reports).** Detail lengkap ada di `done.md` Stage 41.
+**Status: SELESAI (M1 - redis-cache-dashboard-reports, M2 - redis-rate-limiting-auth).** Detail lengkap ada di `done.md` Stage 41 dan Stage 42.
 
 **Motivasi:** Eksplorasi stack baru untuk portofolio — setiap item dipilih karena punya use case nyata di project ini (bukan ditempel tanpa fungsi), diprioritaskan dari yang paling defensible.
 
 **Catatan:** Item "distributed lock cron" yang sebelumnya direncanakan di sini DIBATALKAN — investigasi ke Antigravity menemukan bahwa cron job Track E adalah 1 runner dalam 1 proses (bukan multi-instance), sehingga race condition antar-tick diselesaikan cukup dengan in-memory mutex (dikerjakan terpisah di Track E, bukan bagian Redis).
 
 - **redis-cache-dashboard-reports** — **SELESAI.** Cache-aside (TTL pendek) untuk endpoint agregasi berat: `GET /dashboard/attendance`, `GET /attendance/summary`, `GET /reports/export`. Termasuk strategi invalidasi cache saat data terkait berubah (check-in/out baru, approve izin, cron auto-mark TIDAK_HADIR).
-- **redis-rate-limiting-auth** — Ganti storage `@nestjs/throttler` dari in-memory ke `ThrottlerStorageRedisService` untuk endpoint `POST /auth/login` dan `POST /auth/forgot-password`.
-
-**Urutan pengerjaan disarankan:** redis-cache-dashboard-reports → redis-rate-limiting-auth.
-
-**Status: PENDING_DECISION** (jumlah spec)
+- **redis-rate-limiting-auth** — **SELESAI.** Menggunakan `@nest-lab/throttler-storage-redis` (`ThrottlerStorageRedisService`) dengan custom `FailOpenThrottlerGuard` untuk endpoint `POST /auth/login` (5x/60s) dan `POST /auth/forgot-password` (3x/300s).

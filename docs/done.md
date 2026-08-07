@@ -453,3 +453,13 @@
   - **Fail-Open:** Seluruh method `CacheService` & invalidasi dibungkus `try-catch` agar kegagalan Redis/Prisma di layer cache tidak pernah menghentikan transaksi DB atau melempar exception ke client.
   - **Cache-Aside & Early-Return:** Dashboard (`dashboard:attendance:{supervisorId}:{tanggal}`, TTL 30s) & Summary (`attendance:summary:{periodeMulai}:{periodeSelesai}`, TTL 300s). Early-return hasil kosong `[]` tetap di-cache untuk mencegah leak query. `generateAttendanceReport()` otomatis me-reuse cache summary.
   - **Invalidasi Terpusat:** `invalidateDashboardCache(siteId, tanggal)` meng-evict cache semua supervisor terkait pada event: check-in/out sukses, pengajuan izin `APPROVED`, dan cron auto-mark `TIDAK_HADIR`. Action `REJECTED` sengaja tidak di-evict karena tidak mengubah status dashboard.
+
+## [Stage 42] Track M — Implementasi Redis Rate Limiting Auth (redis-rate-limiting-auth)
+
+- **Selesai:** Rate limiting berbasis Redis untuk `POST /auth/login` (5x/60s) dan `POST /auth/forgot-password` (3x/300s) via `@nest-lab/throttler-storage-redis` & `FailOpenThrottlerGuard`.
+- **File Dibuat/Diubah:** `package.json`, `app.module.ts`, `auth/` (module, controller, spec, `auth-rate-limit.spec.ts` _(NEW)_), `fail-open-throttler.guard.ts` _(NEW)_, `docs/feature/redis-rate-limiting-auth.md` _(NEW)_, `API-Contract.md`.
+- **Verifikasi:** Full test suite backend (25/25 test suites, 354/354 tests) & 2x consecutive scoped test PASS 100%. `npm run lint` & `npm run build` PASS.
+- **Catatan Penting:**
+  - **Fail-Open & IP Tracking:** Error Redis/timeout di-catch oleh `FailOpenThrottlerGuard` agar request lolos (`return true`) tanpa HTTP 500. IP dilacak murni via `req.ip`. Error 429 menggunakan envelope standar (`TERLALU_BANYAK_PERCOBAAN`).
+  - **Scoped Test Cleanup:** Cleanup test di `auth-rate-limit.spec.ts` di-scope ke pattern `*{*:default}:*` tanpa `FLUSHALL`/`FLUSHDB`.
+  - **Penutupan Track M:** Requirement Track M resmi **SELESAI 100%**.
