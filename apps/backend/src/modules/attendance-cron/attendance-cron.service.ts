@@ -20,6 +20,7 @@ type JadwalWithRelations = Prisma.JadwalShiftGetPayload<{
 @Injectable()
 export class AttendanceCronService {
   private readonly logger = new Logger(AttendanceCronService.name);
+  private isRunning = false;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -28,10 +29,20 @@ export class AttendanceCronService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async handleCron() {
-    const now = new Date();
-    await this.checkAndSendReminders(now);
-    await this.checkAndSendSupervisorAlerts(now);
-    await this.checkAndMarkAbsent(now);
+    if (this.isRunning) {
+      this.logger.warn('Tick sebelumnya masih berjalan, skip eksekusi ini');
+      return;
+    }
+
+    this.isRunning = true;
+    try {
+      const now = new Date();
+      await this.checkAndSendReminders(now);
+      await this.checkAndSendSupervisorAlerts(now);
+      await this.checkAndMarkAbsent(now);
+    } finally {
+      this.isRunning = false;
+    }
   }
 
   async checkAndSendReminders(now: Date) {

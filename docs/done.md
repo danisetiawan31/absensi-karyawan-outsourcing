@@ -429,3 +429,19 @@
   - **Quick Action & Help Modal:** Tombol Izin mengarahkan ke tab Izin, tombol Bantuan membuka modal berisi kontak & FAQ HR.
   - **Penutupan Track I:** Seluruh requirement Track I (Gate & Home) telah **SELESAI 100%**.
 
+## [Stage 40] Track E — Fix Race Condition Overlap Eksekusi Cron Job (in-memory mutex)
+
+- **Selesai:** Penanganan race condition overlap eksekusi cron job pada `AttendanceCronService` menggunakan in-memory mutex (`isRunning` flag & `try-finally`).
+- **File Diubah:**
+  - `apps/backend/src/modules/attendance-cron/attendance-cron.service.ts`
+  - `apps/backend/src/modules/attendance-cron/attendance-cron.service.spec.ts`
+- **Verifikasi:** Full test suite backend PASS 100% (23/23 test suites, 323/323 tests passed). `npm run lint` & `npm run build` PASS (0 error).
+- **Catatan Penting:**
+  - **In-Memory Mutex Guard:** Ditambahkan properti `private isRunning = false;` di `AttendanceCronService`. Di awal `handleCron()`, jika `isRunning === true`, eksekusi tick baru langsung memunculkan log warning dan `return` (skip eksekusi).
+  - **Exception-Safe Cleanup:** Eksekusi 3 sub-fungsi (`checkAndSendReminders`, `checkAndSendSupervisorAlerts`, `checkAndMarkAbsent`) dibungkus dalam blok `try { ... } finally { this.isRunning = false; }` untuk menjamin reset flag mutex meskipun terjadi exception pada salah satu sub-fungsi.
+  - **Dedicated Unit/Integration Tests:** Ditambahkan unit test suite `Overlap Mutex Protection` di `attendance-cron.service.spec.ts` yang menguji:
+    1. Eksekusi overlap `handleCron()` yang bersamaan secara otomatis di-skip pada tick kedua, dan sub-fungsi hanya di-invoke 1x.
+    2. Assertion state `isRunning` terbukti `true` saat tick pertama sedang in-flight, dan kembali `false` setelah selesai baik pada eksekusi normal maupun saat sub-fungsi melempar exception.
+  - **Keputusan Arsitektur (Technical Debt Track E Resolved):** Karena cron job dijalankan dalam 1 proses tunggal NestJS (single-instance runner), solusi in-memory mutex ini cukup dan efisien tanpa memerlukan distributed lock Redis (item distributed lock di Track M resmi dibatalkan/direvisi di `backlog.md`).
+
+

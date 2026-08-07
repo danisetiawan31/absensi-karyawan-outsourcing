@@ -67,7 +67,7 @@
 **Status: SELESAI**
 
 - face-registration-mobile - SELESAI
-- karyawan-home-jadwal - SELESAI    
+- karyawan-home-jadwal - SELESAI
 
 ## Track J — Karyawan: Attendance & Leave
 
@@ -86,5 +86,18 @@
 - notifikasi-mobile (supervisor)
 
 ## Track L — HR Admin
+
+## Track M — Redis (Infrastruktur Caching & Reliability)
+
+**Status: READY** (independen dari track lain)
+
+**Motivasi:** Eksplorasi stack baru untuk portofolio — setiap item dipilih karena punya use case nyata di project ini (bukan ditempel tanpa fungsi), diprioritaskan dari yang paling defensible.
+
+**Catatan:** Item "distributed lock cron" yang sebelumnya direncanakan di sini DIBATALKAN — investigasi ke Antigravity menemukan bahwa cron job Track E adalah 1 runner dalam 1 proses (bukan multi-instance), sehingga race condition antar-tick diselesaikan cukup dengan in-memory mutex (dikerjakan terpisah di Track E, bukan bagian Redis).
+
+- **redis-cache-dashboard-reports** — Cache-aside (TTL pendek) untuk endpoint agregasi berat: `GET /dashboard/attendance`, `GET /attendance/summary`, `GET /reports/export`. Termasuk strategi invalidasi cache saat data terkait berubah (check-in/out baru, approve izin, dst).
+- **redis-rate-limiting-auth** — Ganti storage `@nestjs/throttler` dari in-memory ke `ThrottlerStorageRedisService` untuk endpoint `POST /auth/login` dan `POST /auth/forgot-password`.
+
+**Urutan pengerjaan disarankan:** redis-cache-dashboard-reports → redis-rate-limiting-auth.
 
 **Status: PENDING_DECISION** (jumlah spec)

@@ -765,4 +765,74 @@ describe('AttendanceCronService (Integration)', () => {
       expect(log?.hasilVerifikasiCheckIn).toBe('TIDAK_HADIR');
     });
   });
+
+  describe('Overlap Mutex Protection', () => {
+    it('1. Overlapping handleCron execution is skipped when previous tick is still running', async () => {
+      const spyReminders = jest.spyOn(service, 'checkAndSendReminders');
+      const spyAlerts = jest.spyOn(service, 'checkAndSendSupervisorAlerts');
+      const spyAbsent = jest.spyOn(service, 'checkAndMarkAbsent');
+
+      let resolveFirstTick: (() => void) | undefined;
+      const delayPromise = new Promise<void>((resolve) => {
+        resolveFirstTick = resolve;
+      });
+
+      spyReminders.mockImplementationOnce(async () => {
+        await delayPromise;
+      });
+
+      // Start first tick (will pause inside checkAndSendReminders)
+      const firstTickPromise = service.handleCron();
+
+      // Assert isRunning is true while tick 1 is actively running
+      expect((service as unknown as { isRunning: boolean }).isRunning).toBe(
+        true,
+      );
+
+      // Immediately invoke second tick while first is still running
+      await service.handleCron();
+
+      // Unblock first tick
+      if (resolveFirstTick) {
+        resolveFirstTick();
+      }
+      await firstTickPromise;
+
+      // Assert isRunning is reset to false after tick 1 completes
+      expect((service as unknown as { isRunning: boolean }).isRunning).toBe(
+        false,
+      );
+
+      // Sub-functions should only be executed once (by the first tick)
+      expect(spyReminders).toHaveBeenCalledTimes(1);
+      expect(spyAlerts).toHaveBeenCalledTimes(1);
+      expect(spyAbsent).toHaveBeenCalledTimes(1);
+
+      spyReminders.mockRestore();
+      spyAlerts.mockRestore();
+      spyAbsent.mockRestore();
+    });
+
+    it('2. isRunning returns to false after execution completes (normal & exception)', async () => {
+      // Normal execution
+      await service.handleCron();
+      expect((service as unknown as { isRunning: boolean }).isRunning).toBe(
+        false,
+      );
+
+      // Exception execution
+      const spyReminders = jest
+        .spyOn(service, 'checkAndSendReminders')
+        .mockRejectedValueOnce(new Error('Simulated sub-function error'));
+
+      await expect(service.handleCron()).rejects.toThrow(
+        'Simulated sub-function error',
+      );
+      expect((service as unknown as { isRunning: boolean }).isRunning).toBe(
+        false,
+      );
+
+      spyReminders.mockRestore();
+    });
+  });
 });
