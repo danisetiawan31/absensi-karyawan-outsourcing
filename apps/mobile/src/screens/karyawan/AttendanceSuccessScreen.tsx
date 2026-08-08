@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { COLORS } from '@/constants/theme';
 
 export function formatAttendanceTime(isoStr?: string): string {
   if (!isoStr) return '--:-- WIB';
@@ -28,7 +29,7 @@ export default function AttendanceSuccessScreen() {
     <View className="flex-1 bg-slate-900 justify-center items-center p-6">
       <View className="bg-surface w-full max-w-sm p-6 rounded-2xl items-center shadow-xl">
         <View className="w-20 h-20 bg-emerald-100 rounded-full items-center justify-center mb-5">
-          <Ionicons name="checkmark-circle" size={56} color="#16A34A" />
+          <Ionicons name="checkmark-circle" size={56} color={COLORS.success} />
         </View>
 
         <Text className="text-[20px] font-sans-bold text-slate-900 text-center mb-1">

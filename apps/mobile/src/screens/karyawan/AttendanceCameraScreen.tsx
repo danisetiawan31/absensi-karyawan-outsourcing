@@ -12,6 +12,7 @@ import * as Location from 'expo-location';
 import { LocationOptions, LocationObject } from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { COLORS } from '@/constants/theme';
 
 export function getPermissionViewState(
   cameraGranted: boolean,
@@ -186,7 +187,7 @@ export default function AttendanceCameraScreen() {
   if (descriptor.type === 'LOADING') {
     return (
       <View className="flex-1 bg-black justify-center items-center" testID="loading-view">
-        <ActivityIndicator size="large" color="#FFC81E" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
         <Text className="text-white font-sans-regular mt-3">
           Memuat izin perangkat...
         </Text>

@@ -11,6 +11,9 @@ import {
   View,
 } from 'react-native';
 
+import { SectionCard } from '@/components/SectionCard';
+import { StatusBadge, StatusBadgeVariant } from '@/components/StatusBadge';
+import { COLORS } from '@/constants/theme';
 import { getTodaySchedules } from '@/services/schedule.service';
 import { ScheduleTodayItem, StatusKehadiran } from '@/types/schedule';
 
@@ -19,8 +22,7 @@ export interface AbsensiActionConfig {
   buttonText: string;
   tipe: 'CHECK_IN' | 'CHECK_OUT' | null;
   badgeLabel: string;
-  badgeBg: string;
-  badgeTextColor: string;
+  variant: StatusBadgeVariant;
   iconName: keyof typeof Ionicons.glyphMap;
 }
 
@@ -34,8 +36,7 @@ export function getAbsensiActionConfig(
         buttonText: 'Check-in Sekarang',
         tipe: 'CHECK_IN',
         badgeLabel: 'Belum Check-in',
-        badgeBg: 'bg-amber-100 border-amber-300',
-        badgeTextColor: 'text-amber-800',
+        variant: 'warning',
         iconName: 'log-in-outline',
       };
     case 'SUDAH_CHECKIN':
@@ -44,8 +45,7 @@ export function getAbsensiActionConfig(
         buttonText: 'Check-out Sekarang',
         tipe: 'CHECK_OUT',
         badgeLabel: 'Sudah Check-in (Aktif)',
-        badgeBg: 'bg-blue-100 border-blue-300',
-        badgeTextColor: 'text-blue-800',
+        variant: 'info',
         iconName: 'log-out-outline',
       };
     case 'SELESAI':
@@ -55,8 +55,7 @@ export function getAbsensiActionConfig(
         buttonText: '',
         tipe: null,
         badgeLabel: 'Presensi Selesai',
-        badgeBg: 'bg-emerald-100 border-emerald-300',
-        badgeTextColor: 'text-emerald-800',
+        variant: 'success',
         iconName: 'checkmark-circle-outline',
       };
   }
@@ -113,15 +112,15 @@ export default function AbsensiScreen() {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
-            colors={['#FFC81E']}
-            tintColor="#FFC81E"
+            colors={[COLORS.primary]}
+            tintColor={COLORS.primary}
           />
         }
       >
         {/* Loading State */}
         {isLoading && (
           <View className="py-12 items-center justify-center" testID="loading-state">
-            <ActivityIndicator size="large" color="#FFC81E" />
+            <ActivityIndicator size="large" color={COLORS.primary} />
             <Text className="font-sans text-xs text-slate-500 mt-3">
               Memuat jadwal hari ini...
             </Text>
@@ -134,7 +133,7 @@ export default function AbsensiScreen() {
             className="my-4 rounded-xl border border-rose-200 bg-rose-50 p-5 items-center"
             testID="error-state"
           >
-            <Ionicons name="alert-circle-outline" size={40} color="#E11D48" />
+            <Ionicons name="alert-circle-outline" size={40} color={COLORS.destructive} />
             <Text className="mt-2 font-sans-bold text-sm text-rose-900">
               Gagal Memuat Jadwal
             </Text>
@@ -155,12 +154,9 @@ export default function AbsensiScreen() {
 
         {/* Empty State */}
         {!isLoading && !isError && schedules.length === 0 && (
-          <View
-            className="my-6 rounded-2xl border border-slate-200 bg-white p-6 items-center shadow-xs"
-            testID="empty-schedule-state"
-          >
+          <SectionCard testID="empty-schedule-state" className="p-6 items-center">
             <View className="h-14 w-14 items-center justify-center rounded-full bg-slate-100 mb-3">
-              <Ionicons name="calendar-clear-outline" size={28} color="#64748B" />
+              <Ionicons name="calendar-clear-outline" size={28} color={COLORS.muted} />
             </View>
             <Text className="font-sans-bold text-base text-slate-800 text-center">
               Tidak Ada Jadwal Kerja Hari Ini
@@ -168,7 +164,7 @@ export default function AbsensiScreen() {
             <Text className="font-sans text-xs text-slate-500 text-center mt-1 max-w-[260px] leading-5">
               Anda tidak memiliki shift yang terdaftar untuk hari ini. Selamat beristirahat!
             </Text>
-          </View>
+          </SectionCard>
         )}
 
         {/* Schedule List */}
@@ -180,28 +176,23 @@ export default function AbsensiScreen() {
             const jamSelesaiFormatted = formatTime(schedule.jamSelesai);
 
             return (
-              <View
+              <SectionCard
                 key={schedule.jadwalId}
-                className="mb-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs"
                 testID={`schedule-card-${schedule.jadwalId}`}
+                className="p-5"
               >
-                {/* Header Card: Status Badge */}
+                {/* Header Card: Status Badge Reusable */}
                 <View className="flex-row justify-between items-center mb-3">
                   <Text className="font-sans-bold text-[11px] tracking-wider text-slate-400 uppercase">
                     Shift Kerja
                   </Text>
-                  <View
-                    className={`flex-row items-center px-3 py-1 rounded-full border ${config.badgeBg}`}
-                  >
-                    <Ionicons
-                      name={config.iconName}
-                      size={14}
-                      className={config.badgeTextColor}
-                    />
-                    <Text className={`font-sans-bold text-xs ml-1 ${config.badgeTextColor}`}>
-                      {config.badgeLabel}
-                    </Text>
-                  </View>
+                  <StatusBadge
+                    variant={config.variant}
+                    label={config.badgeLabel}
+                    icon={config.iconName}
+                    iconSize={14}
+                    testID={`badge-status-${schedule.jadwalId}`}
+                  />
                 </View>
 
                 {/* Jam Shift */}
@@ -212,13 +203,13 @@ export default function AbsensiScreen() {
                 {/* Info Site & Alamat */}
                 <View className="rounded-xl bg-slate-50 p-3 border border-slate-100 mb-4">
                   <View className="flex-row items-center">
-                    <Ionicons name="business" size={18} color="#D97706" />
+                    <Ionicons name="business" size={18} color={COLORS.amber} />
                     <Text className="font-sans-bold text-sm text-slate-800 ml-2">
                       {schedule.site.nama}
                     </Text>
                   </View>
                   <View className="flex-row items-center mt-1">
-                    <Ionicons name="location-outline" size={14} color="#64748B" />
+                    <Ionicons name="location-outline" size={14} color={COLORS.muted} />
                     <Text className="font-sans text-xs text-slate-500 ml-1.5 flex-1" numberOfLines={2}>
                       {schedule.site.alamat}
                     </Text>
@@ -251,7 +242,7 @@ export default function AbsensiScreen() {
                     </Text>
                   </TouchableOpacity>
                 )}
-              </View>
+              </SectionCard>
             );
           })}
       </ScrollView>

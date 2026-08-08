@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS } from '@/constants/theme';
 
 import apiClient from '@/services/apiClient';
 import { useAuthStore } from '@/store/authStore';
@@ -93,7 +95,7 @@ export default function FacePreviewScreen() {
       {/* Loading Overlay saat upload + pemrosesan DeepFace */}
       {isLoading && (
         <View className="absolute inset-0 bg-black/80 justify-center items-center p-6 z-50">
-          <ActivityIndicator size="large" color="#EAB308" />
+          <ActivityIndicator size="large" color={COLORS.primary} />
           <Text className="text-white font-sans-bold text-[16px] text-center mt-4 leading-6">
             Memproses & mendaftarkan wajah Anda, mohon tunggu...
           </Text>

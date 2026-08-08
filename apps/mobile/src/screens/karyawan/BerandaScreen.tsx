@@ -14,6 +14,7 @@ import {
 
 import { ReminderBanner } from "@/components/ReminderBanner";
 import { SectionCard } from "@/components/SectionCard";
+import { COLORS } from "@/constants/theme";
 import { getTodaySchedules } from "@/services/schedule.service";
 import { useAuthStore } from "@/store/authStore";
 import { ScheduleTodayItem, StatusKehadiran } from "@/types/schedule";
@@ -286,7 +287,7 @@ function ScheduleItemCards({ item }: { item: ScheduleTodayItem }) {
             <View
               className={`h-9 w-9 rounded-full items-center justify-center border-2 ${
                 config.checkInDone
-                  ? "bg-[#DCFCE7] border-[#16A34A]"
+                  ? "bg-success-bg border-success"
                   : "bg-slate-100 border-slate-300"
               }`}
               testID="badge-absensi-hadir"
@@ -294,7 +295,7 @@ function ScheduleItemCards({ item }: { item: ScheduleTodayItem }) {
               <Ionicons
                 name={config.checkInDone ? "checkmark-sharp" : "time-outline"}
                 size={18}
-                color={config.checkInDone ? "#166534" : "#94A3B8"}
+                color={config.checkInDone ? COLORS.successText : COLORS.slate400}
               />
             </View>
             <Text
@@ -313,7 +314,7 @@ function ScheduleItemCards({ item }: { item: ScheduleTodayItem }) {
           <View className="flex-1 mx-2 h-[2px] rounded-full overflow-hidden bg-slate-200">
             <View
               className={`h-full rounded-full ${
-                config.checkInDone ? "bg-[#16A34A]" : "bg-slate-200"
+                config.checkInDone ? "bg-success" : "bg-slate-200"
               }`}
               style={{ width: config.checkInDone ? "100%" : "0%" }}
             />
@@ -324,7 +325,7 @@ function ScheduleItemCards({ item }: { item: ScheduleTodayItem }) {
             <View
               className={`h-9 w-9 rounded-full items-center justify-center border-2 ${
                 config.checkOutDone
-                  ? "bg-[#DCFCE7] border-[#16A34A]"
+                  ? "bg-success-bg border-success"
                   : config.checkInDone
                   ? "bg-amber-50 border-amber-300"
                   : "bg-slate-100 border-slate-300"
@@ -342,10 +343,10 @@ function ScheduleItemCards({ item }: { item: ScheduleTodayItem }) {
                 size={18}
                 color={
                   config.checkOutDone
-                    ? "#166534"
+                    ? COLORS.successText
                     : config.checkInDone
-                    ? "#D97706"
-                    : "#94A3B8"
+                    ? COLORS.amber
+                    : COLORS.slate400
                 }
               />
             </View>
@@ -392,7 +393,7 @@ export default function BerandaScreen() {
   const firstSchedule = hasSchedules ? schedules[0] : null;
 
   return (
-    <View className="flex-1 bg-[#F8FAFC]">
+    <View className="flex-1 bg-slate-50">
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 40 }}
@@ -401,8 +402,8 @@ export default function BerandaScreen() {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
-            colors={["#FFC81E"]}
-            tintColor="#FFC81E"
+            colors={[COLORS.primary]}
+            tintColor={COLORS.primary}
           />
         }
       >
@@ -429,7 +430,7 @@ export default function BerandaScreen() {
           {/* Loading */}
           {isLoading && (
             <View className="py-12 items-center justify-center">
-              <ActivityIndicator size="large" color="#FFC81E" />
+              <ActivityIndicator size="large" color={COLORS.primary} />
               <Text className="mt-3 font-sans text-sm text-muted">
                 Memuat jadwal hari ini...
               </Text>

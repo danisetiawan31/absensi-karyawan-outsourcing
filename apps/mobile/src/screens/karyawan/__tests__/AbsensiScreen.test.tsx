@@ -24,6 +24,7 @@ describe('AbsensiScreen Pure Helpers & Handler Logic', () => {
       expect(config.buttonText).toBe('Check-in Sekarang');
       expect(config.tipe).toBe('CHECK_IN');
       expect(config.badgeLabel).toBe('Belum Check-in');
+      expect(config.variant).toBe('warning');
     });
 
     it('2. statusKehadiran SUDAH_CHECKIN -> tombol Check-out ter-render, tipe CHECK_OUT', () => {
@@ -32,6 +33,7 @@ describe('AbsensiScreen Pure Helpers & Handler Logic', () => {
       expect(config.buttonText).toBe('Check-out Sekarang');
       expect(config.tipe).toBe('CHECK_OUT');
       expect(config.badgeLabel).toBe('Sudah Check-in (Aktif)');
+      expect(config.variant).toBe('info');
     });
 
     it('3. statusKehadiran SELESAI -> tidak ada tombol aksi ter-render', () => {
@@ -40,6 +42,7 @@ describe('AbsensiScreen Pure Helpers & Handler Logic', () => {
       expect(config.buttonText).toBe('');
       expect(config.tipe).toBeNull();
       expect(config.badgeLabel).toBe('Presensi Selesai');
+      expect(config.variant).toBe('success');
     });
   });
 

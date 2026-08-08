@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS } from '@/constants/theme';
 
 import { checkIn, checkOut } from '@/services/attendance.service';
 import { ErrorEnvelope } from '@/types/api';
@@ -202,7 +204,7 @@ export default function AttendancePreviewScreen() {
           className="absolute inset-0 bg-black/80 justify-center items-center p-6 z-50"
           testID="loading-overlay"
         >
-          <ActivityIndicator size="large" color="#FFC81E" />
+          <ActivityIndicator size="large" color={COLORS.primary} />
           <Text className="text-white font-sans-bold text-[16px] text-center mt-4 leading-6">
             Memverifikasi & mengirim presensi Anda...
           </Text>
