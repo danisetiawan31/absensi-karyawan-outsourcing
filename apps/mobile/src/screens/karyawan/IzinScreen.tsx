@@ -67,27 +67,9 @@ export function getStatusIzinBadgeConfig(
   }
 }
 
-export function formatDateRange(
-  tanggalMulaiIso: string,
-  tanggalSelesaiIso: string,
-): string {
-  if (!tanggalMulaiIso || !tanggalSelesaiIso) return '-';
-  const start = new Date(tanggalMulaiIso);
-  const end = new Date(tanggalSelesaiIso);
+import { formatJakartaDateRange } from '@/utils/date.util';
 
-  const opts: Intl.DateTimeFormatOptions = {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  };
-  const startStr = start.toLocaleDateString('id-ID', opts);
-  const endStr = end.toLocaleDateString('id-ID', opts);
-
-  if (startStr === endStr) {
-    return startStr;
-  }
-  return `${startStr} – ${endStr}`;
-}
+export const formatDateRange = formatJakartaDateRange;
 
 export interface CancelResultState {
   type: 'SUCCESS' | 'ALREADY_PROCESSED' | 'ERROR';

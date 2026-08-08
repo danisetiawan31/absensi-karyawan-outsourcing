@@ -1,12 +1,3 @@
-import React from 'react';
+import NotifikasiScreen from '@/screens/karyawan/NotifikasiScreen';
 
-import ComingSoonPlaceholder from '@/components/ComingSoonPlaceholder';
-
-export default function NotifikasiTabScreen() {
-  return (
-    <ComingSoonPlaceholder
-      judul="Pemberitahuan & Notifikasi"
-      iconName="notifications-outline"
-    />
-  );
-}
+export default NotifikasiScreen;

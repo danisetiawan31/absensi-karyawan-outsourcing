@@ -25,7 +25,6 @@ describe('LeaveRequestCreateScreen Unit Tests', () => {
         'SAKIT',
         dateToday,
         dateToday,
-        'Demam ringan',
         null,
       );
       expect(val.isValid).toBe(true);
@@ -37,7 +36,6 @@ describe('LeaveRequestCreateScreen Unit Tests', () => {
         'SAKIT',
         dateToday,
         dateTomorrow,
-        'Demam berdarah',
         null,
       );
       expect(val.isValid).toBe(false);
@@ -50,7 +48,6 @@ describe('LeaveRequestCreateScreen Unit Tests', () => {
         'SAKIT',
         dateToday,
         dateTomorrow,
-        'Demam berdarah',
         dummyDoc,
       );
       expect(val.isValid).toBe(true);
@@ -62,7 +59,6 @@ describe('LeaveRequestCreateScreen Unit Tests', () => {
         'IZIN',
         dateToday,
         dateTomorrow,
-        'Urusan keluarga',
         null,
       );
       expect(valIzin.isValid).toBe(true);
@@ -72,7 +68,6 @@ describe('LeaveRequestCreateScreen Unit Tests', () => {
         'CUTI',
         dateToday,
         dateTomorrow,
-        'Cuti tahunan',
         null,
       );
       expect(valCuti.isValid).toBe(true);
@@ -85,7 +80,6 @@ describe('LeaveRequestCreateScreen Unit Tests', () => {
         'IZIN',
         dateToday,
         dateYesterday,
-        'Alasan',
         null,
       );
       expect(val.isValid).toBe(false);
@@ -107,7 +101,6 @@ describe('LeaveRequestCreateScreen Unit Tests', () => {
         'IZIN',
         dateToday,
         dateToday,
-        'Alasan',
         oversizedDoc,
       );
       expect(val.isValid).toBe(false);

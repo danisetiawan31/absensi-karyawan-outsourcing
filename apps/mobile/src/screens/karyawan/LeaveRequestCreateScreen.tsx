@@ -30,21 +30,13 @@ import {
 
 export const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
-export function formatDateToYmd(date: Date): string {
-  const year = date.getFullYear();
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const day = date.getDate().toString().padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+import {
+  formatJakartaDate,
+  formatJakartaYmd,
+} from '@/utils/date.util';
 
-export function formatDateDisplay(date: Date): string {
-  const opts: Intl.DateTimeFormatOptions = {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  };
-  return date.toLocaleDateString('id-ID', opts);
-}
+export const formatDateToYmd = formatJakartaYmd;
+export const formatDateDisplay = formatJakartaDate;
 
 export function isDocumentRequired(
   jenis: JenisIzin,
@@ -76,7 +68,6 @@ export function validateLeaveRequestForm(
   jenis: JenisIzin,
   tanggalMulai: Date,
   tanggalSelesai: Date,
-  alasan: string,
   dokumen: SelectedDocumentFile | null,
 ): LeaveRequestFormValidationResult {
   const start = new Date(
@@ -145,7 +136,6 @@ export async function processLeaveRequestSubmit(
     params.jenis,
     params.tanggalMulai,
     params.tanggalSelesai,
-    params.alasan,
     params.dokumen,
   );
 
