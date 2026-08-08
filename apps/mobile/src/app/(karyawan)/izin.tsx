@@ -1,12 +1,5 @@
-import React from 'react';
+import IzinScreen from '@/screens/karyawan/IzinScreen';
 
-import ComingSoonPlaceholder from '@/components/ComingSoonPlaceholder';
-
-export default function IzinTabScreen() {
-  return (
-    <ComingSoonPlaceholder
-      judul="Layanan Izin"
-      iconName="document-text-outline"
-    />
-  );
+export default function Page() {
+  return <IzinScreen />;
 }

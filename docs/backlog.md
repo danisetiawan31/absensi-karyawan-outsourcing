@@ -71,10 +71,10 @@
 
 ## Track J — Karyawan: Attendance & Leave
 
-**Status: IN PROGRESS (attendance-mobile SELESAI).** Detail lengkap ada di `done.md` Stage 43.
+**Status: IN PROGRESS (attendance-mobile & leave-requests-karyawan SELESAI).** Detail lengkap ada di `done.md` Stage 43 dan Stage 44.
 
 - attendance-mobile - **SELESAI**
-- leave-requests-karyawan
+- leave-requests-karyawan - **SELESAI**
 - notifikasi-mobile (karyawan)
 
 ## Track K — Supervisor
