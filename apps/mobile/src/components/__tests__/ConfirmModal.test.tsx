@@ -79,5 +79,22 @@ describe("ConfirmModal Component Suite", () => {
     expect(warningIconCircle.props.className).toContain(
       CONFIRM_MODAL_VARIANT_CONFIG.warning.iconBgClass,
     );
+
+    const successModal = ConfirmModal({
+      visible: true,
+      variant: "success",
+      title: "Setujui Pengajuan?",
+      description: "Pengajuan izin akan disetujui.",
+      confirmText: "Ya, Setujui",
+      cancelText: "Batal",
+      onConfirm: jest.fn(),
+      onCancel: jest.fn(),
+    });
+    const successCard = successModal?.props.children.props.children;
+    const successHeader = successCard.props.children[0];
+    const successIconCircle = successHeader.props.children[0];
+    expect(successIconCircle.props.className).toContain(
+      CONFIRM_MODAL_VARIANT_CONFIG.success.iconBgClass,
+    );
   });
 });

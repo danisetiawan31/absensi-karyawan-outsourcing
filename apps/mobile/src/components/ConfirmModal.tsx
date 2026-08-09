@@ -4,7 +4,7 @@ import { Modal, Text, TouchableOpacity, View } from 'react-native';
 
 import { COLORS } from '@/constants/theme';
 
-export type ConfirmModalVariant = 'danger' | 'warning' | 'info';
+export type ConfirmModalVariant = 'danger' | 'warning' | 'info' | 'success';
 
 export interface ConfirmModalProps {
   visible: boolean;
@@ -48,6 +48,13 @@ export const CONFIRM_MODAL_VARIANT_CONFIG: Record<
     iconColor: COLORS.info,
     defaultIcon: 'information-circle-outline',
     confirmBtnClass: 'bg-info',
+    confirmTextClass: 'text-white',
+  },
+  success: {
+    iconBgClass: 'bg-success-bg',
+    iconColor: COLORS.success,
+    defaultIcon: 'checkmark-circle-outline',
+    confirmBtnClass: 'bg-success',
     confirmTextClass: 'text-white',
   },
 };
