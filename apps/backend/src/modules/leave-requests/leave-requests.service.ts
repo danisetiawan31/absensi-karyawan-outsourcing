@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  StreamableFile,
 } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateLeaveRequestDto } from './dto/create-leave-request.dto';
@@ -353,6 +354,80 @@ export class LeaveRequestsService {
     return !hasAnySupervisorScope;
   }
 
+  /**
+   * Verifikasi bahwa caller (role+userId) berhak mengakses PengajuanIzin.
+   *
+   * - KARYAWAN: lewati (harus dicek oleh caller, karena logicnya beda per use-case)
+   * - SUPERVISOR: lempar 404 IZIN_TIDAK_DITEMUKAN jika di luar cakupan (hide existence)
+   * - HR_ADMIN:
+   *     • jika hrAdminThrows404WhenNotOrphaned=true (getDocumentFile): lempar 404 IZIN_TIDAK_DITEMUKAN
+   *     • jika false (processRequest): lempar 403 BUKAN_FALLBACK_HR (behavior lama yang sudah teruji)
+   *
+   * Refactor ini tidak mengubah behavior processRequest() yang sudah teruji.
+   */
+  private async assertCallerInScope(
+    leaveRequest: {
+      karyawanId: string;
+      tanggalMulai: Date;
+      tanggalSelesai: Date;
+    },
+    role: Role,
+    userId: string,
+    hrAdminThrows404WhenNotOrphaned: boolean,
+  ): Promise<void> {
+    if (role === Role.SUPERVISOR) {
+      const supervisedSites = await this.prisma.supervisorSite.findMany({
+        where: { supervisorId: userId },
+        select: { siteId: true },
+      });
+      const siteIds = supervisedSites.map((s) => s.siteId);
+
+      const jadwalShifts = await this.prisma.jadwalShift.findMany({
+        where: { siteId: { in: siteIds }, karyawanId: leaveRequest.karyawanId },
+        select: { jamMulai: true, jamSelesai: true },
+      });
+
+      const isInScope = jadwalShifts.some((j) =>
+        this.checkOverlap(
+          j.jamMulai,
+          j.jamSelesai,
+          leaveRequest.tanggalMulai,
+          leaveRequest.tanggalSelesai,
+        ),
+      );
+
+      if (!isInScope) {
+        throw new NotFoundException({
+          code: 'IZIN_TIDAK_DITEMUKAN',
+          message: 'Pengajuan izin tidak ditemukan',
+        });
+      }
+    } else if (role === Role.HR_ADMIN) {
+      const isOrphaned = await this.isOrphaned(
+        leaveRequest.karyawanId,
+        leaveRequest.tanggalMulai,
+        leaveRequest.tanggalSelesai,
+      );
+
+      if (!isOrphaned) {
+        if (hrAdminThrows404WhenNotOrphaned) {
+          // Endpoint getDocumentFile: sembunyikan keberadaan data (prinsip AGENTS.md 404 vs 403)
+          throw new NotFoundException({
+            code: 'IZIN_TIDAK_DITEMUKAN',
+            message: 'Pengajuan izin tidak ditemukan',
+          });
+        } else {
+          // processRequest(): behavior lama — 403 BUKAN_FALLBACK_HR (sudah teruji, tidak diubah)
+          throw new ForbiddenException({
+            code: 'BUKAN_FALLBACK_HR',
+            message:
+              'Pengajuan ini masih dalam cakupan supervisor, gunakan alur approval normal.',
+          });
+        }
+      }
+    }
+  }
+
   async processRequest(
     id: string,
     role: Role,
@@ -380,49 +455,8 @@ export class LeaveRequestsService {
       });
     }
 
-    // c. Cek scope
-    if (role === Role.SUPERVISOR) {
-      const supervisedSites = await this.prisma.supervisorSite.findMany({
-        where: { supervisorId: userId },
-        select: { siteId: true },
-      });
-      const siteIds = supervisedSites.map((s) => s.siteId);
-
-      const jadwalShifts = await this.prisma.jadwalShift.findMany({
-        where: { siteId: { in: siteIds }, karyawanId: leaveRequest.karyawanId },
-        select: { jamMulai: true, jamSelesai: true },
-      });
-
-      const isInScope = jadwalShifts.some((j) =>
-        this.checkOverlap(
-          j.jamMulai,
-          j.jamSelesai,
-          leaveRequest.tanggalMulai,
-          leaveRequest.tanggalSelesai,
-        ),
-      );
-
-      if (!isInScope) {
-        throw new NotFoundException({
-          code: 'IZIN_TIDAK_DITEMUKAN',
-          message: 'Pengajuan izin tidak ditemukan', // SAMA PERSIS dengan 404
-        });
-      }
-    } else if (role === Role.HR_ADMIN) {
-      const isOrphaned = await this.isOrphaned(
-        leaveRequest.karyawanId,
-        leaveRequest.tanggalMulai,
-        leaveRequest.tanggalSelesai,
-      );
-
-      if (!isOrphaned) {
-        throw new ForbiddenException({
-          code: 'BUKAN_FALLBACK_HR',
-          message:
-            'Pengajuan ini masih dalam cakupan supervisor, gunakan alur approval normal.',
-        });
-      }
-    }
+    // c. Cek scope (reuse assertCallerInScope, pertahankan behavior lama: HR_ADMIN non-orphaned → 403)
+    await this.assertCallerInScope(leaveRequest, role, userId, false);
 
     // d. Kalau ketemu & dalam scope tapi status BUKAN PENDING -> 409
     if (leaveRequest.status !== 'PENDING') {
@@ -562,5 +596,99 @@ export class LeaveRequestsService {
     });
 
     return results;
+  }
+
+  private static readonly MIME_MAP: Record<string, string> = {
+    '.pdf': 'application/pdf',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+  };
+
+  async getDocumentFile(
+    id: string,
+    role: Role,
+    userId: string,
+  ): Promise<{ stream: StreamableFile; mimeType: string }> {
+    // 1. Cari PengajuanIzin
+    const leaveRequest = await this.prisma.pengajuanIzin.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        karyawanId: true,
+        tanggalMulai: true,
+        tanggalSelesai: true,
+        dokumenPendukungUrl: true,
+      },
+    });
+
+    // 2. Tidak ketemu → 404
+    if (!leaveRequest) {
+      throw new NotFoundException({
+        code: 'IZIN_TIDAK_DITEMUKAN',
+        message: 'Pengajuan izin tidak ditemukan',
+      });
+    }
+
+    // 3. Scope check per role
+    if (role === Role.KARYAWAN) {
+      // KARYAWAN hanya boleh akses milik sendiri, sembunyikan keberadaan (404, bukan 403)
+      if (leaveRequest.karyawanId !== userId) {
+        throw new NotFoundException({
+          code: 'IZIN_TIDAK_DITEMUKAN',
+          message: 'Pengajuan izin tidak ditemukan',
+        });
+      }
+    } else {
+      // SUPERVISOR dan HR_ADMIN: reuse assertCallerInScope
+      // HR_ADMIN non-orphaned → 404 (hrAdminThrows404WhenNotOrphaned=true)
+      await this.assertCallerInScope(leaveRequest, role, userId, true);
+    }
+
+    // 4. Validasi dokumen ada di record DB
+    if (!leaveRequest.dokumenPendukungUrl) {
+      throw new NotFoundException({
+        code: 'DOKUMEN_TIDAK_DITEMUKAN',
+        message: 'Pengajuan ini tidak memiliki dokumen pendukung',
+      });
+    }
+
+    // 5. Resolve path & defensive check path traversal
+    const storageBase = path.resolve(process.cwd(), 'storage', 'dokumen-izin');
+    const resolvedPath = path.resolve(
+      process.cwd(),
+      leaveRequest.dokumenPendukungUrl,
+    );
+
+    if (
+      !resolvedPath.startsWith(storageBase + path.sep) &&
+      resolvedPath !== storageBase
+    ) {
+      // Path hasil resolve keluar dari direktori storage/dokumen-izin/ — tolak
+      throw new NotFoundException({
+        code: 'DOKUMEN_TIDAK_DITEMUKAN',
+        message: 'Dokumen tidak ditemukan',
+      });
+    }
+
+    // 6. Validasi file ada di disk
+    try {
+      await fs.promises.access(resolvedPath, fs.constants.R_OK);
+    } catch {
+      // File tidak ada di disk atau tidak bisa dibaca — jangan leak detail error
+      throw new NotFoundException({
+        code: 'DOKUMEN_TIDAK_DITEMUKAN',
+        message: 'Dokumen tidak ditemukan',
+      });
+    }
+
+    // 7. Tentukan MIME type dari ekstensi file
+    const ext = path.extname(resolvedPath).toLowerCase();
+    const mimeType =
+      LeaveRequestsService.MIME_MAP[ext] ?? 'application/octet-stream';
+
+    // 8. Buka file sebagai stream dan kembalikan
+    const fileStream = fs.createReadStream(resolvedPath);
+    return { stream: new StreamableFile(fileStream), mimeType };
   }
 }

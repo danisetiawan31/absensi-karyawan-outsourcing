@@ -18,6 +18,7 @@ import {
 } from '../../common/types/api-envelope.type';
 import { RequestIdMiddleware } from '../../common/middlewares/request-id.middleware';
 import * as fs from 'fs';
+import * as path from 'path';
 import { randomUUID } from 'crypto';
 
 import { LeaveRequestsService } from './leave-requests.service';
@@ -1926,6 +1927,334 @@ describe('LeaveRequestsController (e2e)', () => {
       );
 
       expect(invalidateSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────
+  // GET /leave-requests/:id/dokumen — stream file dokumen pendukung
+  // ──────────────────────────────────────────────────────────────────
+  describe('GET /leave-requests/:id/dokumen', () => {
+    const MARKER = 'dokumen-spec';
+
+    // Shared fixtures: akan dibuat per-describe block yang membutuhkan
+    let karyawanDokumen: User;
+    let supervisorDokumen: User;
+    let karyawanLain: User;
+    let site: Site;
+
+    const createdFiles: string[] = [];
+
+    beforeAll(async () => {
+      karyawanDokumen = await prisma.user.create({
+        data: {
+          nama: `Krw Dokumen ${MARKER}`,
+          email: `krw.dok.${Date.now()}@test.com`,
+          passwordHash: 'dummy',
+          role: Role.KARYAWAN,
+          faceEmbedding: [],
+        },
+      });
+
+      karyawanLain = await prisma.user.create({
+        data: {
+          nama: `Krw Lain ${MARKER}`,
+          email: `krw.lain.dok.${Date.now()}@test.com`,
+          passwordHash: 'dummy',
+          role: Role.KARYAWAN,
+          faceEmbedding: [],
+        },
+      });
+
+      supervisorDokumen = await prisma.user.create({
+        data: {
+          nama: `Spv Dokumen ${MARKER}`,
+          email: `spv.dok.${Date.now()}@test.com`,
+          passwordHash: 'dummy',
+          role: Role.SUPERVISOR,
+          faceEmbedding: [],
+        },
+      });
+
+      site = await prisma.site.create({
+        data: {
+          nama: `Site Dokumen ${MARKER}`,
+          alamat: 'Jl. Dokumen',
+          latitude: -6.2,
+          longitude: 106.8,
+          radiusToleransi: 100,
+        },
+      });
+
+      // Hubungkan supervisor ke site
+      await prisma.supervisorSite.create({
+        data: { supervisorId: supervisorDokumen.id, siteId: site.id },
+      });
+    });
+
+    afterAll(async () => {
+      for (const filePath of createdFiles) {
+        if (fs.existsSync(filePath)) {
+          try {
+            fs.unlinkSync(filePath);
+          } catch {
+            // Ignore error if file deletion fails during test cleanup
+          }
+        }
+      }
+      await prisma.jadwalShift.deleteMany({ where: { siteId: site?.id } });
+      await prisma.supervisorSite.deleteMany({ where: { siteId: site?.id } });
+      await prisma.pengajuanIzin.deleteMany({
+        where: { karyawanId: { in: [karyawanDokumen?.id, karyawanLain?.id] } },
+      });
+      await prisma.user.deleteMany({
+        where: {
+          id: {
+            in: [karyawanDokumen?.id, karyawanLain?.id, supervisorDokumen?.id],
+          },
+        },
+      });
+      await prisma.site.deleteMany({ where: { id: site?.id } });
+    });
+
+    /**
+     * Helper: buat PengajuanIzin dengan dokumenPendukungUrl
+     */
+    const createLeaveWithDokumen = async (
+      karyawanId: string,
+      withDokumen = true,
+      createPhysicalFile = true,
+    ) => {
+      let dokumenPendukungUrl: string | null = null;
+      if (withDokumen) {
+        const filename = `spec-doc-${randomUUID()}.pdf`;
+        dokumenPendukungUrl = `storage/dokumen-izin/${filename}`;
+        if (createPhysicalFile) {
+          const fullPath = path.join(
+            process.cwd(),
+            'storage',
+            'dokumen-izin',
+            filename,
+          );
+          const dir = path.dirname(fullPath);
+          if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+          }
+          fs.writeFileSync(fullPath, 'dummy PDF content');
+          createdFiles.push(fullPath);
+        }
+      }
+
+      return prisma.pengajuanIzin.create({
+        data: {
+          karyawanId,
+          tanggalMulai: new Date('2026-09-01T00:00:00+07:00'),
+          tanggalSelesai: new Date('2026-09-03T00:00:00+07:00'),
+          jenis: 'SAKIT',
+          alasan: 'Sakit demam',
+          status: 'PENDING',
+          dokumenPendukungUrl,
+        },
+      });
+    };
+
+    /**
+     * Helper: buat JadwalShift linking karyawanDokumen → site
+     * (diperlukan agar SUPERVISOR bisa punya scope ke karyawan ini)
+     */
+    const createShiftInScope = async (karyawanId: string) => {
+      return prisma.jadwalShift.create({
+        data: {
+          karyawanId,
+          siteId: site.id,
+          tanggal: new Date('2026-09-01T00:00:00+07:00'),
+          jamMulai: new Date('2026-09-01T08:00:00+07:00'),
+          jamSelesai: new Date('2026-09-01T16:00:00+07:00'),
+        },
+      });
+    };
+
+    // 1. KARYAWAN akses dokumen milik sendiri → sukses, Content-Type benar
+    it('KARYAWAN bisa akses dokumen milik sendiri — sukses, Content-Type application/pdf', async () => {
+      const leave = await createLeaveWithDokumen(karyawanDokumen.id, true);
+
+      const token = getAuthToken(karyawanDokumen);
+      const res = await request(app.getHttpServer() as Server)
+        .get(`/leave-requests/${leave.id}/dokumen`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toMatch(/application\/pdf/);
+
+      // Cleanup
+      await prisma.pengajuanIzin.delete({ where: { id: leave.id } });
+    });
+
+    // 2. KARYAWAN akses dokumen milik karyawan lain → 404 IZIN_TIDAK_DITEMUKAN
+    it('KARYAWAN yang akses dokumen milik karyawan lain → 404 IZIN_TIDAK_DITEMUKAN', async () => {
+      const leaveOrang = await createLeaveWithDokumen(karyawanLain.id, true);
+
+      const token = getAuthToken(karyawanDokumen); // karyawan sendiri, bukan pemilik leave
+      const body = (
+        await request(app.getHttpServer() as Server)
+          .get(`/leave-requests/${leaveOrang.id}/dokumen`)
+          .set('Authorization', `Bearer ${token}`)
+      ).body as ErrorEnvelope;
+
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('IZIN_TIDAK_DITEMUKAN');
+
+      // Cleanup
+      await prisma.pengajuanIzin.delete({ where: { id: leaveOrang.id } });
+    });
+
+    // 3. SUPERVISOR dalam cakupan → sukses
+    it('SUPERVISOR dalam cakupan (ada JadwalShift yang overlap) → sukses', async () => {
+      const shift = await createShiftInScope(karyawanDokumen.id);
+      const leave = await createLeaveWithDokumen(karyawanDokumen.id, true);
+
+      const token = getAuthToken(supervisorDokumen);
+      const res = await request(app.getHttpServer() as Server)
+        .get(`/leave-requests/${leave.id}/dokumen`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toMatch(/application\/pdf/);
+
+      // Cleanup
+      await prisma.pengajuanIzin.delete({ where: { id: leave.id } });
+      await prisma.jadwalShift.delete({ where: { id: shift.id } });
+    });
+
+    // 4. SUPERVISOR di luar cakupan (tidak ada JadwalShift) → 404 IZIN_TIDAK_DITEMUKAN
+    it('SUPERVISOR di luar cakupan (tidak ada JadwalShift overlap) → 404 IZIN_TIDAK_DITEMUKAN', async () => {
+      // karyawanLain tidak punya jadwal di site supervisor ini
+      const leave = await createLeaveWithDokumen(karyawanLain.id, true);
+
+      const token = getAuthToken(supervisorDokumen);
+      const body = (
+        await request(app.getHttpServer() as Server)
+          .get(`/leave-requests/${leave.id}/dokumen`)
+          .set('Authorization', `Bearer ${token}`)
+      ).body as ErrorEnvelope;
+
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('IZIN_TIDAK_DITEMUKAN');
+
+      // Cleanup
+      await prisma.pengajuanIzin.delete({ where: { id: leave.id } });
+    });
+
+    // 5. HR_ADMIN untuk pengajuan orphaned → sukses
+    it('HR_ADMIN akses pengajuan orphaned (karyawan tanpa supervisor scope) → sukses', async () => {
+      // karyawanLain tidak punya JadwalShift di site manapun → orphaned
+      const leave = await createLeaveWithDokumen(karyawanLain.id, true);
+
+      const token = getAuthToken(hrAdmin);
+      const res = await request(app.getHttpServer() as Server)
+        .get(`/leave-requests/${leave.id}/dokumen`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toMatch(/application\/pdf/);
+
+      // Cleanup
+      await prisma.pengajuanIzin.delete({ where: { id: leave.id } });
+    });
+
+    // 6. HR_ADMIN untuk pengajuan yang masih dalam cakupan supervisor → 404 IZIN_TIDAK_DITEMUKAN
+    //    (Konsisten dengan prinsip 404-vs-403 AGENTS.md: HR_ADMIN tidak punya alasan
+    //     legitimate tahu keberadaan pengajuan yang masih di cakupan supervisor aktif)
+    it('HR_ADMIN akses pengajuan yang masih dalam cakupan supervisor → 404 IZIN_TIDAK_DITEMUKAN', async () => {
+      const shift = await createShiftInScope(karyawanDokumen.id);
+      const leave = await createLeaveWithDokumen(karyawanDokumen.id, true);
+
+      const token = getAuthToken(hrAdmin);
+      const body = (
+        await request(app.getHttpServer() as Server)
+          .get(`/leave-requests/${leave.id}/dokumen`)
+          .set('Authorization', `Bearer ${token}`)
+      ).body as ErrorEnvelope;
+
+      // Berbeda dari processRequest (403 BUKAN_FALLBACK_HR),
+      // endpoint dokumen pakai 404 untuk sembunyikan keberadaan data
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('IZIN_TIDAK_DITEMUKAN');
+
+      // Cleanup
+      await prisma.pengajuanIzin.delete({ where: { id: leave.id } });
+      await prisma.jadwalShift.delete({ where: { id: shift.id } });
+    });
+
+    // 7. dokumenPendukungUrl null → 404 DOKUMEN_TIDAK_DITEMUKAN
+    it('Pengajuan tanpa dokumen (dokumenPendukungUrl null) → 404 DOKUMEN_TIDAK_DITEMUKAN', async () => {
+      const leave = await createLeaveWithDokumen(karyawanDokumen.id, false); // no dokumen
+
+      const token = getAuthToken(karyawanDokumen);
+      const body = (
+        await request(app.getHttpServer() as Server)
+          .get(`/leave-requests/${leave.id}/dokumen`)
+          .set('Authorization', `Bearer ${token}`)
+      ).body as ErrorEnvelope;
+
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('DOKUMEN_TIDAK_DITEMUKAN');
+
+      // Cleanup
+      await prisma.pengajuanIzin.delete({ where: { id: leave.id } });
+    });
+
+    // 8. id pengajuan tidak eksis → 404 IZIN_TIDAK_DITEMUKAN
+    it('id pengajuan tidak eksis → 404 IZIN_TIDAK_DITEMUKAN', async () => {
+      const nonExistentId = randomUUID();
+
+      const token = getAuthToken(karyawanDokumen);
+      const body = (
+        await request(app.getHttpServer() as Server)
+          .get(`/leave-requests/${nonExistentId}/dokumen`)
+          .set('Authorization', `Bearer ${token}`)
+      ).body as ErrorEnvelope;
+
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('IZIN_TIDAK_DITEMUKAN');
+    });
+
+    // 9. Path traversal defensive check — file valid tidak terganggu (regression)
+    it('Path traversal defensive check: file yang valid (path dalam storage/dokumen-izin/) tetap bisa diakses', async () => {
+      const leave = await createLeaveWithDokumen(karyawanDokumen.id, true);
+
+      const token = getAuthToken(karyawanDokumen);
+      const res = await request(app.getHttpServer() as Server)
+        .get(`/leave-requests/${leave.id}/dokumen`)
+        .set('Authorization', `Bearer ${token}`);
+
+      // Path yang valid tidak terblokir oleh defensive check
+      expect(res.status).toBe(200);
+
+      // Cleanup
+      await prisma.pengajuanIzin.delete({ where: { id: leave.id } });
+    });
+
+    // 10. File ada di DB tapi tidak ada di disk (edge case) → 404 DOKUMEN_TIDAK_DITEMUKAN
+    it('File tercatat di DB tapi tidak ada di disk → 404 DOKUMEN_TIDAK_DITEMUKAN', async () => {
+      // createPhysicalFile = false: record DB punya dokumenPendukungUrl, tapi file fisik sengaja tidak dibuat di disk
+      const leave = await createLeaveWithDokumen(
+        karyawanDokumen.id,
+        true,
+        false,
+      );
+
+      const token = getAuthToken(karyawanDokumen);
+      const body = (
+        await request(app.getHttpServer() as Server)
+          .get(`/leave-requests/${leave.id}/dokumen`)
+          .set('Authorization', `Bearer ${token}`)
+      ).body as ErrorEnvelope;
+
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('DOKUMEN_TIDAK_DITEMUKAN');
+
+      // Cleanup
+      await prisma.pengajuanIzin.delete({ where: { id: leave.id } });
     });
   });
 });

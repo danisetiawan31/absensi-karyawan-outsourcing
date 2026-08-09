@@ -243,6 +243,12 @@
 
 ## 6. Pengajuan Izin (Leave Requests)
 
+### `GET /leave-requests/:id/dokumen`
+
+- **Role:** KARYAWAN (hanya milik sendiri), SUPERVISOR (scoped ke sitenya), HR_ADMIN (hanya yang orphaned)
+- **Response:** Stream file (Content-Type sesuai tipe file asli: application/pdf | image/jpeg | image/png)
+- **Error Codes:** `IZIN_TIDAK_DITEMUKAN` (404 — termasuk saat caller di luar cakupan, menyembunyikan keberadaan data), `DOKUMEN_TIDAK_DITEMUKAN` (404 — pengajuan ada tapi tidak ada dokumen terlampir, atau file hilang dari disk)
+
 ### `POST /leave-requests`
 
 - **Role:** KARYAWAN

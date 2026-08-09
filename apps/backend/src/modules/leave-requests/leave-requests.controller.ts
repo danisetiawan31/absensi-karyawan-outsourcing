@@ -12,9 +12,12 @@ import {
   ParseUUIDPipe,
   Query,
   BadRequestException,
+  Res,
+  StreamableFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import 'multer';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -127,5 +130,23 @@ export class LeaveRequestsController {
       'REJECTED',
       dto,
     );
+  }
+
+  @Get(':id/dokumen')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.KARYAWAN, Role.SUPERVISOR, Role.HR_ADMIN)
+  async getDocumen(
+    @Request() req: { user: JwtPayload },
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const { stream, mimeType } =
+      await this.leaveRequestsService.getDocumentFile(
+        id,
+        req.user.role,
+        req.user.userId,
+      );
+    res.setHeader('Content-Type', mimeType);
+    return stream;
   }
 }
