@@ -1,12 +1,29 @@
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+
 import MockAdapter from 'axios-mock-adapter';
 import apiClient from '../apiClient';
 import {
+  approveLeaveRequest,
   cancelLeaveRequest,
   createLeaveRequest,
   createLeaveRequestFormData,
+  downloadAndOpenDocument,
   getLeaveRequests,
+  getPendingLeaveRequests,
+  rejectLeaveRequest,
 } from '../leave-requests.service';
-import { LeaveRequestItem } from '@/types/leave-request';
+import { useAuthStore } from '@/store/authStore';
+import { LeaveRequestItem, LeaveRequestPendingItem } from '@/types/leave-request';
+
+jest.mock('expo-file-system/legacy', () => ({
+  cacheDirectory: 'file:///cache/',
+  downloadAsync: jest.fn(),
+}));
+
+jest.mock('expo-sharing', () => ({
+  shareAsync: jest.fn(),
+}));
 
 describe('LeaveRequestsService (mobile/src/services/leave-requests.service.ts)', () => {
   let mockAxios: MockAdapter;
@@ -14,6 +31,7 @@ describe('LeaveRequestsService (mobile/src/services/leave-requests.service.ts)',
   beforeEach(() => {
     jest.clearAllMocks();
     mockAxios = new MockAdapter(apiClient);
+    useAuthStore.setState({ accessToken: 'mock-access-token' });
   });
 
   afterEach(() => {
@@ -182,6 +200,130 @@ describe('LeaveRequestsService (mobile/src/services/leave-requests.service.ts)',
 
       expect(result.id).toBe('req-999');
       expect(result.status).toBe('CANCELLED');
+    });
+  });
+
+  describe('getPendingLeaveRequests', () => {
+    it('harus memanggil GET /leave-requests?status=PENDING dan mengembalikan array LeaveRequestPendingItem', async () => {
+      const mockPendingItems: LeaveRequestPendingItem[] = [
+        {
+          id: 'req-pending-1',
+          tanggalMulai: '2026-08-10T00:00:00.000Z',
+          tanggalSelesai: '2026-08-11T00:00:00.000Z',
+          jenis: 'SAKIT',
+          alasan: 'Demam',
+          dokumenPendukungUrl: 'storage/dokumen-izin/doc.pdf',
+          status: 'PENDING',
+          catatanSupervisor: null,
+          createdAt: '2026-08-09T10:00:00.000Z',
+          karyawan: {
+            id: 'user-emp-1',
+            nama: 'Ahmad Karyawan',
+          },
+        },
+      ];
+
+      mockAxios.onGet('/leave-requests', { params: { status: 'PENDING' } }).reply(200, {
+        success: true,
+        data: mockPendingItems,
+        meta: { timestamp: new Date().toISOString(), requestId: 'req-get-pending-1' },
+      });
+
+      const result = await getPendingLeaveRequests();
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('req-pending-1');
+      expect(result[0].karyawan.nama).toBe('Ahmad Karyawan');
+    });
+  });
+
+  describe('approveLeaveRequest', () => {
+    it('harus memanggil PATCH /leave-requests/:id/approve dengan catatanSupervisor', async () => {
+      mockAxios.onPatch('/leave-requests/req-101/approve', { catatanSupervisor: 'Disetujui' }).reply(200, {
+        success: true,
+        data: { id: 'req-101', status: 'APPROVED' },
+        meta: { timestamp: new Date().toISOString(), requestId: 'req-approve-1' },
+      });
+
+      const result = await approveLeaveRequest('req-101', 'Disetujui');
+
+      expect(result.id).toBe('req-101');
+      expect(result.status).toBe('APPROVED');
+    });
+
+    it('harus memanggil PATCH /leave-requests/:id/approve TANPA catatanSupervisor jika undefined', async () => {
+      mockAxios.onPatch('/leave-requests/req-102/approve', {}).reply(200, {
+        success: true,
+        data: { id: 'req-102', status: 'APPROVED' },
+        meta: { timestamp: new Date().toISOString(), requestId: 'req-approve-2' },
+      });
+
+      const result = await approveLeaveRequest('req-102');
+
+      expect(result.id).toBe('req-102');
+      expect(result.status).toBe('APPROVED');
+    });
+  });
+
+  describe('rejectLeaveRequest', () => {
+    it('harus memanggil PATCH /leave-requests/:id/reject dengan catatanSupervisor', async () => {
+      mockAxios.onPatch('/leave-requests/req-201/reject', { catatanSupervisor: 'Jadwal padat' }).reply(200, {
+        success: true,
+        data: { id: 'req-201', status: 'REJECTED' },
+        meta: { timestamp: new Date().toISOString(), requestId: 'req-reject-1' },
+      });
+
+      const result = await rejectLeaveRequest('req-201', 'Jadwal padat');
+
+      expect(result.id).toBe('req-201');
+      expect(result.status).toBe('REJECTED');
+    });
+
+    it('harus memanggil PATCH /leave-requests/:id/reject TANPA catatanSupervisor jika undefined', async () => {
+      mockAxios.onPatch('/leave-requests/req-202/reject', {}).reply(200, {
+        success: true,
+        data: { id: 'req-202', status: 'REJECTED' },
+        meta: { timestamp: new Date().toISOString(), requestId: 'req-reject-2' },
+      });
+
+      const result = await rejectLeaveRequest('req-202');
+
+      expect(result.id).toBe('req-202');
+      expect(result.status).toBe('REJECTED');
+    });
+  });
+
+  describe('downloadAndOpenDocument', () => {
+    it('harus mengunduh file via FileSystem.downloadAsync dengan header Authorization dan membuka native share sheet via Sharing.shareAsync', async () => {
+      (FileSystem.downloadAsync as jest.Mock).mockResolvedValue({
+        status: 200,
+        uri: 'file:///cache/dokumen.pdf',
+      });
+      (Sharing.shareAsync as jest.Mock).mockResolvedValue(undefined);
+
+      await downloadAndOpenDocument('doc-id-100', 'dokumen.pdf');
+
+      expect(FileSystem.downloadAsync).toHaveBeenCalledWith(
+        expect.stringContaining('/leave-requests/doc-id-100/dokumen'),
+        'file:///cache/dokumen.pdf',
+        {
+          headers: { Authorization: 'Bearer mock-access-token' },
+        },
+      );
+      expect(Sharing.shareAsync).toHaveBeenCalledWith('file:///cache/dokumen.pdf');
+    });
+
+    it('harus melempar error jika downloadAsync mengembalikan status non-200 (misal 404)', async () => {
+      (FileSystem.downloadAsync as jest.Mock).mockResolvedValue({
+        status: 404,
+        uri: 'file:///cache/dokumen.pdf',
+      });
+
+      await expect(
+        downloadAndOpenDocument('doc-id-404', 'dokumen.pdf'),
+      ).rejects.toThrow('Gagal mengunduh dokumen. (HTTP 404)');
+
+      expect(Sharing.shareAsync).not.toHaveBeenCalled();
     });
   });
 });

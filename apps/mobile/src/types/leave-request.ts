@@ -17,6 +17,22 @@ export interface LeaveRequestItem {
   } | null;
 }
 
+export interface LeaveRequestPendingItem {
+  id: string;
+  tanggalMulai: string;
+  tanggalSelesai: string;
+  jenis: JenisIzin;
+  alasan: string | null;
+  dokumenPendukungUrl: string | null;
+  status: StatusIzin;
+  catatanSupervisor: string | null;
+  createdAt: string;
+  karyawan: {
+    id: string;
+    nama: string;
+  };
+}
+
 export interface CreateLeaveRequestResponse {
   id: string;
   status: StatusIzin;

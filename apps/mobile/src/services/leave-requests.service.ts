@@ -1,10 +1,15 @@
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+
 import apiClient from '@/services/apiClient';
+import { useAuthStore } from '@/store/authStore';
 import { SuccessEnvelope } from '@/types/api';
 import {
   CancelLeaveRequestResponse,
   CreateLeaveRequestResponse,
   JenisIzin,
   LeaveRequestItem,
+  LeaveRequestPendingItem,
   SelectedDocumentFile,
 } from '@/types/leave-request';
 
@@ -101,4 +106,57 @@ export const cancelLeaveRequest = async (
     SuccessEnvelope<CancelLeaveRequestResponse>
   >(`/leave-requests/${id}/cancel`);
   return response.data.data;
+};
+
+export const getPendingLeaveRequests = async (): Promise<
+  LeaveRequestPendingItem[]
+> => {
+  const response = await apiClient.get<
+    SuccessEnvelope<LeaveRequestPendingItem[]>
+  >('/leave-requests', {
+    params: { status: 'PENDING' },
+  });
+  return response.data.data;
+};
+
+export const approveLeaveRequest = async (
+  id: string,
+  catatanSupervisor?: string,
+): Promise<{ id: string; status: string }> => {
+  const payload = catatanSupervisor !== undefined ? { catatanSupervisor } : {};
+  const response = await apiClient.patch<
+    SuccessEnvelope<{ id: string; status: string }>
+  >(`/leave-requests/${id}/approve`, payload);
+  return response.data.data;
+};
+
+export const rejectLeaveRequest = async (
+  id: string,
+  catatanSupervisor?: string,
+): Promise<{ id: string; status: string }> => {
+  const payload = catatanSupervisor !== undefined ? { catatanSupervisor } : {};
+  const response = await apiClient.patch<
+    SuccessEnvelope<{ id: string; status: string }>
+  >(`/leave-requests/${id}/reject`, payload);
+  return response.data.data;
+};
+
+export const downloadAndOpenDocument = async (
+  id: string,
+  filename: string,
+): Promise<void> => {
+  const token = useAuthStore.getState().accessToken;
+  const baseUrl = apiClient.defaults.baseURL || '';
+  const url = `${baseUrl}/leave-requests/${id}/dokumen`;
+  const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+
+  const result = await FileSystem.downloadAsync(url, fileUri, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (result.status !== 200) {
+    throw new Error(`Gagal mengunduh dokumen. (HTTP ${result.status})`);
+  }
+
+  await Sharing.shareAsync(result.uri);
 };

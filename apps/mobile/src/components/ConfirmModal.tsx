@@ -17,6 +17,7 @@ export interface ConfirmModalProps {
   onConfirm: () => void;
   onCancel: () => void;
   testID?: string;
+  children?: React.ReactNode;
 }
 
 export const CONFIRM_MODAL_VARIANT_CONFIG: Record<
@@ -70,6 +71,7 @@ export function ConfirmModal({
   onConfirm,
   onCancel,
   testID = 'confirm-modal',
+  children,
 }: ConfirmModalProps) {
   if (!visible) return null;
 
@@ -99,6 +101,8 @@ export function ConfirmModal({
               {description}
             </Text>
           </View>
+
+          {children && <View className="my-2 w-full">{children}</View>}
 
           <View className="flex-row gap-3 mt-4">
             <TouchableOpacity

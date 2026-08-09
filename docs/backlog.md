@@ -79,11 +79,12 @@
 
 ## Track K — Supervisor
 
-**Status: IN PROGRESS (supervisor-dashboard SELESAI).** Detail lengkap ada di `done.md` Stage 46.
+**Status: SELESAI.** Detail lengkap ada di `done.md` Stage 46, 47, dan 48.
 
-- supervisor-dashboard - **SELESAI**
-- supervisor-jadwal-izin
-- notifikasi-mobile (supervisor)
+- supervisor-dashboard — **SELESAI**
+- supervisor-jadwal — **SELESAI**
+- supervisor-approval-izin — **SELESAI**
+- notifikasi-mobile (supervisor) — **SELESAI**
 
 ## Track L — HR Admin
 

@@ -1,3 +1,4 @@
+import React from 'react';
 import { CONFIRM_MODAL_VARIANT_CONFIG, ConfirmModal } from "../ConfirmModal";
 
 describe("ConfirmModal Component Suite", () => {
@@ -32,7 +33,8 @@ describe("ConfirmModal Component Suite", () => {
 
     expect(modal).not.toBeNull();
     const cardView = modal!.props.children.props.children;
-    const buttonRow = cardView.props.children[1];
+    const childrenArr = React.Children.toArray(cardView.props.children);
+    const buttonRow: any = childrenArr[childrenArr.length - 1];
 
     const cancelBtn = buttonRow.props.children[0];
     expect(cancelBtn.props.testID).toBe("button-cancel-modal");

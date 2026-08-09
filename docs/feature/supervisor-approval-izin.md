@@ -2,30 +2,38 @@
 
 ## Konteks & tujuan
 
-Tab "Izin" — supervisor lihat pengajuan izin PENDING dari karyawan di sitenya, approve/reject, termasuk lihat dokumen pendukung (sekarang bisa, endpoint GET /leave-requests/:id/dokumen sudah tersedia).
+Tab "Izin" — supervisor lihat pengajuan izin PENDING dari karyawan di sitenya, approve/reject, termasuk lihat dokumen pendukung (endpoint GET /leave-requests/:id/dokumen sudah tersedia).
 
 ## Requirement
 
-1. leave-requests.service.ts (tambahan di service yang sudah ada dari Track J, reuse bukan duplikat): getPendingLeaveRequests() — GET /leave-requests?status=PENDING, approveLeaveRequest(id, catatanSupervisor?), rejectLeaveRequest(id, catatanSupervisor?), getDocumentUrl/fetch dokumen (GET /leave-requests/:id/dokumen — cek cara terbaik handle response stream biner di React Native: kemungkinan buka via Linking.openURL dengan auth header terlampir tidak straightforward, jadi putuskan pendekatan: download ke cache lokal dulu baru buka dengan viewer, ATAU tampilkan inline kalau gambar dan pakai library PDF viewer kalau pdf — putuskan sesuai kompleksitas, catat di done.md, boleh mulai dari pendekatan paling sederhana dulu).
-2. Screen List Izin Pending: tiap item tampilkan nama karyawan, jenis, rentang tanggal, alasan, indikator dokumen ada/tidak (tombol "Lihat Dokumen" kalau ada).
-3. Tombol Approve/Reject per item → ConfirmModal. Approve pakai variant baru 'success' (perlu ditambah ke ConfirmModal.tsx dulu, lihat Tahap 1 di bawah), Reject pakai variant 'danger'. catatanSupervisor: input opsional (textarea kecil di dalam modal atau step terpisah — opsional sesuai kontrak, boleh dikosongkan, maks 255 karakter sesuai DTO).
-4. Handle race 409 IZIN_SUDAH_DIPROSES (kemungkinan 2 supervisor proses barengan, atau karyawan cancel duluan) — refetch list, pesan jelas, pola sama seperti cancel di IzinScreen Karyawan dulu.
+1. Dependency baru: expo-file-system, expo-sharing (dikonfirmasi, tidak ada alternatif lebih ringan untuk native file share).
+2. Tambahan di leave-requests.service.ts (reuse file yang sudah ada dari Track J, bukan file baru):
+   - getPendingLeaveRequests(): GET /leave-requests?status=PENDING.
+   - approveLeaveRequest(id, catatanSupervisor?): PATCH /leave-requests/:id/approve.
+   - rejectLeaveRequest(id, catatanSupervisor?): PATCH /leave-requests/:id/reject.
+   - downloadAndOpenDocument(id, filename): pakai apiClient.get(`/leave-requests/${id}/dokumen`, { responseType: 'arraybuffer' }) → tulis ke cache via expo-file-system → buka share sheet via expo-sharing. Tangani error (404 DOKUMEN_TIDAK_DITEMUKAN) dengan pesan jelas, jangan crash.
+3. Screen List Izin Pending: tiap item — nama karyawan, jenis, rentang tanggal, alasan, tombol "Lihat Dokumen" (HANYA muncul kalau dokumenPendukungUrl !== null).
+4. Tombol Approve/Reject per item → ConfirmModal. Approve pakai variant 'success' (sudah ditambahkan di Tahap 1 supervisor-jadwal), Reject pakai variant 'danger'. catatanSupervisor: input teks opsional di dalam modal (maks 255 karakter, sesuai DTO — tidak perlu validasi minimum).
+5. Handle race 409 IZIN_SUDAH_DIPROSES — refetch list, pesan jelas, pola sama seperti cancel di IzinScreen Karyawan dan delete di SupervisorJadwalScreen.
 
 ## Edge case
 
-- Dokumen tidak ada (dokumenPendukungUrl null) → tombol "Lihat Dokumen" tidak muncul sama sekali.
-- GET dokumen gagal (404 DOKUMEN_TIDAK_DITEMUKAN, edge case file hilang dari disk) → pesan jelas, tidak block approve/reject (approve/reject tetap bisa dilakukan tanpa harus berhasil lihat dokumen dulu, keputusan tetap di tangan supervisor).
-- List kosong (tidak ada izin pending) → empty state positif ("semua sudah diproses"), bukan kesan error.
+- Dokumen tidak ada → tombol "Lihat Dokumen" tidak render sama sekali.
+- Download dokumen gagal (404 DOKUMEN_TIDAK_DITEMUKAN, network error) → pesan jelas via AlertBanner, TIDAK block approve/reject (keputusan approve/reject tetap bisa dilakukan tanpa harus berhasil lihat dokumen).
+- List kosong → empty state positif ("Semua pengajuan sudah diproses"), bukan kesan error.
+- catatanSupervisor kosong saat approve/reject → valid, tidak perlu dipaksa diisi (sesuai DTO opsional).
 
 ## Testing
 
-- Render list dengan/tanpa dokumen → tombol Lihat Dokumen muncul sesuai kondisi.
-- Approve/reject sukses → list refresh.
+- Render list dengan/tanpa dokumen → tombol Lihat Dokumen sesuai kondisi.
+- Approve/reject sukses (dengan dan tanpa catatanSupervisor) → list refresh.
 - 409 race → pesan sesuai, list refresh.
-- Fetch dokumen gagal → pesan jelas, tidak crash, approve/reject tetap bisa jalan.
+- Download dokumen gagal → pesan jelas, approve/reject tetap bisa dilakukan setelahnya.
+- List kosong → empty state.
+- Double-tap approve/reject guard (pola useRef konsisten).
 
 ## Kriteria selesai
 
 - Semua requirement terimplementasi.
 - Test lolos.
-- Verifikasi manual: approve 1 izin dengan dokumen (buka dokumennya beneran), reject 1 izin tanpa catatan.
+- Verifikasi manual: approve 1 izin dengan dokumen (buka dokumennya beneran di device), reject 1 izin tanpa catatan.
