@@ -497,3 +497,15 @@
   - **Utilitas Tanggal Terpusat (`@/utils/date.util.ts`)**: Ekstraksi fungsi utilitas tanggal ke `src/utils/date.util.ts` yang mengunci timezone `Asia/Jakarta` (`+07:00` WIB) secara eksplisit (`formatJakartaDateTime`, `formatJakartaDate`, `formatJakartaDateRange`, `formatJakartaYmd`, `formatJakartaTime`). Seluruh screen direfactor me-reuse utilitas terpusat ini.
   - **Pembersihan Dead Code Parameter**: Menghapus dead code parameter `alasan: string` dari fungsi `validateLeaveRequestForm` di `LeaveRequestCreateScreen.tsx`.
   - **Penutupan Resmi Track J**: Requirement Track J (Attendance, Leave Requests, Notifikasi) resmi **SELESAI 100%**.
+
+## [Stage 46] Track K — Supervisor Dashboard Mobile (supervisor-dashboard)
+
+- **Selesai:** Navigasi 4 tab supervisor (`_layout.tsx`), service layer `dashboard.service.ts`, types `dashboard.ts`, dan screen monitoring kehadiran `SupervisorHomeScreen.tsx`.
+- **File Dibuat/Diubah:** `services/dashboard.service.ts` _(NEW)_, `types/dashboard.ts` _(NEW)_, `screens/supervisor/SupervisorHomeScreen.tsx`, `app/(supervisor)/` (`_layout.tsx`, `jadwal.tsx` _(NEW)_, `izin.tsx` _(NEW)_, `notifikasi.tsx` _(NEW)`), unit tests, `docs/feature/supervisor-dashboard.md` _(NEW)_, `backlog.md`, `done.md`.
+- **Verifikasi:** Full mobile test suite PASS 100% (25/25 test suites, 157/157 tests), `npx tsc --noEmit` PASS (0 error, ZERO `any`).
+- **Catatan Utama:**
+  - **4-Tab Navigation**: `(supervisor)/_layout.tsx` diubah ke `<Tabs>` 4 tab reguler dengan role guard `SUPERVISOR`.
+  - **Alert Shift Belum Terisi**: Section `Unfilled Shifts` kondisional (tampil HANYA jika ada terlambat >15 mnt), menggunakan token warning resmi (`COLORS.warning`, `bg-warning-bg`, `border-warning/30`, `border-l-warning`).
+  - **List Kehadiran Multi-Site**: Render status kehadiran karyawan (`StatusBadge` 5 status) dan waktu check-in WIB, ter-scope otomatis per supervisor.
+
+

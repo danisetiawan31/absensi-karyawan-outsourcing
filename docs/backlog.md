@@ -79,9 +79,9 @@
 
 ## Track K — Supervisor
 
-**Status: READY**
+**Status: IN PROGRESS (supervisor-dashboard SELESAI).** Detail lengkap ada di `done.md` Stage 46.
 
-- supervisor-dashboard
+- supervisor-dashboard - **SELESAI**
 - supervisor-jadwal-izin
 - notifikasi-mobile (supervisor)
 
