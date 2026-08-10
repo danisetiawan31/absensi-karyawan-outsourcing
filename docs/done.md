@@ -344,3 +344,14 @@
   - **UX Date Filter Standardisation:** Menggunakan native `@react-native-community/datetimepicker` (default 30 hari terakhir) dengan tombol reset filter untuk mengosongkan periode (lihat histori lengkap tanpa batas).
   - **Document Viewer Reuse:** Re-use fungsi generic `downloadAndOpenDocument` untuk pratinjau/download dokumen pendukung (hanya ter-render jika `dokumenPendukungUrl !== null`).
 
+## [Stage 52] Track L5 — HR Admin Reports & Attendance Rekap (Penutup Track L)
+
+- **Fitur:** Layar ringkasan rekap kehadiran karyawan (`HrAdminReportsScreen.tsx`), export laporan PDF & XLSX (`downloadAndOpenReport`), dan modal drill-down percobaan absensi per karyawan (`AttendanceAttemptsModal.tsx`).
+- **Komponen:** `services/reports.service.ts`, `types/reports.ts`, `screens/hr-admin/HrAdminReportsScreen.tsx`, `screens/hr-admin/AttendanceAttemptsModal.tsx`, `app/(hr-admin)/laporan.tsx`, `services/__tests__/reports.service.test.ts`, `screens/hr-admin/__tests__/HrAdminReportsScreen.test.tsx`, `screens/hr-admin/__tests__/AttendanceAttemptsModal.test.tsx`.
+- **Verifikasi:** 285/285 tests PASS (44/44 test suites, 100% full mobile suite).
+- **Keputusan & Catatan Teknikal:**
+  - **Service Layer Laporan:** Service function terpisah `downloadAndOpenReport(format, periodeMulai, periodeSelesai)` memanggil `GET /reports/export` dengan header `Authorization Bearer` + `FileSystem.downloadAsync` + `Sharing.shareAsync` dan nama file client-side `laporan-kehadiran-${periodeMulai}-${periodeSelesai}.${format}`.
+  - **Grid Metric Summary:** List summary menghadirkan 6 metrik (Hadir, Terlambat, Tidak Hadir, Izin, Belum, Total Shift) berpasangan dengan token warna semantik (`success`, `warning`, `destructive`, `info`, `muted`, `surface/border`).
+  - **Modal Drill-Down Percobaan:** Menggunakan bottom-sheet `Modal` (`AttendanceAttemptsModal.tsx`) untuk inspeksi cepat attempts per karyawan, dengan pemetaan badge `HasilVerifikasi` (`VALID` → success, `DI_LUAR_JENDELA_WAKTU` → warning, `GAGAL_*`/`TIDAK_HADIR` → destructive).
+
+

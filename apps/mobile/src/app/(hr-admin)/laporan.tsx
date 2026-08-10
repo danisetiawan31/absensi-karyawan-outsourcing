@@ -1,11 +1,6 @@
 import React from 'react';
-import ComingSoonPlaceholder from '@/components/ComingSoonPlaceholder';
+import HrAdminReportsScreen from '@/screens/hr-admin/HrAdminReportsScreen';
 
 export default function HrAdminLaporanScreen() {
-  return (
-    <ComingSoonPlaceholder
-      judul="Laporan Kehadiran & Rekap"
-      iconName="bar-chart-outline"
-    />
-  );
+  return <HrAdminReportsScreen />;
 }
