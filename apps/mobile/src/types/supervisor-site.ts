@@ -6,3 +6,8 @@ export interface SupervisorSiteItem {
     alamat: string;
   };
 }
+
+export interface CreateSupervisorSitePayload {
+  supervisorId: string;
+  siteId: string;
+}

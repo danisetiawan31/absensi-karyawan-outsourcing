@@ -54,7 +54,7 @@ export default function SupervisorJadwalScreen() {
   // Fetch Supervisor Sites
   const { data: sites = [] } = useQuery({
     queryKey: ["supervisor-sites"],
-    queryFn: getSupervisorSites,
+    queryFn: () => getSupervisorSites(),
   });
 
   // Auto-select site if supervisor only oversees 1 site

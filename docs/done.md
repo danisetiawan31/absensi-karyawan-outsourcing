@@ -323,3 +323,12 @@
   - Shared lock `isAnyActionInFlightRef` pada form edit untuk men-disable seluruh tombol aksi secara bersamaan saat salah satu request sedang in-flight.
   - Type-safety zero `any` pada navigation event listener & dispatch menggunakan `NavigationAction` & `NavigationProp`.
 
+## [Stage 50] Track L3 — HR Admin Sites Management Mobile (Tahap 1 & 2)
+
+- **Fitur:** Instalasi dependency `react-native-maps`, service layer CRUD site & alokasi supervisor, serta layar list site HR Admin dengan search, badge status, dan kalkulasi client-side jumlah supervisor per site.
+- **Komponen:** `services/sites.service.ts`, `services/supervisor-sites.service.ts`, `types/site.ts`, `types/supervisor-site.ts`, `screens/hr-admin/HrAdminSitesScreen.tsx`, `app/(hr-admin)/site.tsx`, `screens/hr-admin/__tests__/HrAdminSitesScreen.test.tsx`, `services/__tests__/sites.service.test.ts`.
+- **Verifikasi:** 236/236 tests PASS (38/38 test suites, 100% full mobile suite).
+- **Keputusan & Catatan Teknikal:**
+  - `react-native-maps` (`1.20.1`) terpasang via `npx expo install` (auto-link bersih tanpa entri plugin tambahan di `app.json`).
+  - Pembersihan signature `getSupervisorSites` ke `supervisorId?: string` murni & refactoring 2 pemanggilan `queryFn: () => getSupervisorSites()` pada Supervisor Jadwal Screen (Track K) tepat pada akar masalahnya.
+  - Penyetaraan semantik warna badge supervisor per site: `supervisorCount === 0` (site tanpa pengawasan) mendapat highlight warning (`COLORS.warning`), sedangkan `supervisorCount > 0` menggunakan styling netral (`COLORS.muted`).

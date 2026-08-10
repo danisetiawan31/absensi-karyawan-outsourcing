@@ -1,11 +1,3 @@
-import React from 'react';
-import ComingSoonPlaceholder from '@/components/ComingSoonPlaceholder';
+import HrAdminSitesScreen from '@/screens/hr-admin/HrAdminSitesScreen';
 
-export default function HrAdminSiteScreen() {
-  return (
-    <ComingSoonPlaceholder
-      judul="Manajemen Site & Supervisor"
-      iconName="business-outline"
-    />
-  );
-}
+export default HrAdminSitesScreen;
