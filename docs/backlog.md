@@ -88,6 +88,16 @@
 
 ## Track L — HR Admin
 
+**Status: IN_PROGRESS (foundation & employees SELESAI).** Detail lengkap ada di `done.md` Stage 49.
+
+- **hr-admin-foundation** (tab navigator scaffold) — **SELESAI**
+- **hr-admin-employees** (CRUD karyawan + reset face registration) — **SELESAI**
+- hr-admin-sites (CRUD site + assign/unassign supervisor, map picker interaktif)
+- hr-admin-leave-history (riwayat izin read-only, reuse pola lihat dokumen)
+- hr-admin-reports (attendance summary + attempts drill-down + export PDF/XLSX)
+
+**Urutan pengerjaan disarankan:** foundation → employees → sites → leave-history → reports (prioritas operasional admin: akun karyawan dulu, baru site/penugasan, baru laporan historis).
+
 ## Track M — Redis (Infrastruktur Caching & Reliability)
 
 **Status: SELESAI (M1 - redis-cache-dashboard-reports, M2 - redis-rate-limiting-auth).** Detail lengkap ada di `done.md` Stage 41 dan Stage 42.

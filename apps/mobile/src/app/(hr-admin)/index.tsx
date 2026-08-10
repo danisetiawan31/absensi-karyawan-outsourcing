@@ -1,1 +1,3 @@
-export { default } from '@/screens/hr-admin/HrAdminHomeScreen';
+import HrAdminEmployeesScreen from '@/screens/hr-admin/HrAdminEmployeesScreen';
+
+export default HrAdminEmployeesScreen;

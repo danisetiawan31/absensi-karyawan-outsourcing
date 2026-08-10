@@ -94,6 +94,29 @@ export default function HrAdminLayout() {
           ),
         }}
       />
+
+      {/* Hidden Screens */}
+      <Tabs.Screen
+        name="employee-create"
+        options={{
+          href: null,
+          tabBarStyle: { display: "none" },
+        }}
+      />
+      <Tabs.Screen
+        name="employee-password-reveal"
+        options={{
+          href: null,
+          tabBarStyle: { display: "none" },
+        }}
+      />
+      <Tabs.Screen
+        name="employee-edit"
+        options={{
+          href: null,
+          tabBarStyle: { display: "none" },
+        }}
+      />
     </Tabs>
   );
 }
