@@ -7,7 +7,9 @@ import { SuccessEnvelope } from '@/types/api';
 import {
   CancelLeaveRequestResponse,
   CreateLeaveRequestResponse,
+  GetLeaveRequestsHistoryParams,
   JenisIzin,
+  LeaveRequestHistoryItem,
   LeaveRequestItem,
   LeaveRequestPendingItem,
   SelectedDocumentFile,
@@ -138,6 +140,15 @@ export const rejectLeaveRequest = async (
   const response = await apiClient.patch<
     SuccessEnvelope<{ id: string; status: string }>
   >(`/leave-requests/${id}/reject`, payload);
+  return response.data.data;
+};
+
+export const getLeaveRequestsHistory = async (
+  params?: GetLeaveRequestsHistoryParams,
+): Promise<LeaveRequestHistoryItem[]> => {
+  const response = await apiClient.get<
+    SuccessEnvelope<LeaveRequestHistoryItem[]>
+  >('/leave-requests/history', { params });
   return response.data.data;
 };
 

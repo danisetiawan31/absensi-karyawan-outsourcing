@@ -1,11 +1,6 @@
 import React from 'react';
-import ComingSoonPlaceholder from '@/components/ComingSoonPlaceholder';
+import HrAdminLeaveHistoryScreen from '@/screens/hr-admin/HrAdminLeaveHistoryScreen';
 
 export default function HrAdminIzinScreen() {
-  return (
-    <ComingSoonPlaceholder
-      judul="Riwayat Pengajuan Izin"
-      iconName="document-text-outline"
-    />
-  );
+  return <HrAdminLeaveHistoryScreen />;
 }

@@ -333,3 +333,14 @@
   - **Map Picker Interaktif (`react-native-maps` `1.20.1`):** `MapView`, `Marker` (draggable), & `Circle` (radius meter) dengan sinkronisasi 2-arah (drag & input) dan fallback koordinat Jakarta (`-6.2088, 106.8456`) saat izin GPS ditolak.
   - **Standardisasi Token & Semantik:** Penyetaraan token `COLORS.primary` (`#FFC81E`) & semantik warna badge supervisor (`0` → `COLORS.warning`, `>0` → `COLORS.muted`).
   - **Assign/Unassign UX:** Modal picker supervisor dengan auto-filter `getAvailableSupervisors` & handling error `ROLE_BUKAN_SUPERVISOR` (400).
+
+## [Stage 51] Track L4 — HR Admin Leave History Mobile
+
+- **Fitur:** Layar read-only riwayat pengajuan izin seluruh karyawan untuk HR Admin (`HrAdminLeaveHistoryScreen.tsx`), ekstraksi shared badge config `getStatusIzinBadgeConfig`, service function `getLeaveRequestsHistory`, filter periode dengan native date picker (`@react-native-community/datetimepicker`), dan filter karyawan modal picker.
+- **Komponen:** `utils/status-izin-badge.util.ts`, `services/leave-requests.service.ts`, `types/leave-request.ts`, `screens/hr-admin/HrAdminLeaveHistoryScreen.tsx`, `app/(hr-admin)/izin.tsx`, `screens/karyawan/IzinScreen.tsx`, `utils/__tests__/status-izin-badge.util.test.ts`, `screens/hr-admin/__tests__/HrAdminLeaveHistoryScreen.test.tsx`.
+- **Verifikasi:** 269/269 tests PASS (41/41 test suites, 100% full mobile suite).
+- **Keputusan & Catatan Teknikal:**
+  - **Shared Badge Config Extraction:** Ekstraksi `getStatusIzinBadgeConfig` dari `IzinScreen.tsx` (Karyawan) ke `src/utils/status-izin-badge.util.ts` agar dapat di-reuse bersih oleh HR Admin (single source of truth).
+  - **UX Date Filter Standardisation:** Menggunakan native `@react-native-community/datetimepicker` (default 30 hari terakhir) dengan tombol reset filter untuk mengosongkan periode (lihat histori lengkap tanpa batas).
+  - **Document Viewer Reuse:** Re-use fungsi generic `downloadAndOpenDocument` untuk pratinjau/download dokumen pendukung (hanya ter-render jika `dokumenPendukungUrl !== null`).
+

@@ -10,11 +10,16 @@ import {
   createLeaveRequestFormData,
   downloadAndOpenDocument,
   getLeaveRequests,
+  getLeaveRequestsHistory,
   getPendingLeaveRequests,
   rejectLeaveRequest,
 } from '../leave-requests.service';
 import { useAuthStore } from '@/store/authStore';
-import { LeaveRequestItem, LeaveRequestPendingItem } from '@/types/leave-request';
+import {
+  LeaveRequestHistoryItem,
+  LeaveRequestItem,
+  LeaveRequestPendingItem,
+} from '@/types/leave-request';
 
 jest.mock('expo-file-system/legacy', () => ({
   cacheDirectory: 'file:///cache/',
@@ -290,6 +295,97 @@ describe('LeaveRequestsService (mobile/src/services/leave-requests.service.ts)',
 
       expect(result.id).toBe('req-202');
       expect(result.status).toBe('REJECTED');
+    });
+  });
+
+  describe('getLeaveRequestsHistory', () => {
+    const mockHistoryItems: LeaveRequestHistoryItem[] = [
+      {
+        id: 'hist-1',
+        karyawanId: 'user-1',
+        karyawan: { id: 'user-1', nama: 'Karyawan Satu' },
+        tanggalMulai: '2026-08-01T00:00:00.000Z',
+        tanggalSelesai: '2026-08-02T00:00:00.000Z',
+        jenis: 'SAKIT',
+        alasan: 'Demam',
+        dokumenPendukungUrl: 'storage/doc1.pdf',
+        status: 'APPROVED',
+        catatanSupervisor: 'OK',
+        approvedById: 'spv-1',
+        approvedBy: { id: 'spv-1', nama: 'Supervisor Budi' },
+        createdAt: '2026-08-01T08:00:00.000Z',
+      },
+    ];
+
+    it('harus memanggil GET /leave-requests/history dengan semua query params jika diberikan', async () => {
+      mockAxios.onGet('/leave-requests/history').reply((config) => {
+        expect(config.params).toEqual({
+          karyawanId: 'user-1',
+          periodeMulai: '2026-08-01',
+          periodeSelesai: '2026-08-31',
+        });
+        return [
+          200,
+          {
+            success: true,
+            data: mockHistoryItems,
+            meta: { timestamp: new Date().toISOString(), requestId: 'req-hist-1' },
+          },
+        ];
+      });
+
+      const result = await getLeaveRequestsHistory({
+        karyawanId: 'user-1',
+        periodeMulai: '2026-08-01',
+        periodeSelesai: '2026-08-31',
+      });
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('hist-1');
+      expect(result[0].karyawan.nama).toBe('Karyawan Satu');
+      expect(result[0].approvedBy?.nama).toBe('Supervisor Budi');
+    });
+
+    it('harus memanggil GET /leave-requests/history dengan query params parsial (hanya periode)', async () => {
+      mockAxios.onGet('/leave-requests/history').reply((config) => {
+        expect(config.params).toEqual({
+          periodeMulai: '2026-08-01',
+          periodeSelesai: '2026-08-10',
+        });
+        return [
+          200,
+          {
+            success: true,
+            data: mockHistoryItems,
+            meta: { timestamp: new Date().toISOString(), requestId: 'req-hist-2' },
+          },
+        ];
+      });
+
+      const result = await getLeaveRequestsHistory({
+        periodeMulai: '2026-08-01',
+        periodeSelesai: '2026-08-10',
+      });
+
+      expect(result).toHaveLength(1);
+    });
+
+    it('harus memanggil GET /leave-requests/history TANPA query params jika undefined', async () => {
+      mockAxios.onGet('/leave-requests/history').reply((config) => {
+        expect(config.params).toBeUndefined();
+        return [
+          200,
+          {
+            success: true,
+            data: mockHistoryItems,
+            meta: { timestamp: new Date().toISOString(), requestId: 'req-hist-3' },
+          },
+        ];
+      });
+
+      const result = await getLeaveRequestsHistory();
+
+      expect(result).toHaveLength(1);
     });
   });
 

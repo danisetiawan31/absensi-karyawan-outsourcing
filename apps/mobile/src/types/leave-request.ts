@@ -33,6 +33,34 @@ export interface LeaveRequestPendingItem {
   };
 }
 
+export interface LeaveRequestHistoryItem {
+  id: string;
+  karyawanId: string;
+  karyawan: {
+    id: string;
+    nama: string;
+  };
+  tanggalMulai: string;
+  tanggalSelesai: string;
+  jenis: JenisIzin;
+  alasan: string | null;
+  dokumenPendukungUrl: string | null;
+  status: StatusIzin;
+  catatanSupervisor: string | null;
+  approvedById: string | null;
+  approvedBy: {
+    id: string;
+    nama: string;
+  } | null;
+  createdAt: string;
+}
+
+export interface GetLeaveRequestsHistoryParams {
+  karyawanId?: string;
+  periodeMulai?: string;
+  periodeSelesai?: string;
+}
+
 export interface CreateLeaveRequestResponse {
   id: string;
   status: StatusIzin;

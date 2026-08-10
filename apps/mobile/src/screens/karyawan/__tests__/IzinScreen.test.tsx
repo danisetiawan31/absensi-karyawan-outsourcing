@@ -1,8 +1,8 @@
 import axios from 'axios';
 
+import { getStatusIzinBadgeConfig } from '@/utils/status-izin-badge.util';
 import {
   formatDateRange,
-  getStatusIzinBadgeConfig,
   processCancelLeaveRequest,
 } from '../IzinScreen';
 
