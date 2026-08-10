@@ -1,44 +1,40 @@
-import DateTimePicker, {
-  DateTimePickerEvent,
-} from '@react-native-community/datetimepicker';
-import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
-import React, { useMemo, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
+import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
-  Platform,
   RefreshControl,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
-import { AlertBanner } from '@/components/AlertBanner';
+import { AlertBanner } from "@/components/AlertBanner";
 import {
   EmptyState,
   ErrorState,
   LoadingState,
-} from '@/components/AsyncStateViews';
-import { ScreenHeader } from '@/components/ScreenHeader';
-import { SectionCard } from '@/components/SectionCard';
-import { StatusBadge } from '@/components/StatusBadge';
-import { COLORS } from '@/constants/theme';
-import { getEmployees } from '@/services/employees.service';
+} from "@/components/AsyncStateViews";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
+import { ScreenHeader } from "@/components/ScreenHeader";
+import { SearchInput } from "@/components/SearchInput";
+import { SectionCard } from "@/components/SectionCard";
+import { StatusBadge } from "@/components/StatusBadge";
+import { COLORS } from "@/constants/theme";
+import { getEmployees } from "@/services/employees.service";
 import {
   downloadAndOpenDocument,
   getLeaveRequestsHistory,
-} from '@/services/leave-requests.service';
-import { Employee } from '@/types/employee';
-import { LeaveRequestHistoryItem } from '@/types/leave-request';
+} from "@/services/leave-requests.service";
+import { Employee } from "@/types/employee";
+import { LeaveRequestHistoryItem } from "@/types/leave-request";
 import {
-  formatJakartaDate,
   formatJakartaDateRange,
   formatJakartaYmd,
-} from '@/utils/date.util';
-import { getStatusIzinBadgeConfig } from '@/utils/status-izin-badge.util';
+} from "@/utils/date.util";
+import { getStatusIzinBadgeConfig } from "@/utils/status-izin-badge.util";
 
 export function getDefault30DaysPeriodDates(nowDate: Date = new Date()): {
   dateMulai: Date;
@@ -51,7 +47,7 @@ export function getDefault30DaysPeriodDates(nowDate: Date = new Date()): {
 
 export function filterEmployeesForPicker(
   employees: Employee[],
-  searchQuery: string = '',
+  searchQuery: string = "",
 ): Employee[] {
   if (!Array.isArray(employees)) return [];
   const q = searchQuery.trim().toLowerCase();
@@ -72,15 +68,12 @@ export default function HrAdminLeaveHistoryScreen() {
     initialPeriod.dateSelesai,
   );
 
-  const [showPickerMulai, setShowPickerMulai] = useState(false);
-  const [showPickerSelesai, setShowPickerSelesai] = useState(false);
-
   const [selectedKaryawan, setSelectedKaryawan] = useState<Employee | null>(
     null,
   );
 
   const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [pickerSearchQuery, setPickerSearchQuery] = useState('');
+  const [pickerSearchQuery, setPickerSearchQuery] = useState("");
   const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
   const [docError, setDocError] = useState<string | null>(null);
 
@@ -98,7 +91,7 @@ export default function HrAdminLeaveHistoryScreen() {
     isRefetching,
   } = useQuery({
     queryKey: [
-      'leave-requests-history',
+      "leave-requests-history",
       selectedKaryawan?.id || null,
       periodeMulaiStr || null,
       periodeSelesaiStr || null,
@@ -112,12 +105,9 @@ export default function HrAdminLeaveHistoryScreen() {
   });
 
   // Fetch Employees List for Filter (when picker open)
-  const {
-    data: karyawanList = [],
-    isLoading: isLoadingEmployees,
-  } = useQuery({
-    queryKey: ['employees', 'KARYAWAN'],
-    queryFn: () => getEmployees({ role: 'KARYAWAN', statusAktif: true }),
+  const { data: karyawanList = [], isLoading: isLoadingEmployees } = useQuery({
+    queryKey: ["employees", "KARYAWAN"],
+    queryFn: () => getEmployees({ role: "KARYAWAN", statusAktif: true }),
     enabled: isPickerOpen,
   });
 
@@ -126,40 +116,17 @@ export default function HrAdminLeaveHistoryScreen() {
     [karyawanList, pickerSearchQuery],
   );
 
-  const handleDateMulaiChange = (
-    _event: DateTimePickerEvent,
-    selectedDate?: Date,
-  ) => {
-    setShowPickerMulai(Platform.OS === 'ios');
-    if (selectedDate) {
-      setDateMulai(selectedDate);
-      if (dateSelesai && selectedDate.getTime() > dateSelesai.getTime()) {
-        setDateSelesai(selectedDate);
-      }
-    }
-  };
-
-  const handleDateSelesaiChange = (
-    _event: DateTimePickerEvent,
-    selectedDate?: Date,
-  ) => {
-    setShowPickerSelesai(Platform.OS === 'ios');
-    if (selectedDate) {
-      setDateSelesai(selectedDate);
-    }
-  };
-
   const handleDownloadDoc = async (item: LeaveRequestHistoryItem) => {
     if (!item.dokumenPendukungUrl) return;
     setDownloadingDocId(item.id);
     setDocError(null);
     try {
       const filename =
-        item.dokumenPendukungUrl.split('/').pop() || `dokumen-${item.id}.pdf`;
+        item.dokumenPendukungUrl.split("/").pop() || `dokumen-${item.id}.pdf`;
       await downloadAndOpenDocument(item.id, filename);
     } catch (err: unknown) {
       const msg =
-        err instanceof Error ? err.message : 'Gagal membuka dokumen pendukung.';
+        err instanceof Error ? err.message : "Gagal membuka dokumen pendukung.";
       setDocError(msg);
     } finally {
       setDownloadingDocId(null);
@@ -194,31 +161,23 @@ export default function HrAdminLeaveHistoryScreen() {
 
         {/* Filter Section */}
         <SectionCard className="p-4 gap-3 mb-4" testID="section-filters">
-          <View className="flex-row items-center justify-between border-b border-slate-100 pb-2">
-            <View className="flex-row items-center gap-1.5">
-              <Ionicons name="filter" size={16} color="#475569" />
-              <Text className="font-sans-bold text-xs text-slate-800">
-                Filter Data
-              </Text>
-            </View>
-            {(dateMulai !== null || dateSelesai !== null || selectedKaryawan !== null) && (
-              <TouchableOpacity
-                onPress={() => {
-                  setDateMulai(null);
-                  setDateSelesai(null);
-                  setSelectedKaryawan(null);
-                }}
-                testID="button-clear-filters"
-              >
-                <Text className="font-sans-semibold text-[11px] text-amber-600">
-                  Reset Filter (Histori Lengkap)
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          <DateRangeFilter
+            dateMulai={dateMulai}
+            dateSelesai={dateSelesai}
+            onDateMulaiChange={setDateMulai}
+            onDateSelesaiChange={setDateSelesai}
+            allowEmpty={true}
+            title="Filter Data"
+            resetLabel="Reset Filter (Histori Lengkap)"
+            onReset={() => {
+              setDateMulai(null);
+              setDateSelesai(null);
+              setSelectedKaryawan(null);
+            }}
+          />
 
           {/* Filter Karyawan Picker Trigger */}
-          <View>
+          <View className="pt-2 border-t border-slate-100">
             <Text className="font-sans-semibold text-xs text-slate-700 mb-1">
               Karyawan
             </Text>
@@ -227,67 +186,15 @@ export default function HrAdminLeaveHistoryScreen() {
               onPress={() => setIsPickerOpen(true)}
               testID="button-open-karyawan-picker"
             >
-              <Text className="font-sans text-xs text-slate-900 flex-1 pr-2" numberOfLines={1}>
-                {selectedKaryawan ? selectedKaryawan.nama : 'Semua Karyawan'}
+              <Text
+                className="font-sans text-xs text-slate-900 flex-1 pr-2"
+                numberOfLines={1}
+              >
+                {selectedKaryawan ? selectedKaryawan.nama : "Semua Karyawan"}
               </Text>
-              <Ionicons name="chevron-down" size={16} color="#64748B" />
+              <Ionicons name="chevron-down" size={16} color={COLORS.muted} />
             </TouchableOpacity>
           </View>
-
-          {/* Filter Periode Native Date Picker Triggers */}
-          <View className="flex-row gap-2">
-            <View className="flex-1">
-              <Text className="font-sans-semibold text-xs text-slate-700 mb-1">
-                Periode Mulai
-              </Text>
-              <TouchableOpacity
-                className="px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 flex-row items-center justify-between"
-                onPress={() => setShowPickerMulai(true)}
-                testID="button-pick-periode-mulai"
-              >
-                <Text className="font-sans text-xs text-slate-900">
-                  {dateMulai ? formatJakartaDate(dateMulai) : 'Tanpa Batas'}
-                </Text>
-                <Ionicons name="calendar-outline" size={16} color={COLORS.muted} />
-              </TouchableOpacity>
-            </View>
-
-            <View className="flex-1">
-              <Text className="font-sans-semibold text-xs text-slate-700 mb-1">
-                Periode Selesai
-              </Text>
-              <TouchableOpacity
-                className="px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 flex-row items-center justify-between"
-                onPress={() => setShowPickerSelesai(true)}
-                testID="button-pick-periode-selesai"
-              >
-                <Text className="font-sans text-xs text-slate-900">
-                  {dateSelesai ? formatJakartaDate(dateSelesai) : 'Tanpa Batas'}
-                </Text>
-                <Ionicons name="calendar-outline" size={16} color={COLORS.muted} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {showPickerMulai && (
-            <DateTimePicker
-              value={dateMulai || new Date()}
-              mode="date"
-              display="default"
-              onChange={handleDateMulaiChange}
-              testID="picker-periode-mulai"
-            />
-          )}
-
-          {showPickerSelesai && (
-            <DateTimePicker
-              value={dateSelesai || new Date()}
-              mode="date"
-              display="default"
-              onChange={handleDateSelesaiChange}
-              testID="picker-periode-selesai"
-            />
-          )}
         </SectionCard>
 
         {/* Content List */}
@@ -324,7 +231,7 @@ export default function HrAdminLeaveHistoryScreen() {
                         {item.karyawan.nama}
                       </Text>
                       <Text className="font-sans-medium text-xs text-slate-500 mt-0.5">
-                        {item.jenis} •{' '}
+                        {item.jenis} •{" "}
                         {formatJakartaDateRange(
                           item.tanggalMulai,
                           item.tanggalSelesai,
@@ -352,11 +259,12 @@ export default function HrAdminLeaveHistoryScreen() {
                   )}
 
                   {/* Catatan Supervisor / Approver */}
-                  {(Boolean(item.catatanSupervisor) || Boolean(item.approvedBy)) && (
+                  {(Boolean(item.catatanSupervisor) ||
+                    Boolean(item.approvedBy)) && (
                     <View className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 gap-1">
                       {Boolean(item.approvedBy) && (
                         <Text className="font-sans-medium text-[11px] text-slate-500">
-                          Diproses oleh:{' '}
+                          Diproses oleh:{" "}
                           <Text className="font-sans-bold text-slate-800">
                             {item.approvedBy?.nama}
                           </Text>
@@ -379,7 +287,10 @@ export default function HrAdminLeaveHistoryScreen() {
                       testID={`button-view-doc-${item.id}`}
                     >
                       {isDownloading ? (
-                        <ActivityIndicator size="small" color={COLORS.primary} />
+                        <ActivityIndicator
+                          size="small"
+                          color={COLORS.primary}
+                        />
                       ) : (
                         <>
                           <Ionicons
@@ -418,29 +329,30 @@ export default function HrAdminLeaveHistoryScreen() {
                 onPress={() => setIsPickerOpen(false)}
                 testID="button-close-karyawan-picker"
               >
-                <Ionicons name="close-circle" size={24} color="#94A3B8" />
+                <Ionicons
+                  name="close-circle"
+                  size={24}
+                  color={COLORS.slate400}
+                />
               </TouchableOpacity>
             </View>
 
             {/* Search Bar Input */}
-            <View className="flex-row items-center bg-slate-100 px-3 py-2 rounded-xl mt-3 mb-3 border border-slate-200">
-              <Ionicons name="search-outline" size={16} color="#64748B" />
-              <TextInput
-                className="flex-1 font-sans text-xs text-slate-900 ml-2"
-                placeholder="Cari nama karyawan..."
-                placeholderTextColor="#94A3B8"
-                value={pickerSearchQuery}
-                onChangeText={setPickerSearchQuery}
-                testID="input-search-karyawan-picker"
-              />
-            </View>
+            <SearchInput
+              value={pickerSearchQuery}
+              onChangeText={setPickerSearchQuery}
+              placeholder="Cari nama karyawan..."
+              testID="input-search-karyawan-picker"
+              containerClassName="flex-row items-center bg-slate-100 px-3 py-2 rounded-xl mt-3 mb-3 border border-slate-200"
+              iconSize={16}
+            />
 
             {/* Opsi "Semua Karyawan" */}
             <TouchableOpacity
               className={`p-3 rounded-xl border mb-2 flex-row items-center justify-between ${
                 selectedKaryawan === null
-                  ? 'bg-amber-50 border-amber-300'
-                  : 'bg-slate-50 border-slate-200'
+                  ? "bg-amber-50 border-amber-300"
+                  : "bg-slate-50 border-slate-200"
               }`}
               onPress={() => {
                 setSelectedKaryawan(null);
@@ -450,13 +362,19 @@ export default function HrAdminLeaveHistoryScreen() {
             >
               <Text
                 className={`font-sans-bold text-xs ${
-                  selectedKaryawan === null ? 'text-amber-800' : 'text-slate-700'
+                  selectedKaryawan === null
+                    ? "text-amber-800"
+                    : "text-slate-700"
                 }`}
               >
                 Semua Karyawan
               </Text>
               {selectedKaryawan === null && (
-                <Ionicons name="checkmark-circle" size={18} color={COLORS.primary} />
+                <Ionicons
+                  name="checkmark-circle"
+                  size={18}
+                  color={COLORS.primary}
+                />
               )}
             </TouchableOpacity>
 
@@ -483,8 +401,8 @@ export default function HrAdminLeaveHistoryScreen() {
                       key={emp.id}
                       className={`p-3 rounded-xl border mb-2 flex-row items-center justify-between ${
                         isSelected
-                          ? 'bg-amber-50 border-amber-300'
-                          : 'bg-slate-50 border-slate-200'
+                          ? "bg-amber-50 border-amber-300"
+                          : "bg-slate-50 border-slate-200"
                       }`}
                       onPress={() => {
                         setSelectedKaryawan(emp);

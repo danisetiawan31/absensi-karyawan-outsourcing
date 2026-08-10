@@ -19,6 +19,7 @@ import { AlertBanner } from '@/components/AlertBanner';
 import { ErrorState, LoadingState } from '@/components/AsyncStateViews';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { SearchInput } from '@/components/SearchInput';
 import { SectionCard } from '@/components/SectionCard';
 import { COLORS } from '@/constants/theme';
 import { getEmployees } from '@/services/employees.service';
@@ -997,17 +998,14 @@ export default function HrAdminSiteFormScreen() {
             )}
 
             {/* Search Bar in Picker */}
-            <View className="flex-row items-center bg-slate-100 px-3 py-2 rounded-xl mt-3 mb-3 border border-slate-200">
-              <Ionicons name="search-outline" size={16} color="#64748B" />
-              <TextInput
-                className="flex-1 font-sans text-xs text-slate-900 ml-2"
-                placeholder="Cari nama atau email supervisor..."
-                placeholderTextColor="#94A3B8"
-                value={pickerSearchQuery}
-                onChangeText={setPickerSearchQuery}
-                testID="input-search-supervisor-picker"
-              />
-            </View>
+            <SearchInput
+              value={pickerSearchQuery}
+              onChangeText={setPickerSearchQuery}
+              placeholder="Cari nama atau email supervisor..."
+              testID="input-search-supervisor-picker"
+              containerClassName="flex-row items-center bg-slate-100 px-3 py-2 rounded-xl mt-3 mb-3 border border-slate-200"
+              iconSize={16}
+            />
 
             {isLoadingSupervisors ? (
               <View className="py-8 items-center">

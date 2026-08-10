@@ -140,7 +140,7 @@ export function AttendanceAttemptsModal({
               onPress={onClose}
               testID="button-close-attempts-modal"
             >
-              <Ionicons name="close-circle" size={26} color="#94A3B8" />
+              <Ionicons name="close-circle" size={26} color={COLORS.slate400} />
             </TouchableOpacity>
           </View>
 
@@ -192,7 +192,7 @@ export function AttendanceAttemptsModal({
                                 isCheckIn ? 'log-in-outline' : 'log-out-outline'
                               }
                               size={16}
-                              color={isCheckIn ? '#166534' : '#1E40AF'}
+                              color={isCheckIn ? COLORS.successText : COLORS.infoText}
                             />
                           </View>
                           <Text className="font-sans-bold text-xs text-slate-900">
@@ -209,14 +209,14 @@ export function AttendanceAttemptsModal({
 
                       <View className="bg-slate-50 p-2 rounded-lg border border-slate-100 flex-row items-center justify-between">
                         <View className="flex-row items-center gap-1">
-                          <Ionicons name="time-outline" size={13} color="#64748B" />
+                          <Ionicons name="time-outline" size={13} color={COLORS.muted} />
                           <Text className="font-sans text-xs text-slate-700">
                             {formatJakartaDateTime(item.waktu)}
                           </Text>
                         </View>
 
                         <View className="flex-row items-center gap-1">
-                          <Ionicons name="navigate-outline" size={13} color="#64748B" />
+                          <Ionicons name="navigate-outline" size={13} color={COLORS.muted} />
                           <Text className="font-sans text-[11px] text-slate-500">
                             {item.latitude.toFixed(5)}, {item.longitude.toFixed(5)}
                           </Text>

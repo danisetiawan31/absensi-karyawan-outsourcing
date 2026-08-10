@@ -13,6 +13,7 @@ import {
 
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStateViews';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { SearchInput } from '@/components/SearchInput';
 import { SectionCard } from '@/components/SectionCard';
 import { COLORS } from '@/constants/theme';
 import { getSites } from '@/services/sites.service';
@@ -198,25 +199,14 @@ export default function HrAdminSitesScreen() {
 
       <View className="flex-1 px-4 pt-3">
         {/* Search Bar */}
-        <View className="flex-row items-center bg-white px-3.5 py-2.5 rounded-xl border border-slate-200 mb-3 shadow-sm">
-          <Ionicons name="search-outline" size={18} color="#64748B" />
-          <TextInput
-            className="flex-1 font-sans text-xs text-slate-900 ml-2"
-            placeholder="Cari nama site atau alamat..."
-            placeholderTextColor="#94A3B8"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            testID="input-search-sites"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setSearchQuery('')}
-              testID="button-clear-search-sites"
-            >
-              <Ionicons name="close-circle" size={16} color="#94A3B8" />
-            </TouchableOpacity>
-          )}
-        </View>
+        <SearchInput
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Cari nama site atau alamat..."
+          testID="input-search-sites"
+          clearTestID="button-clear-search-sites"
+          containerClassName="flex-row items-center bg-white px-3.5 py-2.5 rounded-xl border border-slate-200 mb-3 shadow-sm"
+        />
 
         {/* Site List */}
         <ScrollView

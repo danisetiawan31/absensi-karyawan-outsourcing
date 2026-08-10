@@ -1,12 +1,8 @@
-import DateTimePicker, {
-  DateTimePickerEvent,
-} from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   RefreshControl,
   ScrollView,
   Text,
@@ -20,6 +16,7 @@ import {
   ErrorState,
   LoadingState,
 } from '@/components/AsyncStateViews';
+import { DateRangeFilter } from '@/components/DateRangeFilter';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { SectionCard } from '@/components/SectionCard';
 import { COLORS } from '@/constants/theme';
@@ -28,7 +25,7 @@ import {
   getAttendanceSummary,
 } from '@/services/reports.service';
 import { AttendanceSummaryItem, ReportFormat } from '@/types/reports';
-import { formatJakartaDate, formatJakartaYmd } from '@/utils/date.util';
+import { formatJakartaYmd } from '@/utils/date.util';
 
 import { AttendanceAttemptsModal } from './AttendanceAttemptsModal';
 
@@ -105,9 +102,6 @@ export default function HrAdminReportsScreen() {
     initialPeriod.dateSelesai,
   );
 
-  const [showPickerMulai, setShowPickerMulai] = useState(false);
-  const [showPickerSelesai, setShowPickerSelesai] = useState(false);
-
   const [exportingFormat, setExportingFormat] = useState<ReportFormat | null>(
     null,
   );
@@ -135,28 +129,7 @@ export default function HrAdminReportsScreen() {
     enabled: validPeriod && Boolean(periodeMulaiStr && periodeSelesaiStr),
   });
 
-  const handleDateMulaiChange = (
-    _event: DateTimePickerEvent,
-    selectedDate?: Date,
-  ) => {
-    setShowPickerMulai(Platform.OS === 'ios');
-    if (selectedDate) {
-      setDateMulai(selectedDate);
-      if (dateSelesai && selectedDate.getTime() > dateSelesai.getTime()) {
-        setDateSelesai(selectedDate);
-      }
-    }
-  };
 
-  const handleDateSelesaiChange = (
-    _event: DateTimePickerEvent,
-    selectedDate?: Date,
-  ) => {
-    setShowPickerSelesai(Platform.OS === 'ios');
-    if (selectedDate) {
-      setDateSelesai(selectedDate);
-    }
-  };
 
   const handleExport = async (format: ReportFormat) => {
     if (!validPeriod || !periodeMulaiStr || !periodeSelesaiStr) return;
@@ -202,91 +175,22 @@ export default function HrAdminReportsScreen() {
 
         {/* Filter Periode Section */}
         <SectionCard className="p-4 gap-3 mb-4" testID="section-filters">
-          <View className="flex-row items-center justify-between border-b border-slate-100 pb-2">
-            <View className="flex-row items-center gap-1.5">
-              <Ionicons name="calendar-outline" size={16} color="#475569" />
-              <Text className="font-sans-bold text-xs text-slate-800">
-                Filter Periode (Wajib)
-              </Text>
-            </View>
-            {(dateMulai !== null || dateSelesai !== null) && (
-              <TouchableOpacity
-                onPress={() => {
-                  const def = getDefault30DaysPeriodDates();
-                  setDateMulai(def.dateMulai);
-                  setDateSelesai(def.dateSelesai);
-                }}
-                testID="button-reset-period"
-              >
-                <Text className="font-sans-semibold text-[11px] text-amber-600">
-                  Reset 30 Hari
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View className="flex-row gap-2">
-            <View className="flex-1">
-              <Text className="font-sans-semibold text-xs text-slate-700 mb-1">
-                Periode Mulai <Text className="text-destructive">*</Text>
-              </Text>
-              <TouchableOpacity
-                className="px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 flex-row items-center justify-between"
-                onPress={() => setShowPickerMulai(true)}
-                testID="button-pick-periode-mulai"
-              >
-                <Text className="font-sans text-xs text-slate-900">
-                  {dateMulai ? formatJakartaDate(dateMulai) : 'Pilih Tanggal'}
-                </Text>
-                <Ionicons name="calendar-outline" size={16} color={COLORS.muted} />
-              </TouchableOpacity>
-            </View>
-
-            <View className="flex-1">
-              <Text className="font-sans-semibold text-xs text-slate-700 mb-1">
-                Periode Selesai <Text className="text-destructive">*</Text>
-              </Text>
-              <TouchableOpacity
-                className="px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 flex-row items-center justify-between"
-                onPress={() => setShowPickerSelesai(true)}
-                testID="button-pick-periode-selesai"
-              >
-                <Text className="font-sans text-xs text-slate-900">
-                  {dateSelesai ? formatJakartaDate(dateSelesai) : 'Pilih Tanggal'}
-                </Text>
-                <Ionicons name="calendar-outline" size={16} color={COLORS.muted} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {showPickerMulai && (
-            <DateTimePicker
-              value={dateMulai || new Date()}
-              mode="date"
-              display="default"
-              onChange={handleDateMulaiChange}
-              testID="picker-periode-mulai"
-            />
-          )}
-
-          {showPickerSelesai && (
-            <DateTimePicker
-              value={dateSelesai || new Date()}
-              mode="date"
-              display="default"
-              onChange={handleDateSelesaiChange}
-              testID="picker-periode-selesai"
-            />
-          )}
-
-          {!validPeriod && (
-            <Text
-              className="font-sans text-[11px] text-destructive mt-1"
-              testID="text-invalid-period-hint"
-            >
-              Periode tanggal tidak valid. Tanggal mulai harus sebelum atau sama dengan tanggal selesai.
-            </Text>
-          )}
+          <DateRangeFilter
+            dateMulai={dateMulai}
+            dateSelesai={dateSelesai}
+            onDateMulaiChange={setDateMulai}
+            onDateSelesaiChange={setDateSelesai}
+            allowEmpty={false}
+            title="Filter Periode (Wajib)"
+            resetLabel="Reset 30 Hari"
+            showInvalidHint={true}
+            isPeriodValid={validPeriod}
+            onReset={() => {
+              const def = getDefault30DaysPeriodDates();
+              setDateMulai(def.dateMulai);
+              setDateSelesai(def.dateSelesai);
+            }}
+          />
 
           {/* Area Tombol Export (PDF & XLSX) */}
           <View className="flex-row gap-2 mt-2 pt-3 border-t border-slate-100">
@@ -301,10 +205,10 @@ export default function HrAdminReportsScreen() {
               testID="button-export-pdf"
             >
               {exportingFormat === 'pdf' ? (
-                <ActivityIndicator size="small" color="#DC2626" />
+                <ActivityIndicator size="small" color={COLORS.destructive} />
               ) : (
                 <>
-                  <Ionicons name="document-text" size={16} color="#DC2626" />
+                  <Ionicons name="document-text" size={16} color={COLORS.destructive} />
                   <Text className="font-sans-bold text-xs text-red-700 ml-1.5">
                     Export PDF
                   </Text>
@@ -323,10 +227,10 @@ export default function HrAdminReportsScreen() {
               testID="button-export-xlsx"
             >
               {exportingFormat === 'xlsx' ? (
-                <ActivityIndicator size="small" color="#166534" />
+                <ActivityIndicator size="small" color={COLORS.successText} />
               ) : (
                 <>
-                  <Ionicons name="stats-chart" size={16} color="#166534" />
+                  <Ionicons name="stats-chart" size={16} color={COLORS.successText} />
                   <Text className="font-sans-bold text-xs text-emerald-800 ml-1.5">
                     Export XLSX
                   </Text>
@@ -437,7 +341,7 @@ export default function HrAdminReportsScreen() {
                         bgClass="bg-[#F1F5F9]"
                         textClass="text-[#475569]"
                         iconName="help-circle-outline"
-                        iconColor="#64748B"
+                        iconColor={COLORS.muted}
                         testID={`metric-belum-${item.karyawanId}`}
                       />
                       <MetricTile
@@ -446,7 +350,7 @@ export default function HrAdminReportsScreen() {
                         bgClass="bg-white border-slate-200"
                         textClass="text-slate-900"
                         iconName="calendar-outline"
-                        iconColor="#334155"
+                        iconColor={COLORS.muted}
                         testID={`metric-total-jadwal-${item.karyawanId}`}
                       />
                     </View>

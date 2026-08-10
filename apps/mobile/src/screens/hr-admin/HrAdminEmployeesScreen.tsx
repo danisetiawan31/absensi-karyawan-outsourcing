@@ -13,6 +13,7 @@ import {
 
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStateViews';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { SearchInput } from '@/components/SearchInput';
 import { SectionCard } from '@/components/SectionCard';
 import { COLORS } from '@/constants/theme';
 import { getEmployees } from '@/services/employees.service';
@@ -149,22 +150,14 @@ export default function HrAdminEmployeesScreen() {
         {/* Filter Section */}
         <SectionCard className="mb-4 p-3">
           {/* Search Input */}
-          <View className="flex-row items-center px-3 py-2 bg-slate-100 rounded-xl mb-3 border border-slate-200">
-            <Ionicons name="search-outline" size={18} color={COLORS.muted} />
-            <TextInput
-              className="flex-1 ml-2 font-sans text-xs text-slate-900 p-0"
-              placeholder="Cari nama atau email..."
-              placeholderTextColor={COLORS.muted}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              testID="input-search-employee"
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={16} color={COLORS.muted} />
-              </TouchableOpacity>
-            )}
-          </View>
+          <SearchInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Cari nama atau email..."
+            testID="input-search-employee"
+            containerClassName="flex-row items-center px-3 py-2 bg-slate-100 rounded-xl mb-3 border border-slate-200"
+            inputClassName="p-0"
+          />
 
           {/* Role Filter Chips */}
           <View className="mb-2">
