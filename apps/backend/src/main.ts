@@ -14,6 +14,12 @@ import { RequestIdMiddleware } from './common/middlewares/request-id.middleware'
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Enable CORS
+  app.enableCors({
+    origin: true,
+    credentials: true,
+  });
+
   // Global Middleware
   const requestIdMiddleware = new RequestIdMiddleware();
   app.use(requestIdMiddleware.use.bind(requestIdMiddleware));

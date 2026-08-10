@@ -10,16 +10,18 @@ import {
 import { CameraView, useCameraPermissions, CameraPictureOptions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { LocationOptions, LocationObject } from 'expo-location';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Platform } from 'react-native';
 import { COLORS } from '@/constants/theme';
 
 export function getPermissionViewState(
   cameraGranted: boolean,
   locationGranted: boolean,
+  gpsServicesEnabled: boolean = true,
 ): 'SHOW_CAMERA_PERMISSION' | 'SHOW_LOCATION_PERMISSION' | 'READY' {
   if (!cameraGranted) return 'SHOW_CAMERA_PERMISSION';
-  if (!locationGranted) return 'SHOW_LOCATION_PERMISSION';
+  if (!locationGranted || !gpsServicesEnabled) return 'SHOW_LOCATION_PERMISSION';
   return 'READY';
 }
 
@@ -32,6 +34,7 @@ export interface AttendanceCameraViewDescriptor {
 export function renderAttendanceCameraScreenDescriptor(
   cameraPermission: { granted: boolean; canAskAgain?: boolean } | null,
   locationPermission: { granted: boolean; canAskAgain?: boolean } | null,
+  gpsServicesEnabled: boolean = true,
 ): AttendanceCameraViewDescriptor {
   if (!cameraPermission || !locationPermission) {
     return {
@@ -44,6 +47,7 @@ export function renderAttendanceCameraScreenDescriptor(
   const viewState = getPermissionViewState(
     cameraPermission.granted,
     locationPermission.granted,
+    gpsServicesEnabled,
   );
 
   if (viewState === 'SHOW_CAMERA_PERMISSION') {
@@ -154,34 +158,104 @@ export default function AttendanceCameraScreen() {
     tipe?: 'CHECK_IN' | 'CHECK_OUT';
   }>();
 
-  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const [locationPermission, requestLocationPermission] =
+  const [cameraPermissionHook, requestCameraPermission] = useCameraPermissions();
+  const [locationPermissionHook, requestLocationPermission] =
     Location.useForegroundPermissions();
+
+  const [cameraPermissionState, setCameraPermissionState] = useState<{
+    granted: boolean;
+    canAskAgain?: boolean;
+  } | null>(null);
+
+  const [locationPermissionState, setLocationPermissionState] = useState<{
+    granted: boolean;
+    canAskAgain?: boolean;
+  } | null>(null);
+
+  const cameraPermission = cameraPermissionState || cameraPermissionHook;
+  const locationPermission = locationPermissionState || locationPermissionHook;
 
   const cameraRef = useRef<CameraView>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [gpsErrorMsg, setGpsErrorMsg] = useState<string | null>(null);
 
+  const [gpsServicesEnabled, setGpsServicesEnabled] = useState(true);
+
+  // Directly query native permission state & GPS hardware service status on focus
+  const refreshPermissions = React.useCallback(async () => {
+    try {
+      const hasServices = await Location.hasServicesEnabledAsync();
+      setGpsServicesEnabled(hasServices);
+    } catch {
+      setGpsServicesEnabled(true);
+    }
+
+    try {
+      const loc = await Location.getForegroundPermissionsAsync();
+      setLocationPermissionState(loc);
+    } catch {
+      if (locationPermissionHook) setLocationPermissionState(locationPermissionHook);
+    }
+
+    try {
+      const cam = await requestCameraPermission();
+      setCameraPermissionState(cam);
+    } catch {
+      if (cameraPermissionHook) setCameraPermissionState(cameraPermissionHook);
+    }
+  }, [cameraPermissionHook, locationPermissionHook, requestCameraPermission]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshPermissions();
+    }, [refreshPermissions])
+  );
+
   useEffect(() => {
-    if (
-      cameraPermission &&
-      !cameraPermission.granted &&
-      cameraPermission.canAskAgain
-    ) {
-      requestCameraPermission();
+    if (cameraPermissionHook) setCameraPermissionState(cameraPermissionHook);
+    if (locationPermissionHook) setLocationPermissionState(locationPermissionHook);
+  }, [cameraPermissionHook, locationPermissionHook]);
+
+  const handleCameraPermissionPress = async () => {
+    try {
+      const res = await requestCameraPermission();
+      if (res) setCameraPermissionState(res);
+      if (res && !res.granted && !res.canAskAgain) {
+        Linking.openSettings();
+      }
+    } catch {
+      Linking.openSettings();
     }
-    if (
-      locationPermission &&
-      !locationPermission.granted &&
-      locationPermission.canAskAgain
-    ) {
-      requestLocationPermission();
+  };
+
+  const handleLocationPermissionPress = async () => {
+    try {
+      if (Platform.OS === 'android') {
+        try {
+          await Location.enableNetworkProviderAsync();
+        } catch {
+          // Ignored if user cancels GPS prompt
+        }
+      }
+      const res = await requestLocationPermission();
+      const freshLoc = await Location.getForegroundPermissionsAsync();
+      setLocationPermissionState(freshLoc);
+
+      const hasServices = await Location.hasServicesEnabledAsync();
+      setGpsServicesEnabled(hasServices);
+
+      if (!freshLoc.granted && !freshLoc.canAskAgain) {
+        Linking.openSettings();
+      }
+    } catch {
+      Linking.openSettings();
     }
-  }, [cameraPermission, locationPermission]);
+  };
 
   const descriptor = renderAttendanceCameraScreenDescriptor(
     cameraPermission,
     locationPermission,
+    gpsServicesEnabled,
   );
 
   if (descriptor.type === 'LOADING') {
@@ -213,11 +287,7 @@ export default function AttendanceCameraScreen() {
 
           <TouchableOpacity
             className="bg-primary px-6 py-3 rounded-lg w-full items-center"
-            onPress={
-              cameraPermission?.canAskAgain
-                ? requestCameraPermission
-                : Linking.openSettings
-            }
+            onPress={handleCameraPermissionPress}
             testID="button-camera-permission"
           >
             <Text className="text-primary-foreground font-sans-semibold text-[15px]">
@@ -247,11 +317,7 @@ export default function AttendanceCameraScreen() {
 
           <TouchableOpacity
             className="bg-primary px-6 py-3 rounded-lg w-full items-center"
-            onPress={
-              locationPermission?.canAskAgain
-                ? requestLocationPermission
-                : Linking.openSettings
-            }
+            onPress={handleLocationPermissionPress}
             testID="button-location-permission"
           >
             <Text className="text-primary-foreground font-sans-semibold text-[15px]">

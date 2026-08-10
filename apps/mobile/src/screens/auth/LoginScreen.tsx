@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 
+import { AlertBanner } from '@/components/AlertBanner';
 import KeyboardScreen from '@/components/KeyboardScreen';
 
 import apiClient from '@/services/apiClient';
@@ -129,9 +130,11 @@ export default function LoginScreen() {
         <View className="bg-surface rounded-lg border border-solid border-border p-6 gap-5">
           {/* Error banner */}
           {errorMsg && (
-            <View className="bg-destructive-bg rounded-md px-[14px] py-[10px]">
-              <Text className="text-[13px] font-sans-semibold text-destructive-text leading-[19px]">{errorMsg}</Text>
-            </View>
+            <AlertBanner
+              type="error"
+              message={errorMsg}
+              onDismiss={() => setErrorMsg(null)}
+            />
           )}
 
           {/* Email field */}

@@ -157,6 +157,13 @@ export default function KaryawanLayout() {
           tabBarStyle: { display: "none" },
         }}
       />
+      <Tabs.Screen
+        name="leave-request-create"
+        options={{
+          href: null,
+          tabBarStyle: { display: "none" },
+        }}
+      />
     </Tabs>
   );
 }

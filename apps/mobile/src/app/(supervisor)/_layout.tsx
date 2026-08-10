@@ -94,6 +94,15 @@ export default function SupervisorLayout() {
           ),
         }}
       />
+
+      {/* Hidden Screens */}
+      <Tabs.Screen
+        name="jadwal-form"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
+      />
     </Tabs>
   );
 }
