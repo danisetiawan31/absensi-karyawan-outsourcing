@@ -35,14 +35,17 @@ const mockSites: Site[] = [
 const mockSupervisorSites: SupervisorSiteItem[] = [
   {
     id: 'ss-1',
+    supervisor: { id: 'spv-1', nama: 'Spv 1', email: 'spv1@test.com' },
     site: { id: 'site-1', nama: 'Wisma Atlet', alamat: 'Jl. Sunter' },
   },
   {
     id: 'ss-2',
+    supervisor: { id: 'spv-2', nama: 'Spv 2', email: 'spv2@test.com' },
     site: { id: 'site-1', nama: 'Wisma Atlet', alamat: 'Jl. Sunter' },
   },
   {
     id: 'ss-3',
+    supervisor: { id: 'spv-3', nama: 'Spv 3', email: 'spv3@test.com' },
     site: { id: 'site-3', nama: 'Site Lain', alamat: 'Jl. Lain' },
   },
 ];

@@ -21,6 +21,11 @@ import {
 
 type AssignmentType = {
   id: string;
+  supervisor: {
+    id: string;
+    nama: string;
+    email: string;
+  };
   site: {
     id: string;
     nama: string;
@@ -359,6 +364,10 @@ describe('SupervisorSitesController (e2e)', () => {
       expect(assignment1).toBeDefined();
       expect(assignment1!.site.nama).toBe(site.nama);
       expect(assignment1!.site.alamat).toBe(site.alamat);
+      expect(assignment1!.supervisor).toBeDefined();
+      expect(assignment1!.supervisor.id).toBe(supervisor.id);
+      expect(assignment1!.supervisor.nama).toBe(supervisor.nama);
+      expect(assignment1!.supervisor.email).toBe(supervisor.email);
     });
 
     it('should return specific supervisor assignments for HR_ADMIN (?supervisorId=X)', async () => {
@@ -375,6 +384,11 @@ describe('SupervisorSitesController (e2e)', () => {
       expect(body.success).toBe(true);
       expect(body.data.length).toBe(1);
       expect(body.data[0].site.id).toBe(site.id);
+      expect(body.data[0].supervisor).toEqual({
+        id: supervisor.id,
+        nama: supervisor.nama,
+        email: supervisor.email,
+      });
     });
 
     it('should return empty array for HR_ADMIN if supervisorId has no assignments', async () => {

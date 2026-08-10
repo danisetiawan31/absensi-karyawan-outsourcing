@@ -323,12 +323,13 @@
   - Shared lock `isAnyActionInFlightRef` pada form edit untuk men-disable seluruh tombol aksi secara bersamaan saat salah satu request sedang in-flight.
   - Type-safety zero `any` pada navigation event listener & dispatch menggunakan `NavigationAction` & `NavigationProp`.
 
-## [Stage 50] Track L3 — HR Admin Sites Management Mobile (Tahap 1 & 2)
+## [Stage 50] Track L3 — HR Admin Sites Management Mobile & Backend Fix (Tahap 1–4 Final)
 
-- **Fitur:** Instalasi dependency `react-native-maps`, service layer CRUD site & alokasi supervisor, serta layar list site HR Admin dengan search, badge status, dan kalkulasi client-side jumlah supervisor per site.
-- **Komponen:** `services/sites.service.ts`, `services/supervisor-sites.service.ts`, `types/site.ts`, `types/supervisor-site.ts`, `screens/hr-admin/HrAdminSitesScreen.tsx`, `app/(hr-admin)/site.tsx`, `screens/hr-admin/__tests__/HrAdminSitesScreen.test.tsx`, `services/__tests__/sites.service.test.ts`.
-- **Verifikasi:** 236/236 tests PASS (38/38 test suites, 100% full mobile suite).
+- **Fitur:** Manajemen lokasi kerja (sites) & alokasi supervisor HR Admin: CRUD sites/supervisor-sites, list site, form create/edit site dengan map picker (`react-native-maps`), assign/unassign supervisor, dan perbaikan backend `GET /supervisor-sites`.
+- **Komponen:** `services/sites.service.ts`, `services/supervisor-sites.service.ts`, `types/site.ts`, `types/supervisor-site.ts`, `screens/hr-admin/` (`HrAdminSitesScreen.tsx`, `HrAdminSiteFormScreen.tsx`), `app/(hr-admin)/` (`site.tsx`, `site-create.tsx`, `site-edit.tsx`), `apps/backend/src/modules/supervisor-sites/` (`supervisor-sites.service.ts`, `supervisor-sites.controller.spec.ts`).
+- **Verifikasi:** Mobile 257/257 tests PASS (39/39 suites) | Backend 183/183 tests PASS (14/14 suites).
 - **Keputusan & Catatan Teknikal:**
-  - `react-native-maps` (`1.20.1`) terpasang via `npx expo install` (auto-link bersih tanpa entri plugin tambahan di `app.json`).
-  - Pembersihan signature `getSupervisorSites` ke `supervisorId?: string` murni & refactoring 2 pemanggilan `queryFn: () => getSupervisorSites()` pada Supervisor Jadwal Screen (Track K) tepat pada akar masalahnya.
-  - Penyetaraan semantik warna badge supervisor per site: `supervisorCount === 0` (site tanpa pengawasan) mendapat highlight warning (`COLORS.warning`), sedangkan `supervisorCount > 0` menggunakan styling netral (`COLORS.muted`).
+  - **Fix Root Cause `GET /supervisor-sites`:** Penemuan dari kecurigaan tipe `supervisor` opsional di client; backend `findAll()` diperbaiki dengan menambahkan nested `supervisor: { select: { id, nama, email } }`. Tipe client disempurnakan menjadi required tanpa fallback.
+  - **Map Picker Interaktif (`react-native-maps` `1.20.1`):** `MapView`, `Marker` (draggable), & `Circle` (radius meter) dengan sinkronisasi 2-arah (drag & input) dan fallback koordinat Jakarta (`-6.2088, 106.8456`) saat izin GPS ditolak.
+  - **Standardisasi Token & Semantik:** Penyetaraan token `COLORS.primary` (`#FFC81E`) & semantik warna badge supervisor (`0` → `COLORS.warning`, `>0` → `COLORS.muted`).
+  - **Assign/Unassign UX:** Modal picker supervisor dengan auto-filter `getAvailableSupervisors` & handling error `ROLE_BUKAN_SUPERVISOR` (400).

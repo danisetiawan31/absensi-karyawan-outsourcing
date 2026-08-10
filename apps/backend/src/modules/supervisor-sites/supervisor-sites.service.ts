@@ -93,6 +93,13 @@ export class SupervisorSitesService {
       where,
       select: {
         id: true,
+        supervisor: {
+          select: {
+            id: true,
+            nama: true,
+            email: true,
+          },
+        },
         site: {
           select: {
             id: true,

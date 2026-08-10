@@ -26,6 +26,11 @@ describe('SupervisorSitesService (mobile/src/services/supervisor-sites.service.t
       const mockSites: SupervisorSiteItem[] = [
         {
           id: 'ss-uuid-1',
+          supervisor: {
+            id: 'spv-1',
+            nama: 'Supervisor Test',
+            email: 'spv@test.com',
+          },
           site: {
             id: 'site-1',
             nama: 'Wisma Atlet',

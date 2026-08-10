@@ -88,11 +88,11 @@
 
 ## Track L — HR Admin
 
-**Status: IN_PROGRESS (foundation & employees SELESAI Stage 49, sites IN_PROGRESS Stage 50).**
+**Status: IN_PROGRESS (foundation, employees, & sites SELESAI Stage 49 & 50).**
 
 - **hr-admin-foundation** (tab navigator scaffold) — **SELESAI**
 - **hr-admin-employees** (CRUD karyawan + reset face registration) — **SELESAI**
-- **hr-admin-sites** (CRUD site + assign/unassign supervisor, map picker interaktif) — **IN_PROGRESS (Tahap 1 & 2 SELESAI Stage 50)**
+- **hr-admin-sites** (CRUD site + assign/unassign supervisor, map picker interaktif) — **SELESAI**
 - hr-admin-leave-history (riwayat izin read-only, reuse pola lihat dokumen)
 - hr-admin-reports (attendance summary + attempts drill-down + export PDF/XLSX)
 

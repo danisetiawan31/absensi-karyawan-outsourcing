@@ -126,11 +126,11 @@
 - **Request:** `{ "nama": "string?", "alamat": "string?", "latitude": "number?", "longitude": "number?", "radiusToleransi": "number?", "statusAktif": "boolean?" }`
 - **Response:** Sama seperti response `POST /sites`
 
-### `POST /supervisor-sites`
+### `GET /supervisor-sites`
 
-- **Role:** HR_ADMIN
-- **Request:** `{ "supervisorId": "uuid", "siteId": "uuid" }`
-- **Response:** `{ "id": "uuid" }`
+- **Role:** SUPERVISOR, HR_ADMIN
+- **Query Params:** `supervisorId` (opsional untuk HR, wajib untuk di-scope ke dirinya bagi SUPERVISOR)
+- **Response:** `[{ "id": "uuid", "supervisor": { "id": "uuid", "nama": "string", "email": "string" }, "site": { "id": "uuid", "nama": "string", "alamat": "string" } }]`
 
 ### `GET /supervisor-sites`
 
