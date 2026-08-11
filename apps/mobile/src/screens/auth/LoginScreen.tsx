@@ -31,6 +31,7 @@ interface LoginResponseData {
   role: UserRole;
   userId: string;
   nama: string;
+  email?: string;
   wajahTerdaftar: boolean;
   wajibGantiPassword: boolean;
 }
@@ -80,6 +81,7 @@ export default function LoginScreen() {
         role: data.role,
         userId: data.userId,
         nama: data.nama,
+        email: data.email || email.trim(),
         wajahTerdaftar: data.wajahTerdaftar,
         wajibGantiPassword: data.wajibGantiPassword,
       });

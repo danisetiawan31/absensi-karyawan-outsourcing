@@ -59,6 +59,7 @@ export class AuthService {
       role: user.role,
       userId: user.id,
       nama: user.nama,
+      email: user.email,
       wajahTerdaftar: user.faceEmbedding.length > 0,
       wajibGantiPassword: user.wajibGantiPassword,
     };

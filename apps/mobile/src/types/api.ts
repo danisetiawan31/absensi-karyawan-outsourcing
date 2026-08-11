@@ -5,6 +5,7 @@ export interface AuthData {
   role: UserRole;
   userId: string;
   nama: string;
+  email?: string;
   wajahTerdaftar: boolean;
   wajibGantiPassword: boolean;
 }

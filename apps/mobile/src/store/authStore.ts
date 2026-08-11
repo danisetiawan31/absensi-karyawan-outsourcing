@@ -10,6 +10,7 @@ export interface AuthState {
   role: UserRole | null;
   userId: string | null;
   nama: string | null;
+  email: string | null;
   wajahTerdaftar: boolean;
   wajibGantiPassword: boolean;
 
@@ -35,6 +36,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   role: null,
   userId: null,
   nama: null,
+  email: null,
   wajahTerdaftar: false,
   wajibGantiPassword: false,
   pendingPasswordLama: null,
@@ -51,6 +53,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       role: data.role,
       userId: data.userId,
       nama: data.nama,
+      email: data.email || null,
       wajahTerdaftar: data.wajahTerdaftar,
       wajibGantiPassword: data.wajibGantiPassword,
     });
@@ -67,6 +70,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       role: null,
       userId: null,
       nama: null,
+      email: null,
       wajahTerdaftar: false,
       wajibGantiPassword: false,
     });
@@ -105,6 +109,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         role: data.role,
         userId: data.userId,
         nama: data.nama,
+        email: data.email || null,
         wajahTerdaftar: data.wajahTerdaftar,
         wajibGantiPassword: data.wajibGantiPassword,
       });
