@@ -1,37 +1,35 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
-import * as Location from 'expo-location';
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
+import * as Location from "expo-location";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Modal,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
-import MapView, { Circle, Marker } from 'react-native-maps';
-
-import { AlertBanner } from '@/components/AlertBanner';
-import { ErrorState, LoadingState } from '@/components/AsyncStateViews';
-import { ConfirmModal } from '@/components/ConfirmModal';
-import { ScreenHeader } from '@/components/ScreenHeader';
-import { SearchInput } from '@/components/SearchInput';
-import { SectionCard } from '@/components/SectionCard';
-import { COLORS } from '@/constants/theme';
-import { getEmployees } from '@/services/employees.service';
-import { createSite, getSites, updateSite } from '@/services/sites.service';
+} from "react-native";
+import { AlertBanner } from "@/components/AlertBanner";
+import { ErrorState, LoadingState } from "@/components/AsyncStateViews";
+import { ConfirmModal } from "@/components/ConfirmModal";
+import { GeofenceMap } from "@/components/GeofenceMap";
+import { ModalPickerSheet } from "@/components/ModalPickerSheet";
+import { ScreenHeader } from "@/components/ScreenHeader";
+import { SectionCard } from "@/components/SectionCard";
+import { COLORS } from "@/constants/theme";
+import { getEmployees } from "@/services/employees.service";
+import { createSite, getSites, updateSite } from "@/services/sites.service";
 import {
   createSupervisorSite,
   deleteSupervisorSite,
   getSupervisorSites,
-} from '@/services/supervisor-sites.service';
-import { Employee } from '@/types/employee';
-import { CreateSitePayload, Site, UpdateSitePayload } from '@/types/site';
-import { SupervisorSiteItem } from '@/types/supervisor-site';
+} from "@/services/supervisor-sites.service";
+import { Employee } from "@/types/employee";
+import { CreateSitePayload, Site, UpdateSitePayload } from "@/types/site";
+import { SupervisorSiteItem } from "@/types/supervisor-site";
 
 export const DEFAULT_JAKARTA_COORDS = {
   latitude: -6.2088,
@@ -43,7 +41,7 @@ export const DEFAULT_JAKARTA_COORDS = {
  * Derived dynamically from design tokens (COLORS.primary).
  */
 export function hexToRgba(hex: string, alpha: number): string {
-  const cleanHex = hex.replace('#', '');
+  const cleanHex = hex.replace("#", "");
   const r = parseInt(cleanHex.substring(0, 2), 16);
   const g = parseInt(cleanHex.substring(2, 4), 16);
   const b = parseInt(cleanHex.substring(4, 6), 16);
@@ -63,13 +61,11 @@ export function getAssignmentsForSite(
 export function getAvailableSupervisors(
   allSupervisors: Employee[],
   currentAssignments: SupervisorSiteItem[],
-  searchQuery: string = '',
+  searchQuery: string = "",
 ): Employee[] {
   if (!Array.isArray(allSupervisors)) return [];
 
-  const assignedIds = new Set(
-    currentAssignments.map((a) => a.supervisor.id),
-  );
+  const assignedIds = new Set(currentAssignments.map((a) => a.supervisor.id));
 
   const available = allSupervisors.filter((emp) => !assignedIds.has(emp.id));
 
@@ -78,8 +74,7 @@ export function getAvailableSupervisors(
 
   return available.filter(
     (emp) =>
-      emp.nama.toLowerCase().includes(q) ||
-      emp.email.toLowerCase().includes(q),
+      emp.nama.toLowerCase().includes(q) || emp.email.toLowerCase().includes(q),
   );
 }
 
@@ -102,17 +97,17 @@ export function validateSiteForm(
   const trimmedAlamat = alamat.trim();
 
   if (!trimmedNama) {
-    return { isValid: false, errorMessage: 'Nama site tidak boleh kosong.' };
+    return { isValid: false, errorMessage: "Nama site tidak boleh kosong." };
   }
   if (!trimmedAlamat) {
-    return { isValid: false, errorMessage: 'Alamat site tidak boleh kosong.' };
+    return { isValid: false, errorMessage: "Alamat site tidak boleh kosong." };
   }
 
   const lat = parseFloat(latitudeStr);
   if (isNaN(lat) || lat < -90 || lat > 90) {
     return {
       isValid: false,
-      errorMessage: 'Latitude harus berupa angka antara -90 dan 90.',
+      errorMessage: "Latitude harus berupa angka antara -90 dan 90.",
     };
   }
 
@@ -120,7 +115,7 @@ export function validateSiteForm(
   if (isNaN(lng) || lng < -180 || lng > 180) {
     return {
       isValid: false,
-      errorMessage: 'Longitude harus berupa angka antara -180 dan 180.',
+      errorMessage: "Longitude harus berupa angka antara -180 dan 180.",
     };
   }
 
@@ -129,7 +124,7 @@ export function validateSiteForm(
     return {
       isValid: false,
       errorMessage:
-        'Radius toleransi harus berupa angka positif lebih besar dari 0.',
+        "Radius toleransi harus berupa angka positif lebih besar dari 0.",
     };
   }
 
@@ -155,7 +150,7 @@ export async function getInitialMapCoordinates(
 
   try {
     const { status } = await locationModule.requestForegroundPermissionsAsync();
-    if (status === 'granted') {
+    if (status === "granted") {
       const pos = await locationModule.getCurrentPositionAsync({});
       return {
         latitude: pos.coords.latitude,
@@ -217,7 +212,7 @@ export async function processSiteFormSubmit(
   );
 
   if (!validation.isValid) {
-    const msg = validation.errorMessage || 'Data form tidak valid.';
+    const msg = validation.errorMessage || "Data form tidak valid.";
     setServerError(msg);
     return { success: false, errorMessage: msg };
   }
@@ -250,7 +245,7 @@ export async function processSiteFormSubmit(
     onSuccessNav();
     return { success: true };
   } catch (err: unknown) {
-    let message = 'Gagal menyimpan data site.';
+    let message = "Gagal menyimpan data site.";
     if (axios.isAxiosError(err)) {
       message = err.response?.data?.error?.message || message;
     } else if (err instanceof Error) {
@@ -297,7 +292,7 @@ export async function processAssignSupervisor(
   if (isAssigningRef.current) return { success: false };
 
   if (!siteId || !supervisorId) {
-    const msg = 'Data alokasi supervisor tidak lengkap.';
+    const msg = "Data alokasi supervisor tidak lengkap.";
     setAssignError(msg);
     return { success: false, errorMessage: msg };
   }
@@ -312,11 +307,11 @@ export async function processAssignSupervisor(
     onSuccess();
     return { success: true };
   } catch (err: unknown) {
-    let message = 'Gagal mengalokasikan supervisor ke site ini.';
+    let message = "Gagal mengalokasikan supervisor ke site ini.";
     if (axios.isAxiosError(err)) {
       const code = err.response?.data?.error?.code;
-      if (code === 'ROLE_BUKAN_SUPERVISOR') {
-        message = 'Pengguna tersebut tidak lagi memiliki role Supervisor.';
+      if (code === "ROLE_BUKAN_SUPERVISOR") {
+        message = "Pengguna tersebut tidak lagi memiliki role Supervisor.";
       } else {
         message = err.response?.data?.error?.message || message;
       }
@@ -339,7 +334,9 @@ export interface ProcessUnassignSupervisorParams {
   isUnassigningRef: React.MutableRefObject<boolean>;
   setIsUnassigning: (val: boolean) => void;
   setUnassignError: (msg: string | null) => void;
-  deleteSupervisorSiteFn: (id: string) => Promise<{ success: boolean }> | Promise<void>;
+  deleteSupervisorSiteFn: (
+    id: string,
+  ) => Promise<{ success: boolean }> | Promise<void>;
   invalidateQueriesFn: () => Promise<void> | void;
   onSuccess: () => void;
 }
@@ -360,7 +357,7 @@ export async function processUnassignSupervisor(
   if (isUnassigningRef.current) return { success: false };
 
   if (!assignmentId) {
-    const msg = 'ID alokasi supervisor tidak valid.';
+    const msg = "ID alokasi supervisor tidak valid.";
     setUnassignError(msg);
     return { success: false, errorMessage: msg };
   }
@@ -375,7 +372,7 @@ export async function processUnassignSupervisor(
     onSuccess();
     return { success: true };
   } catch (err: unknown) {
-    let message = 'Gagal menghapus alokasi supervisor.';
+    let message = "Gagal menghapus alokasi supervisor.";
     if (axios.isAxiosError(err)) {
       message = err.response?.data?.error?.message || message;
     } else if (err instanceof Error) {
@@ -400,13 +397,13 @@ export default function HrAdminSiteFormScreen() {
   const isAssigningRef = useRef(false);
   const isUnassigningRef = useRef(false);
 
-  const mapRef = useRef<MapView | null>(null);
+  const mapRef = useRef<any>(null);
 
-  const [nama, setNama] = useState('');
-  const [alamat, setAlamat] = useState('');
-  const [latitudeStr, setLatitudeStr] = useState('-6.208800');
-  const [longitudeStr, setLongitudeStr] = useState('106.845600');
-  const [radiusToleransiStr, setRadiusToleransiStr] = useState('75');
+  const [nama, setNama] = useState("");
+  const [alamat, setAlamat] = useState("");
+  const [latitudeStr, setLatitudeStr] = useState("-6.208800");
+  const [longitudeStr, setLongitudeStr] = useState("106.845600");
+  const [radiusToleransiStr, setRadiusToleransiStr] = useState("75");
   const [statusAktif, setStatusAktif] = useState(true);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -421,7 +418,7 @@ export default function HrAdminSiteFormScreen() {
 
   // Modal Picker State
   const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [pickerSearchQuery, setPickerSearchQuery] = useState('');
+  const [pickerSearchQuery, setPickerSearchQuery] = useState("");
 
   // Unassign Target State
   const [selectedUnassignTarget, setSelectedUnassignTarget] = useState<{
@@ -436,23 +433,19 @@ export default function HrAdminSiteFormScreen() {
     isError: isErrorSites,
     refetch: refetchSites,
   } = useQuery({
-    queryKey: ['sites'],
+    queryKey: ["sites"],
     queryFn: () => getSites(),
   });
 
-  const existingSite = isEditMode
-    ? sites.find((site) => site.id === id)
-    : null;
+  const existingSite = isEditMode ? sites.find((site) => site.id === id) : null;
 
   // Fetch Supervisor-Sites assignments (if Edit mode)
-  const {
-    data: supervisorSites = [],
-    isLoading: isLoadingSupervisorSites,
-  } = useQuery({
-    queryKey: ['supervisor-sites'],
-    queryFn: () => getSupervisorSites(),
-    enabled: isEditMode,
-  });
+  const { data: supervisorSites = [], isLoading: isLoadingSupervisorSites } =
+    useQuery({
+      queryKey: ["supervisor-sites"],
+      queryFn: () => getSupervisorSites(),
+      enabled: isEditMode,
+    });
 
   // Fetch Supervisors List for Picker (if Edit mode & Picker Open)
   const {
@@ -460,8 +453,8 @@ export default function HrAdminSiteFormScreen() {
     isLoading: isLoadingSupervisors,
     refetch: refetchSupervisors,
   } = useQuery({
-    queryKey: ['employees', 'SUPERVISOR'],
-    queryFn: () => getEmployees({ role: 'SUPERVISOR', statusAktif: true }),
+    queryKey: ["employees", "SUPERVISOR"],
+    queryFn: () => getEmployees({ role: "SUPERVISOR", statusAktif: true }),
     enabled: isEditMode && isPickerOpen,
   });
 
@@ -543,7 +536,7 @@ export default function HrAdminSiteFormScreen() {
       createSiteFn: createSite,
       updateSiteFn: updateSite,
       invalidateQueriesFn: () =>
-        queryClient.invalidateQueries({ queryKey: ['sites'] }),
+        queryClient.invalidateQueries({ queryKey: ["sites"] }),
       onSuccessNav: () => router.back(),
     });
   };
@@ -559,11 +552,11 @@ export default function HrAdminSiteFormScreen() {
       setAssignError,
       createSupervisorSiteFn: createSupervisorSite,
       invalidateQueriesFn: () =>
-        queryClient.invalidateQueries({ queryKey: ['supervisor-sites'] }),
+        queryClient.invalidateQueries({ queryKey: ["supervisor-sites"] }),
       refetchSupervisorsFn: refetchSupervisors,
       onSuccess: () => {
         setIsPickerOpen(false);
-        setPickerSearchQuery('');
+        setPickerSearchQuery("");
       },
     });
   };
@@ -578,7 +571,7 @@ export default function HrAdminSiteFormScreen() {
       setUnassignError,
       deleteSupervisorSiteFn: deleteSupervisorSite,
       invalidateQueriesFn: () =>
-        queryClient.invalidateQueries({ queryKey: ['supervisor-sites'] }),
+        queryClient.invalidateQueries({ queryKey: ["supervisor-sites"] }),
       onSuccess: () => {
         setSelectedUnassignTarget(null);
       },
@@ -612,11 +605,11 @@ export default function HrAdminSiteFormScreen() {
   return (
     <View className="flex-1 bg-slate-50">
       <ScreenHeader
-        title={isEditMode ? 'Edit Site' : 'Tambah Site Baru'}
+        title={isEditMode ? "Edit Site" : "Tambah Site Baru"}
         subtitle={
           isEditMode
             ? `Ubah data lokasi kerja untuk ${existingSite?.nama}`
-            : 'Tentukan lokasi & radius toleransi geofencing'
+            : "Tentukan lokasi & radius toleransi geofencing"
         }
       />
 
@@ -679,8 +672,8 @@ export default function HrAdminSiteFormScreen() {
                 <TouchableOpacity
                   className={`flex-1 py-2 rounded-xl border items-center justify-center ${
                     statusAktif
-                      ? 'bg-emerald-50 border-emerald-300'
-                      : 'bg-slate-50 border-slate-200'
+                      ? "bg-emerald-50 border-emerald-300"
+                      : "bg-slate-50 border-slate-200"
                   }`}
                   onPress={() => setStatusAktif(true)}
                   disabled={isSubmitting}
@@ -688,7 +681,7 @@ export default function HrAdminSiteFormScreen() {
                 >
                   <Text
                     className={`font-sans-bold text-xs ${
-                      statusAktif ? 'text-emerald-700' : 'text-slate-600'
+                      statusAktif ? "text-emerald-700" : "text-slate-600"
                     }`}
                   >
                     Aktif
@@ -698,8 +691,8 @@ export default function HrAdminSiteFormScreen() {
                 <TouchableOpacity
                   className={`flex-1 py-2 rounded-xl border items-center justify-center ${
                     !statusAktif
-                      ? 'bg-slate-200 border-slate-300'
-                      : 'bg-slate-50 border-slate-200'
+                      ? "bg-slate-200 border-slate-300"
+                      : "bg-slate-50 border-slate-200"
                   }`}
                   onPress={() => setStatusAktif(false)}
                   disabled={isSubmitting}
@@ -707,7 +700,7 @@ export default function HrAdminSiteFormScreen() {
                 >
                   <Text
                     className={`font-sans-bold text-xs ${
-                      !statusAktif ? 'text-slate-800' : 'text-slate-600'
+                      !statusAktif ? "text-slate-800" : "text-slate-600"
                     }`}
                   >
                     Nonaktif
@@ -735,45 +728,26 @@ export default function HrAdminSiteFormScreen() {
           </View>
 
           <Text className="font-sans text-xs text-slate-500 leading-4">
-            Geser (drag) marker di atas peta atau masukkan koordinat secara manual di bawah. Lingkaran menggambarkan radius toleransi geofencing.
+            Geser (drag) marker di atas peta atau masukkan koordinat secara
+            manual di bawah. Lingkaran menggambarkan radius toleransi
+            geofencing.
           </Text>
 
-          {/* Native MapView */}
+          {/* Native MapView / Web Fallback */}
           <View className="h-56 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
-            <MapView
-              ref={mapRef}
-              style={{ width: '100%', height: '100%' }}
-              region={{
-                latitude: validLat,
-                longitude: validLng,
-                latitudeDelta: 0.005,
-                longitudeDelta: 0.005,
+            <GeofenceMap
+              mapRef={mapRef}
+              latitude={validLat}
+              longitude={validLng}
+              radius={validRadius}
+              title={nama || "Lokasi Site"}
+              onDragEnd={(lat, lng) => {
+                setLatitudeStr(lat.toFixed(6));
+                setLongitudeStr(lng.toFixed(6));
               }}
-              testID="map-view-site"
-            >
-              {/* Draggable Marker */}
-              <Marker
-                coordinate={{ latitude: validLat, longitude: validLng }}
-                draggable
-                onDragEnd={(e) => {
-                  const { latitude, longitude } = e.nativeEvent.coordinate;
-                  setLatitudeStr(latitude.toFixed(6));
-                  setLongitudeStr(longitude.toFixed(6));
-                }}
-                title={nama || 'Lokasi Site'}
-                testID="map-marker-site"
-              />
-
-              {/* Circle Geofencing Radius (Meters) - Dynamic Token Color */}
-              <Circle
-                center={{ latitude: validLat, longitude: validLng }}
-                radius={validRadius}
-                fillColor={hexToRgba(COLORS.primary, 0.25)}
-                strokeColor={COLORS.primary}
-                strokeWidth={2}
-                testID="map-circle-site"
-              />
-            </MapView>
+              fillColor={hexToRgba(COLORS.primary, 0.25)}
+              strokeColor={COLORS.primary}
+            />
           </View>
 
           {/* 2-Way Numeric Coordinate & Radius Inputs */}
@@ -790,7 +764,12 @@ export default function HrAdminSiteFormScreen() {
                   onChangeText={(val) => {
                     setLatitudeStr(val);
                     const lat = parseFloat(val);
-                    if (!isNaN(lat) && lat >= -90 && lat <= 90 && mapRef.current) {
+                    if (
+                      !isNaN(lat) &&
+                      lat >= -90 &&
+                      lat <= 90 &&
+                      mapRef.current
+                    ) {
                       mapRef.current.animateToRegion(
                         {
                           latitude: lat,
@@ -808,7 +787,8 @@ export default function HrAdminSiteFormScreen() {
 
               <View className="flex-1">
                 <Text className="font-sans-semibold text-xs text-slate-700 mb-1">
-                  Longitude (-180 s/d 180) <Text className="text-rose-500">*</Text>
+                  Longitude (-180 s/d 180){" "}
+                  <Text className="text-rose-500">*</Text>
                 </Text>
                 <TextInput
                   className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-sans text-xs text-slate-900"
@@ -817,7 +797,12 @@ export default function HrAdminSiteFormScreen() {
                   onChangeText={(val) => {
                     setLongitudeStr(val);
                     const lng = parseFloat(val);
-                    if (!isNaN(lng) && lng >= -180 && lng <= 180 && mapRef.current) {
+                    if (
+                      !isNaN(lng) &&
+                      lng >= -180 &&
+                      lng <= 180 &&
+                      mapRef.current
+                    ) {
                       mapRef.current.animateToRegion(
                         {
                           latitude: validLat,
@@ -836,7 +821,8 @@ export default function HrAdminSiteFormScreen() {
 
             <View>
               <Text className="font-sans-semibold text-xs text-slate-700 mb-1">
-                Radius Toleransi (Meter) <Text className="text-rose-500">*</Text>
+                Radius Toleransi (Meter){" "}
+                <Text className="text-rose-500">*</Text>
               </Text>
               <TextInput
                 className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-sans text-xs text-slate-900"
@@ -851,7 +837,10 @@ export default function HrAdminSiteFormScreen() {
 
         {/* Section Supervisor Ter-assign (Edit Mode Only) */}
         {isEditMode && (
-          <SectionCard className="p-4 gap-3 mb-4" testID="section-supervisor-sites">
+          <SectionCard
+            className="p-4 gap-3 mb-4"
+            testID="section-supervisor-sites"
+          >
             <View className="flex-row items-center justify-between border-b border-slate-100 pb-2">
               <View className="flex-row items-center gap-1.5">
                 <Ionicons name="people" size={18} color="#475569" />
@@ -887,7 +876,11 @@ export default function HrAdminSiteFormScreen() {
               </View>
             ) : currentAssignments.length === 0 ? (
               <View className="py-4 items-center bg-slate-50 rounded-xl border border-dashed border-slate-200 px-3">
-                <Ionicons name="person-remove-outline" size={24} color="#94A3B8" />
+                <Ionicons
+                  name="person-remove-outline"
+                  size={24}
+                  color="#94A3B8"
+                />
                 <Text className="font-sans-medium text-xs text-slate-500 text-center mt-1">
                   Belum ada supervisor yang dialokasikan untuk site ini.
                 </Text>
@@ -924,7 +917,11 @@ export default function HrAdminSiteFormScreen() {
                         disabled={isUnassigning}
                         testID={`button-unassign-${item.id}`}
                       >
-                        <Ionicons name="trash-outline" size={16} color="#DC2626" />
+                        <Ionicons
+                          name="trash-outline"
+                          size={16}
+                          color="#DC2626"
+                        />
                       </TouchableOpacity>
                     </View>
                   );
@@ -937,7 +934,7 @@ export default function HrAdminSiteFormScreen() {
         {/* Submit Button - Standardized Primary Token Classes */}
         <TouchableOpacity
           className={`py-3.5 rounded-xl bg-primary items-center justify-center mb-6 ${
-            isSubmitting ? 'opacity-50' : 'active:bg-primary-hover'
+            isSubmitting ? "opacity-50" : "active:bg-primary-hover"
           }`}
           onPress={handleSubmit}
           disabled={isSubmitting}
@@ -947,7 +944,7 @@ export default function HrAdminSiteFormScreen() {
             <ActivityIndicator size="small" color={COLORS.onPrimary} />
           ) : (
             <Text className="font-sans-bold text-xs text-on-primary">
-              {isEditMode ? 'Simpan Perubahan Site' : 'Tambah Site Baru'}
+              {isEditMode ? "Simpan Perubahan Site" : "Tambah Site Baru"}
             </Text>
           )}
         </TouchableOpacity>
@@ -967,91 +964,47 @@ export default function HrAdminSiteFormScreen() {
       />
 
       {/* Modal Picker Tambah Supervisor */}
-      <Modal
+      <ModalPickerSheet<Employee>
         visible={isPickerOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setIsPickerOpen(false)}
-      >
-        <View className="flex-1 bg-black/40 justify-end">
-          <View className="bg-white rounded-t-2xl max-h-[80%] p-4">
-            <View className="flex-row items-center justify-between pb-3 border-b border-slate-100">
-              <Text className="font-sans-bold text-base text-slate-900">
-                Pilih Supervisor
+        onClose={() => setIsPickerOpen(false)}
+        title="Pilih Supervisor"
+        closeTestID="button-close-picker"
+        error={assignError}
+        errorTestID="banner-assign-error"
+        searchQuery={pickerSearchQuery}
+        onSearchQueryChange={setPickerSearchQuery}
+        searchPlaceholder="Cari nama atau email supervisor..."
+        searchTestID="input-search-supervisor-picker"
+        isLoading={isLoadingSupervisors}
+        loadingMessage="Memuat daftar supervisor..."
+        items={availableSupervisors}
+        keyExtractor={(emp) => emp.id}
+        emptyTitle="Tidak Ada Supervisor Tersedia"
+        emptyDescription={
+          pickerSearchQuery
+            ? "Tidak ada supervisor yang cocok dengan kata kunci pencarian."
+            : "Semua supervisor yang terdaftar sudah dialokasikan ke site ini."
+        }
+        renderItem={(emp) => (
+          <TouchableOpacity
+            key={emp.id}
+            className="flex-row items-center justify-between p-3 rounded-xl border border-slate-200 bg-slate-50 mb-2 active:bg-slate-100"
+            onPress={() => handleAssignSupervisor(emp.id)}
+            disabled={isAssigning}
+            testID={`item-available-supervisor-${emp.id}`}
+          >
+            <View className="flex-1 pr-2">
+              <Text className="font-sans-bold text-xs text-slate-900 mb-0.5">
+                {emp.nama}
               </Text>
-              <TouchableOpacity
-                onPress={() => setIsPickerOpen(false)}
-                testID="button-close-picker"
-              >
-                <Ionicons name="close-circle" size={24} color="#94A3B8" />
-              </TouchableOpacity>
+              <Text className="font-sans text-[11px] text-slate-500">
+                {emp.email}
+              </Text>
             </View>
-
-            {assignError && (
-              <View className="mt-3">
-                <AlertBanner
-                  type="error"
-                  message={assignError}
-                  testID="banner-assign-error"
-                />
-              </View>
-            )}
-
-            {/* Search Bar in Picker */}
-            <SearchInput
-              value={pickerSearchQuery}
-              onChangeText={setPickerSearchQuery}
-              placeholder="Cari nama atau email supervisor..."
-              testID="input-search-supervisor-picker"
-              containerClassName="flex-row items-center bg-slate-100 px-3 py-2 rounded-xl mt-3 mb-3 border border-slate-200"
-              iconSize={16}
-            />
-
-            {isLoadingSupervisors ? (
-              <View className="py-8 items-center">
-                <ActivityIndicator size="small" color={COLORS.primary} />
-                <Text className="font-sans text-xs text-slate-500 mt-2">
-                  Memuat daftar supervisor...
-                </Text>
-              </View>
-            ) : availableSupervisors.length === 0 ? (
-              <View className="py-8 items-center px-4">
-                <Ionicons name="people-outline" size={32} color="#94A3B8" />
-                <Text className="font-sans-semibold text-xs text-slate-700 text-center mt-2">
-                  Tidak Ada Supervisor Tersedia
-                </Text>
-                <Text className="font-sans text-[11px] text-slate-500 text-center mt-1">
-                  {pickerSearchQuery
-                    ? 'Tidak ada supervisor yang cocok dengan kata kunci pencarian.'
-                    : 'Semua supervisor yang terdaftar sudah dialokasikan ke site ini.'}
-                </Text>
-              </View>
-            ) : (
-              <ScrollView className="max-h-80">
-                {availableSupervisors.map((emp) => (
-                  <TouchableOpacity
-                    key={emp.id}
-                    className="flex-row items-center justify-between p-3 rounded-xl border border-slate-200 bg-slate-50 mb-2 active:bg-slate-100"
-                    onPress={() => handleAssignSupervisor(emp.id)}
-                    disabled={isAssigning}
-                    testID={`item-available-supervisor-${emp.id}`}
-                  >
-                    <View className="flex-1 pr-2">
-                      <Text className="font-sans-bold text-xs text-slate-900 mb-0.5">
-                        {emp.nama}
-                      </Text>
-                      <Text className="font-sans text-[11px] text-slate-500">
-                        {emp.email}
-                      </Text>
-                    </View>
-                    <Ionicons name="add-circle" size={20} color={COLORS.primary} />
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-        </View>
-      </Modal>
+            <Ionicons name="add-circle" size={20} color={COLORS.primary} />
+          </TouchableOpacity>
+        )}
+      />
     </View>
   );
 }

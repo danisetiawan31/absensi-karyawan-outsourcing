@@ -45,4 +45,19 @@ describe('ScreenHeader Component Suite', () => {
     const headerEl = ScreenHeader({ title: 'Riwayat Izin & Cuti' });
     expect(headerEl.props.children[1]).toBeUndefined();
   });
+
+  it('harus merender avatar profil inisial jika profileInitials dan onProfilePress diberikan', () => {
+    const handleProfile = jest.fn();
+    const headerEl = ScreenHeader({
+      title: 'Dashboard Supervisor',
+      profileInitials: 'SU',
+      onProfilePress: handleProfile,
+    });
+
+    const profileBtn = headerEl.props.children[1];
+    expect(profileBtn.props.testID).toBe('button-header-profile');
+    expect(profileBtn.props.children.props.children).toBe('SU');
+    profileBtn.props.onPress();
+    expect(handleProfile).toHaveBeenCalledTimes(1);
+  });
 });

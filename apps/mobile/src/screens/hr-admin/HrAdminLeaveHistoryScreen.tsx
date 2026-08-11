@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Modal,
   RefreshControl,
   ScrollView,
   Text,
@@ -18,8 +17,8 @@ import {
   LoadingState,
 } from "@/components/AsyncStateViews";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
+import { ModalPickerSheet } from "@/components/ModalPickerSheet";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { SearchInput } from "@/components/SearchInput";
 import { SectionCard } from "@/components/SectionCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { COLORS } from "@/constants/theme";
@@ -312,127 +311,61 @@ export default function HrAdminLeaveHistoryScreen() {
         )}
       </ScrollView>
 
-      {/* Modal Picker Karyawan */}
-      <Modal
+      {/* Modal Picker Selection Karyawan */}
+      <ModalPickerSheet<Employee>
         visible={isPickerOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setIsPickerOpen(false)}
-      >
-        <View className="flex-1 bg-black/40 justify-end">
-          <View className="bg-white rounded-t-2xl max-h-[80%] p-4">
-            <View className="flex-row items-center justify-between pb-3 border-b border-slate-100">
-              <Text className="font-sans-bold text-base text-slate-900">
-                Pilih Karyawan
+        onClose={() => setIsPickerOpen(false)}
+        title="Pilih Karyawan"
+        closeTestID="button-close-karyawan-picker"
+        searchQuery={pickerSearchQuery}
+        onSearchQueryChange={setPickerSearchQuery}
+        searchPlaceholder="Cari nama karyawan..."
+        searchTestID="input-search-karyawan-picker"
+        allOptionLabel="Semua Karyawan"
+        allOptionTestID="option-all-karyawan"
+        onSelectAllOption={() => {
+          setSelectedKaryawan(null);
+          setIsPickerOpen(false);
+        }}
+        isAllOptionSelected={selectedKaryawan === null}
+        isLoading={isLoadingEmployees}
+        loadingMessage="Memuat daftar karyawan..."
+        items={availableEmployees}
+        keyExtractor={(emp) => emp.id}
+        selectedId={selectedKaryawan?.id || null}
+        emptyTitle="Karyawan tidak ditemukan."
+        renderItem={(emp, isSelected) => (
+          <TouchableOpacity
+            key={emp.id}
+            className={`p-3 rounded-xl border mb-2 flex-row items-center justify-between ${
+              isSelected
+                ? 'bg-amber-50 border-amber-300'
+                : 'bg-slate-50 border-slate-200'
+            }`}
+            onPress={() => {
+              setSelectedKaryawan(emp);
+              setIsPickerOpen(false);
+            }}
+            testID={`option-karyawan-${emp.id}`}
+          >
+            <View className="flex-1 pr-2">
+              <Text className="font-sans-bold text-xs text-slate-900">
+                {emp.nama}
               </Text>
-              <TouchableOpacity
-                onPress={() => setIsPickerOpen(false)}
-                testID="button-close-karyawan-picker"
-              >
-                <Ionicons
-                  name="close-circle"
-                  size={24}
-                  color={COLORS.slate400}
-                />
-              </TouchableOpacity>
+              <Text className="font-sans text-[11px] text-slate-500">
+                {emp.email}
+              </Text>
             </View>
-
-            {/* Search Bar Input */}
-            <SearchInput
-              value={pickerSearchQuery}
-              onChangeText={setPickerSearchQuery}
-              placeholder="Cari nama karyawan..."
-              testID="input-search-karyawan-picker"
-              containerClassName="flex-row items-center bg-slate-100 px-3 py-2 rounded-xl mt-3 mb-3 border border-slate-200"
-              iconSize={16}
-            />
-
-            {/* Opsi "Semua Karyawan" */}
-            <TouchableOpacity
-              className={`p-3 rounded-xl border mb-2 flex-row items-center justify-between ${
-                selectedKaryawan === null
-                  ? "bg-amber-50 border-amber-300"
-                  : "bg-slate-50 border-slate-200"
-              }`}
-              onPress={() => {
-                setSelectedKaryawan(null);
-                setIsPickerOpen(false);
-              }}
-              testID="option-all-karyawan"
-            >
-              <Text
-                className={`font-sans-bold text-xs ${
-                  selectedKaryawan === null
-                    ? "text-amber-800"
-                    : "text-slate-700"
-                }`}
-              >
-                Semua Karyawan
-              </Text>
-              {selectedKaryawan === null && (
-                <Ionicons
-                  name="checkmark-circle"
-                  size={18}
-                  color={COLORS.primary}
-                />
-              )}
-            </TouchableOpacity>
-
-            {isLoadingEmployees ? (
-              <View className="py-6 items-center">
-                <ActivityIndicator size="small" color={COLORS.primary} />
-                <Text className="font-sans text-xs text-slate-500 mt-2">
-                  Memuat daftar karyawan...
-                </Text>
-              </View>
-            ) : availableEmployees.length === 0 ? (
-              <View className="py-6 items-center">
-                <Text className="font-sans text-xs text-slate-500">
-                  Karyawan tidak ditemukan.
-                </Text>
-              </View>
-            ) : (
-              <ScrollView className="max-h-72">
-                {availableEmployees.map((emp) => {
-                  const isSelected = selectedKaryawan?.id === emp.id;
-
-                  return (
-                    <TouchableOpacity
-                      key={emp.id}
-                      className={`p-3 rounded-xl border mb-2 flex-row items-center justify-between ${
-                        isSelected
-                          ? "bg-amber-50 border-amber-300"
-                          : "bg-slate-50 border-slate-200"
-                      }`}
-                      onPress={() => {
-                        setSelectedKaryawan(emp);
-                        setIsPickerOpen(false);
-                      }}
-                      testID={`option-karyawan-${emp.id}`}
-                    >
-                      <View className="flex-1 pr-2">
-                        <Text className="font-sans-bold text-xs text-slate-900">
-                          {emp.nama}
-                        </Text>
-                        <Text className="font-sans text-[11px] text-slate-500">
-                          {emp.email}
-                        </Text>
-                      </View>
-                      {isSelected && (
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={18}
-                          color={COLORS.primary}
-                        />
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+            {isSelected && (
+              <Ionicons
+                name="checkmark-circle"
+                size={18}
+                color={COLORS.primary}
+              />
             )}
-          </View>
-        </View>
-      </Modal>
+          </TouchableOpacity>
+        )}
+      />
     </View>
   );
 }
