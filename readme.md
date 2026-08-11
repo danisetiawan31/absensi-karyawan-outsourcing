@@ -7,8 +7,8 @@
 Face-verified check-in/out · GPS geofencing · Role-based scheduling · Real-time supervisor dashboards · Automated payroll reporting
 
 ![Status](https://img.shields.io/badge/Backend-Production--Ready-brightgreen)
-![Status](https://img.shields.io/badge/Mobile-In%20Progress-yellow)
-![Tests](https://img.shields.io/badge/Tests-321%20passing-brightgreen)
+![Status](https://img.shields.io/badge/Mobile-Feature--Complete-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-621%20passing-brightgreen)
 ![NestJS](https://img.shields.io/badge/NestJS-E0234E?logo=nestjs&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-2D3748?logo=prisma&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
@@ -77,10 +77,11 @@ This system replaces informal chat-based scheduling and fragmented attendance lo
 | ----------------------- | ------------------------------------------------------------------------------------------------------- |
 | **Mobile**              | React Native (Expo SDK 54) · Expo Router · TanStack Query · Zustand · expo-secure-store                 |
 | **Backend API**         | NestJS 11 · Prisma 6 · PostgreSQL 16                                                                    |
+| **Caching & Rate Limit**| Redis (ioredis) — distributed session cache & auth rate-limiting with graceful fallback                 |
 | **Face Verification**   | Python · FastAPI · DeepFace (MTCNN detector, FasNet anti-spoofing via PyTorch) — stateless microservice |
 | **Geofencing**          | Haversine formula (application-layer, no PostGIS dependency)                                            |
 | **Transactional Email** | Resend                                                                                                  |
-| **Language**            | TypeScript (strict), zero `any` by convention across ~320 tests                                         |
+| **Language**            | TypeScript (strict), zero `any` by convention across 621 tests (321 backend + 300 mobile)                |
 
 ### Architecture Overview
 
@@ -88,11 +89,13 @@ This system replaces informal chat-based scheduling and fragmented attendance lo
 flowchart LR
     Mobile["React Native Mobile App\n(Expo SDK 54)"]
     Backend["NestJS Backend API\n(Prisma 6)"]
+    Redis["Redis\n(Cache & Rate Limit)"]
     Face["Face Verification Service\n(Python · FastAPI · DeepFace)\nstateless"]
     DB[("PostgreSQL 16\n— includes faceEmbedding")]
     Email["Resend\n(Transactional Email)"]
 
     Mobile -->|REST requests| Backend
+    Backend -->|cache & rate limiting| Redis
     Backend -->|image, per-request| Face
     Face -->|embedding + liveness result| Backend
     Backend -->|cosine similarity check\nvia Prisma| DB
@@ -191,7 +194,7 @@ sequenceDiagram
 
 | Signal             | Result                                                                                                                          |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| Automated tests    | **321 tests** (Jest) across 23 suites, passing end-to-end                                                                       |
+| Automated tests    | **621 tests** across 72 suites (**321 NestJS** backend + **300 React Native / Expo** mobile), passing 100%                      |
 | Lint & build       | `npm run lint` and `npm run build` kept clean throughout development — not retrofitted at the end                               |
 | Type safety        | Strict discipline against `any` across every module, including test files                                                       |
 | Concurrency safety | Race-condition-safe status transitions via conditional `updateMany` (e.g., leave approval/rejection) instead of read-then-write |
@@ -201,10 +204,10 @@ sequenceDiagram
 
 ## Current Status & Roadmap
 
-| Component   | Status                   |
-| ----------- | ------------------------ |
-| Backend API | ✅ Feature-complete      |
-| Mobile App  | 🚧 In active development |
+| Component   | Status              |
+| ----------- | ------------------- |
+| Backend API | ✅ Feature-complete |
+| Mobile App  | ✅ Feature-complete |
 
 **Backend — feature-complete.** All endpoints in the API contract are implemented and tested:
 
@@ -216,13 +219,13 @@ sequenceDiagram
 - Supervisor dashboards (real-time attendance, unfilled shifts)
 - HR reporting (attendance summary, verification-attempt audit trail, PDF/XLSX export)
 
-**Mobile app — in active development** (built in parallel with the backend, and continuing alongside my job search):
+**Mobile app — feature-complete.** All 3 role route groups (`(karyawan)`, `(supervisor)`, `(hr-admin)`) are implemented and tested:
 
-- ✅ Auth flow: login, forced password change, forgot/reset password
-- ✅ Employee home dashboard: today's schedule, attendance progress stepper, dynamic reminders
-- ✅ Face registration flow (camera → preview → confirm)
-- 🚧 Employee check-in/out screen, leave request submission, notifications list
-- 🚧 Supervisor and HR Admin dashboards
+- ✅ Auth flow: login, forced password change, forgot/reset password, dynamic email & profile screen
+- ✅ Employee role: today's schedule, attendance progress stepper, face + GPS check-in/out flow, leave request submission, notifications
+- ✅ Supervisor role: real-time attendance dashboard, unfilled shift alerts, shift scheduling CRUD (with bottom sheet picker), leave request approvals
+- ✅ HR Admin role: employee management (with password reveal modal), site & geofence management (dual-mode native/web map & supervisor allocation), leave history & approvals, payroll & verification attempt reporting (PDF/XLSX export)
+- ✅ Shared UI Design System: reusable `HomeHeader`, generic `ModalPickerSheet<T>`, `ConfirmModal`, `DateRangeFilter`, and `SearchInput`
 
 **Known technical debt** (tracked, not hidden):
 
@@ -233,7 +236,7 @@ sequenceDiagram
 
 ## Getting Started
 
-This is a multi-service project (mobile + backend + Python microservice + PostgreSQL).
+This is a multi-service project (mobile + backend + Python microservice + PostgreSQL + Redis).
 
 <details>
 <summary><strong>Click to expand full local setup instructions</strong></summary>
@@ -242,13 +245,13 @@ This is a multi-service project (mobile + backend + Python microservice + Postgr
 # 1. Install dependencies (npm workspaces)
 npm install
 
-# 2. Start PostgreSQL
+# 2. Start PostgreSQL & Redis
 docker-compose up -d
 
 # 3. Configure environment
 cp apps/backend/.env.example apps/backend/.env
 cp apps/face-service/.env.example apps/face-service/.env
-# fill in DATABASE_URL, JWT_SECRET, RESEND_API_KEY, FACE_SERVICE_URL, etc.
+# fill in DATABASE_URL, REDIS_HOST, REDIS_PORT, JWT_SECRET, RESEND_API_KEY, FACE_SERVICE_URL, etc.
 
 # 4. Set up the database
 cd apps/backend
