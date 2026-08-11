@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import React from 'react';
 import {
   RefreshControl,
   ScrollView,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -13,6 +15,7 @@ import {
   ErrorState,
   LoadingState,
 } from '@/components/AsyncStateViews';
+import { HomeHeader } from '@/components/HomeHeader';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { SectionCard } from '@/components/SectionCard';
 import { StatusBadge, StatusBadgeVariant } from '@/components/StatusBadge';
@@ -21,6 +24,8 @@ import {
   getAttendanceDashboard,
   getUnfilledShifts,
 } from '@/services/dashboard.service';
+import { getInitials } from '@/screens/common/ProfileScreen';
+import { useAuthStore } from '@/store/authStore';
 import {
   DashboardAttendanceItem,
   DashboardAttendanceStatus,
@@ -77,6 +82,8 @@ export function getDashboardStatusBadgeConfig(
 }
 
 export default function SupervisorHomeScreen() {
+  const nama = useAuthStore((state) => state.nama);
+  const initials = getInitials(nama);
   const todayYmd = formatJakartaYmd(new Date());
   const todayDisplay = formatJakartaDate(new Date());
 
@@ -113,10 +120,7 @@ export default function SupervisorHomeScreen() {
 
   return (
     <View className="flex-1 bg-slate-50">
-      <ScreenHeader
-        title="Dashboard Supervisor"
-        subtitle={`Monitoring Kehadiran — ${todayDisplay}`}
-      />
+      <HomeHeader />
 
       <ScrollView
         className="flex-1 px-5 pt-4"

@@ -12,11 +12,14 @@ import {
 } from 'react-native';
 
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStateViews';
+import { HomeHeader } from '@/components/HomeHeader';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { SearchInput } from '@/components/SearchInput';
 import { SectionCard } from '@/components/SectionCard';
 import { COLORS } from '@/constants/theme';
+import { getInitials } from '@/screens/common/ProfileScreen';
 import { getEmployees } from '@/services/employees.service';
+import { useAuthStore } from '@/store/authStore';
 import { UserRole } from '@/types/api';
 import { Employee, GetEmployeesParams } from '@/types/employee';
 
@@ -86,21 +89,33 @@ export function navigateToEditEmployee(routerPush: RouterPushFn, id: string) {
 }
 
 export default function HrAdminEmployeesScreen() {
+  const nama = useAuthStore((state) => state.nama);
+  const initials = getInitials(nama);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<RoleFilterType>('SEMUA');
   const [statusFilter, setStatusFilter] = useState<StatusFilterType>('SEMUA');
 
-  const params = buildGetEmployeesParams(searchQuery, roleFilter, statusFilter);
+  // Build params untuk server-side filter/search
+  const queryParams: GetEmployeesParams = {
+    search: searchQuery.trim() || undefined,
+    role: roleFilter !== 'SEMUA' ? roleFilter : undefined,
+    statusAktif:
+      statusFilter === 'AKTIF'
+        ? true
+        : statusFilter === 'NONAKTIF'
+        ? false
+        : undefined,
+  };
 
   const {
     data: employees = [],
     isLoading,
     isError,
-    refetch,
     isRefetching,
+    refetch,
   } = useQuery({
-    queryKey: ['employees', params],
-    queryFn: () => getEmployees(params),
+    queryKey: ['employees', queryParams],
+    queryFn: () => getEmployees(queryParams),
   });
 
   const handleAddEmployee = () => {
@@ -113,10 +128,7 @@ export default function HrAdminEmployeesScreen() {
 
   return (
     <View className="flex-1 bg-slate-50">
-      <ScreenHeader
-        title="Manajemen Karyawan"
-        subtitle="Kelola seluruh akun user karyawan, supervisor, & HR admin"
-      />
+      <HomeHeader />
 
       <ScrollView
         className="flex-1 px-4 pt-4"

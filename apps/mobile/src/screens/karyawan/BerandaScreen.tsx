@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 
+import { HomeHeader } from "@/components/HomeHeader";
 import { ReminderBanner } from "@/components/ReminderBanner";
 import { SectionCard } from "@/components/SectionCard";
 import { COLORS } from "@/constants/theme";
@@ -394,6 +395,8 @@ export default function BerandaScreen() {
 
   return (
     <View className="flex-1 bg-slate-50">
+      <HomeHeader />
+
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 40 }}
@@ -407,24 +410,6 @@ export default function BerandaScreen() {
           />
         }
       >
-        {/* ── Header Sapaan & Avatar ─────────────────────────────────────── */}
-        <View className="flex-row items-center justify-between border-b border-border bg-surface px-6 pb-4 pt-12 shadow-xs">
-          <View className="flex-1 pr-4">
-            <Text className="font-sans text-xs text-muted">Selamat Datang</Text>
-            <Text
-              className="font-sans-bold text-xl text-foreground"
-              numberOfLines={1}
-            >
-              Halo, {nama || "Karyawan"}
-            </Text>
-          </View>
-          <View className="h-12 w-12 items-center justify-center rounded-full bg-primary shadow-sm">
-            <Text className="font-sans-extrabold text-base text-on-primary">
-              {initials}
-            </Text>
-          </View>
-        </View>
-
         {/* ── Content Area ───────────────────────────────────────────────── */}
         <View className="px-5 pt-4">
           {/* Loading */}
