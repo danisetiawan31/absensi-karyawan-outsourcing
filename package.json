@@ -16,6 +16,7 @@
     "dev": "turbo run dev"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.3",
     "resend": "^6.18.1"
   },
   "devDependencies": {
@@ -24,6 +25,7 @@
     "@react-native/assets-registry": "^0.81.5",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
+    "prisma": "^6.19.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "turbo": "^2.10.12"
