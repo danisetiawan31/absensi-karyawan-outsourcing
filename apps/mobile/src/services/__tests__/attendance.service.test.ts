@@ -1,23 +1,23 @@
-import MockAdapter from 'axios-mock-adapter';
-import apiClient from '../apiClient';
+import MockAdapter from "axios-mock-adapter";
+import apiClient from "../apiClient";
 import {
   checkIn,
   checkOut,
   createAttendanceFormData,
-} from '../attendance.service';
+} from "../attendance.service";
 import {
   CheckInResponse,
   CheckOutResponse,
   CheckInSuccessResult,
   CheckOutSuccessResult,
   ControlledFailureResult,
-} from '@/types/attendance';
+} from "@/types/attendance";
 
-jest.mock('expo-router', () => ({
+jest.mock("expo-router", () => ({
   router: { replace: jest.fn() },
 }));
 
-describe('AttendanceService (mobile/src/services/attendance.service.ts)', () => {
+describe("AttendanceService (mobile/src/services/attendance.service.ts)", () => {
   let mockAxios: MockAdapter;
 
   beforeEach(() => {
@@ -29,78 +29,82 @@ describe('AttendanceService (mobile/src/services/attendance.service.ts)', () => 
     mockAxios.restore();
   });
 
-  describe('createAttendanceFormData', () => {
-    it('harus membuat FormData dengan string photoUri dengan benar', () => {
+  describe("createAttendanceFormData", () => {
+    it("harus membuat FormData dengan string photoUri dengan benar", () => {
       const formData = createAttendanceFormData(
-        'jadwal-123',
+        "jadwal-123",
         -6.2088,
         106.8456,
-        'file:///storage/photo.png',
+        "file:///storage/photo.png",
       );
 
       // Verifikasi FormData terisi
       expect(formData).toBeDefined();
     });
 
-    it('harus membuat FormData dengan PhotoFile object dengan benar', () => {
+    it("harus membuat FormData dengan PhotoFile object dengan benar", () => {
       const formData = createAttendanceFormData(
-        'jadwal-123',
+        "jadwal-123",
         -6.2088,
         106.8456,
-        { uri: 'file:///storage/photo.jpg', name: 'custom.jpg', type: 'image/jpeg' },
+        {
+          uri: "file:///storage/photo.jpg",
+          name: "custom.jpg",
+          type: "image/jpeg",
+        },
       );
 
       expect(formData).toBeDefined();
     });
 
-    it('harus menambahkan field isMocked true ke FormData jika disediakan true', () => {
+    it("harus menambahkan field isMocked true ke FormData jika disediakan true", () => {
       const formData = createAttendanceFormData(
-        'jadwal-123',
+        "jadwal-123",
         -6.2088,
         106.8456,
-        'file:///storage/photo.png',
+        "file:///storage/photo.png",
         true,
       );
 
-      expect(formData.get('isMocked')).toBe('true');
+      expect(formData.get("isMocked")).toBe("true");
     });
 
-    it('harus menambahkan field isMocked false ke FormData jika disediakan false', () => {
+    it("harus menambahkan field isMocked false ke FormData jika disediakan false", () => {
       const formData = createAttendanceFormData(
-        'jadwal-123',
+        "jadwal-123",
         -6.2088,
         106.8456,
-        'file:///storage/photo.png',
+        "file:///storage/photo.png",
         false,
       );
 
-      expect(formData.get('isMocked')).toBe('false');
+      expect(formData.get("isMocked")).toBe("false");
     });
 
-    it('tidak boleh menambahkan field isMocked jika bernilai undefined', () => {
+    it("tidak boleh menambahkan field isMocked jika bernilai undefined", () => {
       const formData = createAttendanceFormData(
-        'jadwal-123',
+        "jadwal-123",
         -6.2088,
         106.8456,
-        'file:///storage/photo.png',
+        "file:///storage/photo.png",
       );
 
-      expect(formData.get('isMocked')).toBeNull();
+      expect(formData.get("isMocked")).toBeNull();
     });
   });
 
-  describe('checkIn', () => {
-    it('harus mengirim request multipart/form-data dengan timeout 60000ms dan mem-parse response VALID', async () => {
+  describe("checkIn", () => {
+    it("harus mengirim request multipart/form-data dengan timeout 60000ms dan mem-parse response VALID", async () => {
       const mockSuccessData: CheckInSuccessResult = {
-        logId: 'log-checkin-1',
-        waktuCheckIn: '2026-08-07T08:00:00.000Z',
-        hasilVerifikasi: 'VALID',
+        logId: "log-checkin-1",
+        waktuCheckIn: "2026-08-07T08:00:00.000Z",
+        hasilVerifikasi: "VALID",
       };
 
-      mockAxios.onPost('/attendance/check-in').reply((config) => {
+      mockAxios.onPost("/attendance/check-in").reply((config) => {
         // Assert header dan timeout config
         expect(config.timeout).toBe(60000);
-        expect(config.headers?.['Content-Type']).toBe('multipart/form-data');
+        expect(config.headers?.["Content-Type"]).toBe("multipart/form-data");
         expect(config.data).toBeInstanceOf(FormData);
 
         return [
@@ -108,91 +112,94 @@ describe('AttendanceService (mobile/src/services/attendance.service.ts)', () => 
           {
             success: true,
             data: mockSuccessData,
-            meta: { timestamp: new Date().toISOString(), requestId: 'req-1' },
+            meta: { timestamp: new Date().toISOString(), requestId: "req-1" },
           },
         ];
       });
 
       const result = await checkIn(
-        'jadwal-123',
+        "jadwal-123",
         -6.2088,
         106.8456,
-        'file:///path/to/photo.jpg',
+        "file:///path/to/photo.jpg",
       );
 
-      expect(result.hasilVerifikasi).toBe('VALID');
-      if (result.hasilVerifikasi === 'VALID') {
-        expect(result.logId).toBe('log-checkin-1');
-        expect(result.waktuCheckIn).toBe('2026-08-07T08:00:00.000Z');
+      expect(result.hasilVerifikasi).toBe("VALID");
+      if (result.hasilVerifikasi === "VALID") {
+        expect(result.logId).toBe("log-checkin-1");
+        expect(result.waktuCheckIn).toBe("2026-08-07T08:00:00.000Z");
       }
     });
 
-    it('harus mem-parse response gagal-terkontrol (GAGAL_LOKASI) dengan benar tanpa crash', async () => {
+    it("harus mem-parse response gagal-terkontrol (GAGAL_LOKASI) dengan benar tanpa crash", async () => {
       const mockFailureData: ControlledFailureResult = {
-        hasilVerifikasi: 'GAGAL_LOKASI',
-        pesan: 'Anda berada di luar radius lokasi',
+        hasilVerifikasi: "GAGAL_LOKASI",
+        pesan: "Anda berada di luar radius lokasi",
       };
 
-      mockAxios.onPost('/attendance/check-in').reply(200, {
+      mockAxios.onPost("/attendance/check-in").reply(200, {
         success: true,
         data: mockFailureData,
-        meta: { timestamp: new Date().toISOString(), requestId: 'req-2' },
+        meta: { timestamp: new Date().toISOString(), requestId: "req-2" },
       });
 
       const result: CheckInResponse = await checkIn(
-        'jadwal-123',
+        "jadwal-123",
         -6.2088,
         106.8456,
-        'file:///path/to/photo.jpg',
+        "file:///path/to/photo.jpg",
       );
 
-      expect(result.hasilVerifikasi).toBe('GAGAL_LOKASI');
-      if (result.hasilVerifikasi !== 'VALID') {
-        expect(result.pesan).toBe('Anda berada di luar radius lokasi');
+      expect(result.hasilVerifikasi).toBe("GAGAL_LOKASI");
+      if (result.hasilVerifikasi !== "VALID") {
+        expect(result.pesan).toBe("Anda berada di luar radius lokasi");
       }
     });
 
-    it('harus meneruskan parameter isMocked pada check-in jika disediakan', async () => {
+    it("harus meneruskan parameter isMocked pada check-in jika disediakan", async () => {
       let sentFormData: FormData | undefined;
-      mockAxios.onPost('/attendance/check-in').reply((config) => {
+      mockAxios.onPost("/attendance/check-in").reply((config) => {
         sentFormData = config.data as FormData;
         return [
           200,
           {
             success: true,
             data: {
-              hasilVerifikasi: 'GAGAL_LOKASI',
-              pesan: 'Terdeteksi lokasi palsu (Fake GPS / Mock Location)',
+              hasilVerifikasi: "GAGAL_LOKASI",
+              pesan: "Terdeteksi lokasi palsu (Fake GPS / Mock Location)",
             },
-            meta: { timestamp: new Date().toISOString(), requestId: 'req-mock-in' },
+            meta: {
+              timestamp: new Date().toISOString(),
+              requestId: "req-mock-in",
+            },
           },
         ];
       });
 
       const result = await checkIn(
-        'jadwal-123',
+        "jadwal-123",
         -6.2088,
         106.8456,
-        'file:///path/to/photo.jpg',
+        "file:///path/to/photo.jpg",
         true,
       );
 
-      expect(result.hasilVerifikasi).toBe('GAGAL_LOKASI');
-      expect(sentFormData?.get('isMocked')).toBe('true');
+      expect(result.hasilVerifikasi).toBe("GAGAL_LOKASI");
+      expect(sentFormData?.get("isMocked")).toBe("true");
     });
   });
 
-  describe('checkOut', () => {
-    it('harus mengirim request multipart/form-data dengan timeout 60000ms dan mem-parse response VALID', async () => {
+  describe("checkOut", () => {
+    it("harus mengirim request multipart/form-data dengan timeout 60000ms dan mem-parse response VALID", async () => {
       const mockSuccessData: CheckOutSuccessResult = {
-        logId: 'log-checkout-1',
-        waktuCheckOut: '2026-08-07T17:00:00.000Z',
-        hasilVerifikasi: 'VALID',
+        logId: "log-checkout-1",
+        waktuCheckOut: "2026-08-07T17:00:00.000Z",
+        hasilVerifikasi: "VALID",
       };
 
-      mockAxios.onPost('/attendance/check-out').reply((config) => {
+      mockAxios.onPost("/attendance/check-out").reply((config) => {
         expect(config.timeout).toBe(60000);
-        expect(config.headers?.['Content-Type']).toBe('multipart/form-data');
+        expect(config.headers?.["Content-Type"]).toBe("multipart/form-data");
         expect(config.data).toBeInstanceOf(FormData);
 
         return [
@@ -200,77 +207,82 @@ describe('AttendanceService (mobile/src/services/attendance.service.ts)', () => 
           {
             success: true,
             data: mockSuccessData,
-            meta: { timestamp: new Date().toISOString(), requestId: 'req-3' },
+            meta: { timestamp: new Date().toISOString(), requestId: "req-3" },
           },
         ];
       });
 
       const result = await checkOut(
-        'jadwal-123',
+        "jadwal-123",
         -6.2088,
         106.8456,
-        'file:///path/to/photo.jpg',
+        "file:///path/to/photo.jpg",
       );
 
-      expect(result.hasilVerifikasi).toBe('VALID');
-      if (result.hasilVerifikasi === 'VALID') {
-        expect(result.logId).toBe('log-checkout-1');
-        expect(result.waktuCheckOut).toBe('2026-08-07T17:00:00.000Z');
+      expect(result.hasilVerifikasi).toBe("VALID");
+      if (result.hasilVerifikasi === "VALID") {
+        expect(result.logId).toBe("log-checkout-1");
+        expect(result.waktuCheckOut).toBe("2026-08-07T17:00:00.000Z");
       }
     });
 
-    it('harus mem-parse response gagal-terkontrol (DI_LUAR_JENDELA_WAKTU) dengan benar tanpa crash', async () => {
+    it("harus mem-parse response gagal-terkontrol (DI_LUAR_JENDELA_WAKTU) dengan benar tanpa crash", async () => {
       const mockFailureData: ControlledFailureResult = {
-        hasilVerifikasi: 'DI_LUAR_JENDELA_WAKTU',
-        pesan: 'Waktu check-out di luar batas yang diizinkan',
+        hasilVerifikasi: "DI_LUAR_JENDELA_WAKTU",
+        pesan: "Waktu check-out di luar batas yang diizinkan",
       };
 
-      mockAxios.onPost('/attendance/check-out').reply(200, {
+      mockAxios.onPost("/attendance/check-out").reply(200, {
         success: true,
         data: mockFailureData,
-        meta: { timestamp: new Date().toISOString(), requestId: 'req-4' },
+        meta: { timestamp: new Date().toISOString(), requestId: "req-4" },
       });
 
       const result: CheckOutResponse = await checkOut(
-        'jadwal-123',
+        "jadwal-123",
         -6.2088,
         106.8456,
-        'file:///path/to/photo.jpg',
+        "file:///path/to/photo.jpg",
       );
 
-      expect(result.hasilVerifikasi).toBe('DI_LUAR_JENDELA_WAKTU');
-      if (result.hasilVerifikasi !== 'VALID') {
-        expect(result.pesan).toBe('Waktu check-out di luar batas yang diizinkan');
+      expect(result.hasilVerifikasi).toBe("DI_LUAR_JENDELA_WAKTU");
+      if (result.hasilVerifikasi !== "VALID") {
+        expect(result.pesan).toBe(
+          "Waktu check-out di luar batas yang diizinkan",
+        );
       }
     });
 
-    it('harus meneruskan parameter isMocked pada check-out jika disediakan', async () => {
+    it("harus meneruskan parameter isMocked pada check-out jika disediakan", async () => {
       let sentFormData: FormData | undefined;
-      mockAxios.onPost('/attendance/check-out').reply((config) => {
+      mockAxios.onPost("/attendance/check-out").reply((config) => {
         sentFormData = config.data as FormData;
         return [
           200,
           {
             success: true,
             data: {
-              hasilVerifikasi: 'GAGAL_LOKASI',
-              pesan: 'Terdeteksi lokasi palsu (Fake GPS / Mock Location)',
+              hasilVerifikasi: "GAGAL_LOKASI",
+              pesan: "Terdeteksi lokasi palsu (Fake GPS / Mock Location)",
             },
-            meta: { timestamp: new Date().toISOString(), requestId: 'req-mock-out' },
+            meta: {
+              timestamp: new Date().toISOString(),
+              requestId: "req-mock-out",
+            },
           },
         ];
       });
 
       const result = await checkOut(
-        'jadwal-123',
+        "jadwal-123",
         -6.2088,
         106.8456,
-        'file:///path/to/photo.jpg',
+        "file:///path/to/photo.jpg",
         true,
       );
 
-      expect(result.hasilVerifikasi).toBe('GAGAL_LOKASI');
-      expect(sentFormData?.get('isMocked')).toBe('true');
+      expect(result.hasilVerifikasi).toBe("GAGAL_LOKASI");
+      expect(sentFormData?.get("isMocked")).toBe("true");
     });
   });
 });
