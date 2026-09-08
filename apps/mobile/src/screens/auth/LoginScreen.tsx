@@ -4,7 +4,6 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   Text,
   TextInput,

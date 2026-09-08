@@ -6,13 +6,13 @@ import {
   Linking,
   StyleSheet,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { CameraView, useCameraPermissions, CameraPictureOptions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { LocationOptions, LocationObject } from 'expo-location';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform } from 'react-native';
 import { COLORS } from '@/constants/theme';
 
 export function getPermissionViewState(
@@ -108,7 +108,7 @@ export async function processAttendanceCapture({
       location = await getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-    } catch (err: unknown) {
+    } catch {
       setGpsErrorMsg('Gagal mendapatkan lokasi GPS. Pastikan GPS perangkat Anda aktif.');
       setIsCapturing(false);
       return false;
@@ -144,7 +144,7 @@ export async function processAttendanceCapture({
       },
     });
     return true;
-  } catch (error) {
+  } catch {
     setGpsErrorMsg('Terjadi kesalahan saat memproses absensi.');
     return false;
   } finally {
@@ -237,7 +237,7 @@ export default function AttendanceCameraScreen() {
           // Ignored if user cancels GPS prompt
         }
       }
-      const res = await requestLocationPermission();
+      await requestLocationPermission();
       const freshLoc = await Location.getForegroundPermissionsAsync();
       setLocationPermissionState(freshLoc);
 

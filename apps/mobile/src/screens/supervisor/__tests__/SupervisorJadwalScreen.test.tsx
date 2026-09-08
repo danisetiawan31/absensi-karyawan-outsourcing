@@ -1,5 +1,3 @@
-import React from 'react';
-
 import SupervisorJadwalScreen from '../SupervisorJadwalScreen';
 
 describe('SupervisorJadwalScreen Component Suite', () => {

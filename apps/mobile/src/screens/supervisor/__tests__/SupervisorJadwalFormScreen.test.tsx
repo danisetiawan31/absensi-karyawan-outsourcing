@@ -1,6 +1,6 @@
 import { formatJakartaYmd } from '@/utils/date.util';
 
-import SupervisorJadwalFormScreen, {
+import {
   calculateShiftDurationHours,
   getInitialSelectedDate,
   processScheduleSubmit,

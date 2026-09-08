@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '@/constants/theme';
 
 import apiClient from '@/services/apiClient';

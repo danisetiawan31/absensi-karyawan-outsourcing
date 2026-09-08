@@ -27,13 +27,12 @@ import {
   JenisIzin,
   SelectedDocumentFile,
 } from '@/types/leave-request';
-
-export const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
-
 import {
   formatJakartaDate,
   formatJakartaYmd,
 } from '@/utils/date.util';
+
+export const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
 export const formatDateToYmd = formatJakartaYmd;
 export const formatDateDisplay = formatJakartaDate;

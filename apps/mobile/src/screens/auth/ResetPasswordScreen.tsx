@@ -22,6 +22,14 @@ const MIN_PASSWORD_LENGTH = 8;
 export default function ResetPasswordScreen() {
   const { email } = useLocalSearchParams<{ email?: string }>();
 
+  const [token, setToken] = useState('');
+  const [passwordBaru, setPasswordBaru] = useState('');
+  const [konfirmasiPassword, setKonfirmasiPassword] = useState('');
+  const [showPasswordBaru, setShowPasswordBaru] = useState(false);
+  const [showKonfirmasi, setShowKonfirmasi] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   // Gate: kalau tidak ada email param (akses langsung), redirect ke forgot-password.
   // WAJIB di useEffect — navigasi tidak boleh dipanggil saat render (sebelum Root
   // Layout mounting), atau Expo Router lempar "assertIsReady" error.
@@ -32,14 +40,6 @@ export default function ResetPasswordScreen() {
   }, [email]);
 
   if (!email) return null;
-
-  const [token, setToken] = useState('');
-  const [passwordBaru, setPasswordBaru] = useState('');
-  const [konfirmasiPassword, setKonfirmasiPassword] = useState('');
-  const [showPasswordBaru, setShowPasswordBaru] = useState(false);
-  const [showKonfirmasi, setShowKonfirmasi] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   async function handleSubmit() {
     // Validasi client sebelum hit API

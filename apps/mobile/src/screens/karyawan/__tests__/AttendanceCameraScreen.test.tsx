@@ -4,8 +4,6 @@ import {
   processAttendanceCapture,
 } from '../AttendanceCameraScreen';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCameraPermissions } from 'expo-camera';
-import * as Location from 'expo-location';
 
 jest.mock('expo-router', () => ({
   router: {
@@ -19,15 +17,21 @@ jest.mock('expo-camera', () => {
   const React = require('react');
   const { View } = require('react-native');
 
+  const MockCameraView = React.forwardRef(function MockCameraView(
+    props: Record<string, unknown>,
+    ref: React.Ref<{ takePictureAsync: () => Promise<{ uri: string }> }>,
+  ) {
+    React.useImperativeHandle(ref, () => ({
+      takePictureAsync: jest
+        .fn()
+        .mockResolvedValue({ uri: 'file:///path/to/attendance.jpg' }),
+    }));
+    return <View testID="mock-camera-view" {...props} />;
+  });
+  MockCameraView.displayName = 'MockCameraView';
+
   return {
-    CameraView: React.forwardRef((props: any, ref: any) => {
-      React.useImperativeHandle(ref, () => ({
-        takePictureAsync: jest
-          .fn()
-          .mockResolvedValue({ uri: 'file:///path/to/attendance.jpg' }),
-      }));
-      return <View testID="mock-camera-view" {...props} />;
-    }),
+    CameraView: MockCameraView,
     useCameraPermissions: jest.fn(),
   };
 });

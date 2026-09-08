@@ -6,20 +6,16 @@ import {
   RefreshControl,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStateViews';
 import { HomeHeader } from '@/components/HomeHeader';
-import { ScreenHeader } from '@/components/ScreenHeader';
 import { SearchInput } from '@/components/SearchInput';
 import { SectionCard } from '@/components/SectionCard';
 import { COLORS } from '@/constants/theme';
-import { getInitials } from '@/screens/common/ProfileScreen';
 import { getEmployees } from '@/services/employees.service';
-import { useAuthStore } from '@/store/authStore';
 import { UserRole } from '@/types/api';
 import { Employee, GetEmployeesParams } from '@/types/employee';
 
@@ -89,8 +85,6 @@ export function navigateToEditEmployee(routerPush: RouterPushFn, id: string) {
 }
 
 export default function HrAdminEmployeesScreen() {
-  const nama = useAuthStore((state) => state.nama);
-  const initials = getInitials(nama);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<RoleFilterType>('SEMUA');
   const [statusFilter, setStatusFilter] = useState<StatusFilterType>('SEMUA');

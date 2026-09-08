@@ -6,6 +6,8 @@
 
 Face-verified check-in/out · GPS geofencing · Role-based scheduling · Real-time supervisor dashboards · Automated payroll reporting
 
+[![CI Pipeline](https://github.com/danisetiawan31/absensi-karyawan-outsourcing/actions/workflows/ci.yml/badge.svg)](https://github.com/danisetiawan31/absensi-karyawan-outsourcing/actions/workflows/ci.yml)
+![Turborepo](https://img.shields.io/badge/Turborepo-Monorepo-000000?logo=turborepo&logoColor=white)
 ![Status](https://img.shields.io/badge/Backend-Production--Ready-brightgreen)
 ![Status](https://img.shields.io/badge/Mobile-Feature--Complete-brightgreen)
 ![Tests](https://img.shields.io/badge/Tests-621%20passing-brightgreen)

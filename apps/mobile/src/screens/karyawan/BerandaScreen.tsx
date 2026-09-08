@@ -17,7 +17,6 @@ import { ReminderBanner } from "@/components/ReminderBanner";
 import { SectionCard } from "@/components/SectionCard";
 import { COLORS } from "@/constants/theme";
 import { getTodaySchedules } from "@/services/schedule.service";
-import { useAuthStore } from "@/store/authStore";
 import { ScheduleTodayItem, StatusKehadiran } from "@/types/schedule";
 
 // ─── Pure helpers (ditest di __tests__/BerandaScreen.test.tsx) ───────────────
@@ -375,8 +374,6 @@ function ScheduleItemCards({ item }: { item: ScheduleTodayItem }) {
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function BerandaScreen() {
-  const nama = useAuthStore((state) => state.nama);
-  const initials = getInitials(nama);
   const [helpModalVisible, setHelpModalVisible] = useState(false);
 
   const {

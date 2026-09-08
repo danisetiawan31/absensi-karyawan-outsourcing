@@ -21,17 +21,14 @@ import {
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SectionCard } from "@/components/SectionCard";
-import { StatusBadge, StatusBadgeVariant } from "@/components/StatusBadge";
+import { StatusBadge } from "@/components/StatusBadge";
 import { COLORS } from "@/constants/theme";
 import {
   cancelLeaveRequest,
   getLeaveRequests,
 } from "@/services/leave-requests.service";
 import { LeaveRequestItem, StatusIzin } from '@/types/leave-request';
-import {
-  getStatusIzinBadgeConfig,
-  StatusIzinBadgeConfig,
-} from "@/utils/status-izin-badge.util";
+import { getStatusIzinBadgeConfig } from "@/utils/status-izin-badge.util";
 
 import { formatJakartaDateRange } from "@/utils/date.util";
 

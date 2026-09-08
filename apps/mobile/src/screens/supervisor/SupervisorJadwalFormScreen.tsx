@@ -28,7 +28,7 @@ import {
 } from '@/services/schedules.service';
 import { getSupervisorSites } from '@/services/supervisor-sites.service';
 import { AvailableEmployee } from '@/types/employee';
-import { CreateSchedulePayload, ScheduleItem } from '@/types/schedule';
+import { CreateSchedulePayload } from '@/types/schedule';
 import { SupervisorSiteItem } from '@/types/supervisor-site';
 import {
   formatJakartaDate,

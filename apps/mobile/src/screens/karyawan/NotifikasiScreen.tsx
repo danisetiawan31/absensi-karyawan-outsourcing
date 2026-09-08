@@ -24,6 +24,7 @@ import {
   markAsRead,
 } from '@/services/notifications.service';
 import { NotificationItem, TipeNotifikasi } from '@/types/notification';
+import { formatJakartaDateTime } from '@/utils/date.util';
 
 export interface NotificationTypeConfig {
   variant: StatusBadgeVariant;
@@ -65,8 +66,6 @@ export function getNotificationTypeConfig(
       };
   }
 }
-
-import { formatJakartaDateTime } from '@/utils/date.util';
 
 export const formatNotificationDate = formatJakartaDateTime;
 

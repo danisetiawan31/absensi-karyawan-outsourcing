@@ -9,7 +9,7 @@ import { useFonts } from "expo-font";
 import { router, Stack, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, useColorScheme, View } from "react-native";
+import { useColorScheme } from "react-native";
 
 import { useAuthStore } from "@/store/authStore";
 import { UserRole } from "@/types/api";

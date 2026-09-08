@@ -124,7 +124,7 @@ describe('HrAdminLeaveHistoryScreen Pure Helpers & Presenter Tests', () => {
 
   describe('3. getStatusIzinBadgeConfig Reuse Integration', () => {
     it('memastikan badge config konsisten menggunakan getStatusIzinBadgeConfig shared untuk 4 status', () => {
-      const statuses: Array<LeaveRequestHistoryItem['status']> = [
+      const statuses: LeaveRequestHistoryItem['status'][] = [
         'PENDING',
         'APPROVED',
         'REJECTED',

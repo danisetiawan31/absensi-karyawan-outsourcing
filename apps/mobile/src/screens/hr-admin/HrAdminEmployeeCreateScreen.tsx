@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { router } from 'expo-router';
 import React, { useRef, useState } from 'react';

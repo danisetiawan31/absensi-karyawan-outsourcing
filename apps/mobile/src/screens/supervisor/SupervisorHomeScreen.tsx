@@ -1,12 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
-import { router } from 'expo-router';
 import React from 'react';
 import {
   RefreshControl,
   ScrollView,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -16,7 +14,6 @@ import {
   LoadingState,
 } from '@/components/AsyncStateViews';
 import { HomeHeader } from '@/components/HomeHeader';
-import { ScreenHeader } from '@/components/ScreenHeader';
 import { SectionCard } from '@/components/SectionCard';
 import { StatusBadge, StatusBadgeVariant } from '@/components/StatusBadge';
 import { COLORS } from '@/constants/theme';
@@ -24,15 +21,12 @@ import {
   getAttendanceDashboard,
   getUnfilledShifts,
 } from '@/services/dashboard.service';
-import { getInitials } from '@/screens/common/ProfileScreen';
-import { useAuthStore } from '@/store/authStore';
 import {
   DashboardAttendanceItem,
   DashboardAttendanceStatus,
   UnfilledShiftItem,
 } from '@/types/dashboard';
 import {
-  formatJakartaDate,
   formatJakartaTime,
   formatJakartaYmd,
 } from '@/utils/date.util';
@@ -82,10 +76,7 @@ export function getDashboardStatusBadgeConfig(
 }
 
 export default function SupervisorHomeScreen() {
-  const nama = useAuthStore((state) => state.nama);
-  const initials = getInitials(nama);
   const todayYmd = formatJakartaYmd(new Date());
-  const todayDisplay = formatJakartaDate(new Date());
 
   const {
     data: attendanceItems = [],
