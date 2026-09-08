@@ -11,7 +11,7 @@ updates:
       - "dependencies"
       - "ci"
 
-  # Maintain dependencies for Monorepo Root
+  # Maintain dependencies for Monorepo (Root and workspaces: backend, mobile)
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
@@ -20,25 +20,35 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
-
-  # Maintain dependencies for Backend (NestJS)
-  - package-ecosystem: "npm"
-    directory: "/apps/backend"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "backend"
-
-  # Maintain dependencies for Mobile (React Native / Expo)
-  - package-ecosystem: "npm"
-    directory: "/apps/mobile"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "mobile"
+    ignore:
+      # Block major version upgrades that break core architecture and frameworks
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "nativewind"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "prisma"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@prisma/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@nestjs/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "expo"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "expo-*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-native"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-native-*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "jest-expo"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/*"
+        update-types: ["version-update:semver-major"]
