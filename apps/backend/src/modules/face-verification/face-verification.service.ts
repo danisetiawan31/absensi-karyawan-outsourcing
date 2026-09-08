@@ -22,7 +22,7 @@ export class FaceVerificationService {
     this.faceServiceUrl =
       process.env.FACE_SERVICE_URL || 'http://localhost:8000';
     this.timeoutMs = parseInt(
-      process.env.FACE_SERVICE_TIMEOUT_MS || '190000',
+      process.env.FACE_SERVICE_TIMEOUT_MS || '40000',
       10,
     );
   }
