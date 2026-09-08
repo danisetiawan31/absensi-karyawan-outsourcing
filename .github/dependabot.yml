@@ -50,5 +50,11 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "eslint"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint-config-expo"
+        update-types: ["version-update:semver-major"]
       - dependency-name: "@eslint/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "lint-staged"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@commitlint/*"
         update-types: ["version-update:semver-major"]
