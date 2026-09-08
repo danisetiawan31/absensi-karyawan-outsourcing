@@ -30,8 +30,8 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "@prisma/*"
         update-types: ["version-update:semver-major"]
+      # Block all automated updates to NestJS ecosystem (must be upgraded together manually)
       - dependency-name: "@nestjs/*"
-        update-types: ["version-update:semver-major"]
       - dependency-name: "expo"
         update-types: ["version-update:semver-major"]
       - dependency-name: "expo-*"
