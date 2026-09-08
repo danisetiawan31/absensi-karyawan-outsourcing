@@ -354,4 +354,17 @@
   - **Grid Metric Summary:** List summary menghadirkan 6 metrik (Hadir, Terlambat, Tidak Hadir, Izin, Belum, Total Shift) berpasangan dengan token warna semantik (`success`, `warning`, `destructive`, `info`, `muted`, `surface/border`).
   - **Modal Drill-Down Percobaan:** Menggunakan bottom-sheet `Modal` (`AttendanceAttemptsModal.tsx`) untuk inspeksi cepat attempts per karyawan, dengan pemetaan badge `HasilVerifikasi` (`VALID` → success, `DI_LUAR_JENDELA_WAKTU` → warning, `GAGAL_*`/`TIDAK_HADIR` → destructive).
 
+## [Stage 53] Security Hardening — Proteksi Fake GPS & Mock Location (Android)
 
+- **Fitur:** Deteksi dan pencegahan manipulasi lokasi (Fake GPS / Mock Provider) secara end-to-end pada mobile (Expo Location `mocked: boolean`) dan backend validation pipeline.
+- **Komponen:**
+  - Backend: `apps/backend/src/modules/attendance/` (`dto/check-in.dto.ts`, `dto/check-out.dto.ts`, `attendance.service.ts`, `attendance.controller.spec.ts`).
+  - Mobile: `apps/mobile/src/services/attendance.service.ts`, `screens/karyawan/AttendanceCameraScreen.tsx`, `screens/karyawan/AttendancePreviewScreen.tsx`, `screens/karyawan/__tests__/AttendanceCameraScreen.test.tsx`, `screens/karyawan/__tests__/AttendancePreviewScreen.test.tsx`.
+- **Verifikasi:**
+  - Backend: 31/31 tests PASS (`attendance.controller.spec.ts`, 100%).
+  - Mobile: 22/22 tests PASS (`AttendanceCameraScreen.test.tsx`, `AttendancePreviewScreen.test.tsx`, `attendance.service.test.ts`, 100%).
+  - Linter & Type-Safety: `expo lint` & `tsc --noEmit` clean (0 error, strict type-safety zero `any`).
+- **Keputusan & Catatan Teknikal:**
+  - **Fail-fast Pipeline Backend:** Validasi `isMocked` diletakkan paling awal di `runVerificationPipeline` sebelum deepface AI embedding dipanggil. Jika terdeteksi `isMocked: true`, request langsung ditolak dengan `HasilVerifikasi.GAGAL_LOKASI` dan dicatat ke audit log `PercobaanAbsensi` tanpa membebani pemrosesan AI embedding (menghemat latency & resource server).
+  - **Zero Schema Change:** Memetakan insiden manipulasi lokasi ke enum `HasilVerifikasi.GAGAL_LOKASI` dengan keterangan audit `'Terdeteksi lokasi palsu (Fake GPS / Mock Location)'` sehingga tidak memerlukan migrasi database atau perubahan kontrak API envelope.
+  - **Client-Side Pre-Defense:** Pada `AttendanceCameraScreen.tsx`, jika `location.mocked === true`, capture foto langsung dihentikan dan user disajikan pesan error eksplisit untuk menonaktifkan aplikasi Fake GPS / Mock Location di opsi pengembang Android. Flag `isMocked` juga di-forward ke preview hingga backend sebagai pertahanan berlapis (defense-in-depth).

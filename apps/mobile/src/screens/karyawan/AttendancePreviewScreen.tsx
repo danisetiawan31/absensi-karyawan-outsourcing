@@ -25,6 +25,7 @@ export interface ProcessSubmitParams {
   longitude?: string;
   jadwalId?: string;
   tipe?: 'CHECK_IN' | 'CHECK_OUT';
+  isMocked?: string | boolean;
   isLoading: boolean;
   isSubmittingRef?: { current: boolean };
   setIsLoading: (val: boolean) => void;
@@ -41,6 +42,7 @@ export async function processAttendanceSubmit({
   longitude,
   jadwalId,
   tipe = 'CHECK_IN',
+  isMocked,
   isLoading,
   isSubmittingRef,
   setIsLoading,
@@ -64,11 +66,12 @@ export async function processAttendanceSubmit({
   try {
     const latNum = parseFloat(latitude || '0') || 0;
     const lonNum = parseFloat(longitude || '0') || 0;
+    const mockedBool = isMocked === true || isMocked === 'true';
 
     const result =
       tipe === 'CHECK_OUT'
-        ? await checkOutFn(jadwalId, latNum, lonNum, photoUri)
-        : await checkInFn(jadwalId, latNum, lonNum, photoUri);
+        ? await checkOutFn(jadwalId, latNum, lonNum, photoUri, mockedBool)
+        : await checkInFn(jadwalId, latNum, lonNum, photoUri, mockedBool);
 
     if (result.hasilVerifikasi === 'VALID') {
       const params: Record<string, string> = {
@@ -136,13 +139,14 @@ export async function processAttendanceSubmit({
 }
 
 export default function AttendancePreviewScreen() {
-  const { photoUri, latitude, longitude, jadwalId, tipe } =
+  const { photoUri, latitude, longitude, jadwalId, tipe, isMocked } =
     useLocalSearchParams<{
       photoUri?: string;
       latitude?: string;
       longitude?: string;
       jadwalId?: string;
       tipe?: 'CHECK_IN' | 'CHECK_OUT';
+      isMocked?: string;
     }>();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -175,6 +179,7 @@ export default function AttendancePreviewScreen() {
       longitude,
       jadwalId,
       tipe,
+      isMocked,
       isLoading,
       isSubmittingRef,
       setIsLoading,

@@ -11,11 +11,15 @@ export const createAttendanceFormData = (
   latitude: number,
   longitude: number,
   foto: PhotoInput,
+  isMocked?: boolean,
 ): FormData => {
   const formData = new FormData();
   formData.append('jadwalId', jadwalId);
   formData.append('latitude', latitude.toString());
   formData.append('longitude', longitude.toString());
+  if (isMocked !== undefined) {
+    formData.append('isMocked', isMocked ? 'true' : 'false');
+  }
 
   if (typeof foto === 'string') {
     const filename = foto.split('/').pop() || 'attendance.jpg';
@@ -47,8 +51,9 @@ export const checkIn = async (
   latitude: number,
   longitude: number,
   foto: PhotoInput,
+  isMocked?: boolean,
 ): Promise<CheckInResponse> => {
-  const formData = createAttendanceFormData(jadwalId, latitude, longitude, foto);
+  const formData = createAttendanceFormData(jadwalId, latitude, longitude, foto, isMocked);
   const response = await apiClient.post<SuccessEnvelope<CheckInResponse>>(
     '/attendance/check-in',
     formData,
@@ -67,8 +72,9 @@ export const checkOut = async (
   latitude: number,
   longitude: number,
   foto: PhotoInput,
+  isMocked?: boolean,
 ): Promise<CheckOutResponse> => {
-  const formData = createAttendanceFormData(jadwalId, latitude, longitude, foto);
+  const formData = createAttendanceFormData(jadwalId, latitude, longitude, foto, isMocked);
   const response = await apiClient.post<SuccessEnvelope<CheckOutResponse>>(
     '/attendance/check-out',
     formData,

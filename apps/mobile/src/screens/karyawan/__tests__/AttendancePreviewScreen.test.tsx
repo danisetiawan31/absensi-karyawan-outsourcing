@@ -61,6 +61,7 @@ describe('AttendancePreviewScreen & Success Logic', () => {
         -6.2088,
         106.8456,
         'file:///photo.jpg',
+        false,
       );
       expect(routerReplace).toHaveBeenCalledWith({
         pathname: '/(karyawan)/attendance-success',
@@ -227,6 +228,41 @@ describe('AttendancePreviewScreen & Success Logic', () => {
       expect(res1).toBe(true);
       expect(res2).toBe(false);
       expect(checkInFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('6. Submit dengan isMocked: true -> meneruskan isMocked: true ke checkInFn', async () => {
+      checkInFn.mockResolvedValue({
+        hasilVerifikasi: 'GAGAL_LOKASI',
+        pesan: 'Terdeteksi lokasi palsu (Fake GPS / Mock Location)',
+      });
+
+      const result = await processAttendanceSubmit({
+        photoUri: 'file:///photo.jpg',
+        latitude: '-6.2088',
+        longitude: '106.8456',
+        jadwalId: 'jadwal-123',
+        tipe: 'CHECK_IN',
+        isMocked: 'true',
+        isLoading: false,
+        setIsLoading,
+        setControlledError,
+        setHardError,
+        checkInFn,
+        checkOutFn,
+        routerReplace,
+      });
+
+      expect(result).toBe(false);
+      expect(checkInFn).toHaveBeenCalledWith(
+        'jadwal-123',
+        -6.2088,
+        106.8456,
+        'file:///photo.jpg',
+        true,
+      );
+      expect(setControlledError).toHaveBeenCalledWith(
+        'Terdeteksi lokasi palsu (Fake GPS / Mock Location)',
+      );
     });
   });
 });

@@ -52,6 +52,41 @@ describe('AttendanceService (mobile/src/services/attendance.service.ts)', () => 
 
       expect(formData).toBeDefined();
     });
+
+    it('harus menambahkan field isMocked true ke FormData jika disediakan true', () => {
+      const formData = createAttendanceFormData(
+        'jadwal-123',
+        -6.2088,
+        106.8456,
+        'file:///storage/photo.png',
+        true,
+      );
+
+      expect(formData.get('isMocked')).toBe('true');
+    });
+
+    it('harus menambahkan field isMocked false ke FormData jika disediakan false', () => {
+      const formData = createAttendanceFormData(
+        'jadwal-123',
+        -6.2088,
+        106.8456,
+        'file:///storage/photo.png',
+        false,
+      );
+
+      expect(formData.get('isMocked')).toBe('false');
+    });
+
+    it('tidak boleh menambahkan field isMocked jika bernilai undefined', () => {
+      const formData = createAttendanceFormData(
+        'jadwal-123',
+        -6.2088,
+        106.8456,
+        'file:///storage/photo.png',
+      );
+
+      expect(formData.get('isMocked')).toBeNull();
+    });
   });
 
   describe('checkIn', () => {
@@ -116,6 +151,35 @@ describe('AttendanceService (mobile/src/services/attendance.service.ts)', () => 
         expect(result.pesan).toBe('Anda berada di luar radius lokasi');
       }
     });
+
+    it('harus meneruskan parameter isMocked pada check-in jika disediakan', async () => {
+      let sentFormData: FormData | undefined;
+      mockAxios.onPost('/attendance/check-in').reply((config) => {
+        sentFormData = config.data as FormData;
+        return [
+          200,
+          {
+            success: true,
+            data: {
+              hasilVerifikasi: 'GAGAL_LOKASI',
+              pesan: 'Terdeteksi lokasi palsu (Fake GPS / Mock Location)',
+            },
+            meta: { timestamp: new Date().toISOString(), requestId: 'req-mock-in' },
+          },
+        ];
+      });
+
+      const result = await checkIn(
+        'jadwal-123',
+        -6.2088,
+        106.8456,
+        'file:///path/to/photo.jpg',
+        true,
+      );
+
+      expect(result.hasilVerifikasi).toBe('GAGAL_LOKASI');
+      expect(sentFormData?.get('isMocked')).toBe('true');
+    });
   });
 
   describe('checkOut', () => {
@@ -178,6 +242,35 @@ describe('AttendanceService (mobile/src/services/attendance.service.ts)', () => 
       if (result.hasilVerifikasi !== 'VALID') {
         expect(result.pesan).toBe('Waktu check-out di luar batas yang diizinkan');
       }
+    });
+
+    it('harus meneruskan parameter isMocked pada check-out jika disediakan', async () => {
+      let sentFormData: FormData | undefined;
+      mockAxios.onPost('/attendance/check-out').reply((config) => {
+        sentFormData = config.data as FormData;
+        return [
+          200,
+          {
+            success: true,
+            data: {
+              hasilVerifikasi: 'GAGAL_LOKASI',
+              pesan: 'Terdeteksi lokasi palsu (Fake GPS / Mock Location)',
+            },
+            meta: { timestamp: new Date().toISOString(), requestId: 'req-mock-out' },
+          },
+        ];
+      });
+
+      const result = await checkOut(
+        'jadwal-123',
+        -6.2088,
+        106.8456,
+        'file:///path/to/photo.jpg',
+        true,
+      );
+
+      expect(result.hasilVerifikasi).toBe('GAGAL_LOKASI');
+      expect(sentFormData?.get('isMocked')).toBe('true');
     });
   });
 });

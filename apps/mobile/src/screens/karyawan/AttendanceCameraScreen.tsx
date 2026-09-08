@@ -120,6 +120,15 @@ export async function processAttendanceCapture({
       return false;
     }
 
+    // 1b. Deteksi Mock Location / Fake GPS (khusus Android)
+    if (location.mocked) {
+      setGpsErrorMsg(
+        'Terdeteksi lokasi palsu (Fake GPS / Mock Location). Harap matikan aplikasi pemalsu lokasi dan gunakan GPS asli perangkat.',
+      );
+      setIsCapturing(false);
+      return false;
+    }
+
     // 2. Ambil Foto
     const photo = await cameraRef.current.takePictureAsync({
       quality: 0.6,
@@ -139,6 +148,7 @@ export async function processAttendanceCapture({
         photoUri: photo.uri,
         latitude: location.coords.latitude.toString(),
         longitude: location.coords.longitude.toString(),
+        isMocked: location.mocked ? 'true' : 'false',
         jadwalId: jadwalId || '',
         tipe: tipe || 'CHECK_IN',
       },

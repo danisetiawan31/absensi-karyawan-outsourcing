@@ -286,6 +286,36 @@ describe('AttendanceController (e2e)', () => {
       expect(percobaan?.tipe).toBe('CHECK_IN');
     });
 
+    it('harus mencatat GAGAL_LOKASI jika check-in terdeteksi lokasi palsu (isMocked: true)', async () => {
+      const response = await request(app.getHttpServer() as Server)
+        .post('/attendance/check-in')
+        .set('Authorization', `Bearer ${karyawanToken}`)
+        .field('jadwalId', jadwalCheckIn.id)
+        .field('latitude', testSite.latitude.toString())
+        .field('longitude', testSite.longitude.toString())
+        .field('isMocked', 'true')
+        .attach('foto', Buffer.from('fake-image'), 'foto.jpg');
+
+      expect(response.status).toBe(200);
+      const body = response.body as SuccessEnvelope<{
+        hasilVerifikasi: string;
+        pesan: string;
+      }>;
+      expect(body.success).toBe(true);
+      expect(body.data.hasilVerifikasi).toBe('GAGAL_LOKASI');
+      expect(body.data.pesan).toContain('palsu');
+
+      const percobaan = await prisma.percobaanAbsensi.findFirst({
+        where: {
+          jadwalId: jadwalCheckIn.id,
+          hasil: HasilVerifikasi.GAGAL_LOKASI,
+        },
+        orderBy: { waktu: 'desc' },
+      });
+      expect(percobaan).toBeDefined();
+      expect(percobaan?.tipe).toBe('CHECK_IN');
+    });
+
     it('harus mencatat GAGAL_LIVENESS jika face-service mendeteksi bukan wajah asli', async () => {
       embedFaceSpy.mockResolvedValueOnce({
         embedding: [0.1, 0.2, 0.3], // Match
@@ -505,6 +535,57 @@ describe('AttendanceController (e2e)', () => {
       expect(response.status).toBe(400);
       const body = response.body as ErrorEnvelope;
       expect(body.error.code).toBe('BELUM_CHECKIN');
+    });
+
+    it('harus mencatat GAGAL_LOKASI jika check-out terdeteksi lokasi palsu (isMocked: true)', async () => {
+      const mockJadwal = await prisma.jadwalShift.create({
+        data: {
+          karyawanId: karyawanUser.id,
+          siteId: testSite.id,
+          tanggal: new Date(),
+          jamMulai: new Date(Date.now() - 3600000),
+          jamSelesai: new Date(Date.now() + 3600000),
+        },
+      });
+
+      await prisma.logKehadiran.create({
+        data: {
+          jadwalId: mockJadwal.id,
+          karyawanId: karyawanUser.id,
+          waktuCheckIn: new Date(Date.now() - 3600000),
+          latitudeCheckIn: testSite.latitude,
+          longitudeCheckIn: testSite.longitude,
+          hasilVerifikasiCheckIn: 'VALID',
+        },
+      });
+
+      const response = await request(app.getHttpServer() as Server)
+        .post('/attendance/check-out')
+        .set('Authorization', `Bearer ${karyawanToken}`)
+        .field('jadwalId', mockJadwal.id)
+        .field('latitude', testSite.latitude.toString())
+        .field('longitude', testSite.longitude.toString())
+        .field('isMocked', 'true')
+        .attach('foto', Buffer.from('fake-image'), 'foto.jpg');
+
+      expect(response.status).toBe(200);
+      const body = response.body as SuccessEnvelope<{
+        hasilVerifikasi: string;
+        pesan: string;
+      }>;
+      expect(body.success).toBe(true);
+      expect(body.data.hasilVerifikasi).toBe('GAGAL_LOKASI');
+      expect(body.data.pesan).toContain('palsu');
+
+      const percobaan = await prisma.percobaanAbsensi.findFirst({
+        where: {
+          jadwalId: mockJadwal.id,
+          hasil: HasilVerifikasi.GAGAL_LOKASI,
+        },
+        orderBy: { waktu: 'desc' },
+      });
+      expect(percobaan).toBeDefined();
+      expect(percobaan?.tipe).toBe('CHECK_OUT');
     });
 
     it('harus SUKSES (VALID) check-out jika sebelumnya sudah check-in dan syarat terpenuhi', async () => {

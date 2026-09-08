@@ -1,10 +1,12 @@
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import {
   IsNotEmpty,
   IsNumber,
   IsUUID,
   IsLatitude,
   IsLongitude,
+  IsOptional,
+  IsBoolean,
 } from 'class-validator';
 
 export class CheckInDto {
@@ -23,4 +25,9 @@ export class CheckInDto {
   @IsLongitude()
   @IsNotEmpty()
   longitude: number;
+
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  isMocked?: boolean;
 }

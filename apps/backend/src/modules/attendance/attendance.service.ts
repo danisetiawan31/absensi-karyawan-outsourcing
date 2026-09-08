@@ -81,7 +81,16 @@ export class AttendanceService {
     siteLat: number,
     siteLon: number,
     radiusToleransi: number,
+    isMocked?: boolean,
   ): Promise<VerificationPipelineResult> {
+    // 1. Mock location / Fake GPS check
+    if (isMocked) {
+      return {
+        hasilVerifikasi: HasilVerifikasi.GAGAL_LOKASI,
+        pesan: 'Terdeteksi lokasi palsu (Fake GPS / Mock Location)',
+      };
+    }
+
     // 2. Haversine check
     const distance = haversineDistance(
       requestLat,
@@ -233,6 +242,7 @@ export class AttendanceService {
       jadwal.site.latitude,
       jadwal.site.longitude,
       jadwal.site.radiusToleransi,
+      dto.isMocked,
     );
 
     if (verification.hasilVerifikasi !== HasilVerifikasi.VALID) {
@@ -402,6 +412,7 @@ export class AttendanceService {
       jadwal.site.latitude,
       jadwal.site.longitude,
       jadwal.site.radiusToleransi,
+      dto.isMocked,
     );
 
     if (verification.hasilVerifikasi !== HasilVerifikasi.VALID) {

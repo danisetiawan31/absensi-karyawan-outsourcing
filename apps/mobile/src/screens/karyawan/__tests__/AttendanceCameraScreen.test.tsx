@@ -143,10 +143,51 @@ describe('AttendanceCameraScreen Logic & Descriptor View', () => {
           photoUri: 'file:///path/to/attendance.jpg',
           latitude: '-6.2088',
           longitude: '106.8456',
+          isMocked: 'false',
           jadwalId: 'jadwal-789',
           tipe: 'CHECK_IN',
         },
       });
+    });
+
+    it('2. Lokasi terdeteksi mocked (Fake GPS) -> set error lokasi palsu, TIDAK ambil foto, TIDAK navigasi ke preview', async () => {
+      const setIsCapturing = jest.fn();
+      const setGpsErrorMsg = jest.fn();
+      const routerPush = jest.fn();
+      const mockTakePictureAsync = jest.fn();
+
+      const mockGetCurrentPositionAsync = jest.fn().mockResolvedValue({
+        coords: {
+          latitude: -6.2088,
+          longitude: 106.8456,
+        },
+        mocked: true,
+      });
+
+      const cameraRef = {
+        current: {
+          takePictureAsync: mockTakePictureAsync,
+        },
+      };
+
+      const result = await processAttendanceCapture({
+        cameraRef,
+        isCapturing: false,
+        setIsCapturing,
+        setGpsErrorMsg,
+        getCurrentPositionAsync: mockGetCurrentPositionAsync,
+        routerPush,
+        jadwalId: 'jadwal-789',
+        tipe: 'CHECK_IN',
+      });
+
+      expect(result).toBe(false);
+      expect(mockGetCurrentPositionAsync).toHaveBeenCalled();
+      expect(mockTakePictureAsync).not.toHaveBeenCalled();
+      expect(setGpsErrorMsg).toHaveBeenCalledWith(
+        'Terdeteksi lokasi palsu (Fake GPS / Mock Location). Harap matikan aplikasi pemalsu lokasi dan gunakan GPS asli perangkat.',
+      );
+      expect(routerPush).not.toHaveBeenCalled();
     });
 
     it('3. GPS gagal/timeout -> set error lokasi yang berbeda dari denied, TIDAK navigasi ke preview', async () => {
