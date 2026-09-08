@@ -1,5 +1,31 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "DATABASE_URL",
+    "REDIS_HOST",
+    "REDIS_PORT",
+    "JWT_SECRET",
+    "JWT_REFRESH_SECRET",
+    "PORT",
+    "TZ",
+    "SKIP_FACE_VERIFICATION",
+    "FACE_SERVICE_TIMEOUT_MS",
+    "RESEND_API_KEY",
+    "FACE_SERVICE_URL"
+  ],
+  "globalPassThroughEnv": [
+    "DATABASE_URL",
+    "REDIS_HOST",
+    "REDIS_PORT",
+    "JWT_SECRET",
+    "JWT_REFRESH_SECRET",
+    "PORT",
+    "TZ",
+    "SKIP_FACE_VERIFICATION",
+    "FACE_SERVICE_TIMEOUT_MS",
+    "RESEND_API_KEY",
+    "FACE_SERVICE_URL"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -9,7 +35,7 @@
       "cache": true
     },
     "test": {
-      "cache": true
+      "cache": false
     },
     "dev": {
       "cache": false,

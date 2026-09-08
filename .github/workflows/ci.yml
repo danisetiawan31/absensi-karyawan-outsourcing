@@ -74,6 +74,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
+      - name: Create Backend .env
+        run: |
+          cat << 'EOF' > apps/backend/.env
+          DATABASE_URL="postgresql://postgres:postgres@localhost:5432/absensi_test?schema=public"
+          REDIS_HOST="localhost"
+          REDIS_PORT=6379
+          JWT_SECRET="ci-test-jwt-secret-key-32-characters-min!!"
+          JWT_REFRESH_SECRET="ci-test-jwt-refresh-secret-key-32-chars!!"
+          PORT=3000
+          TZ="Asia/Jakarta"
+          SKIP_FACE_VERIFICATION=true
+          FACE_SERVICE_TIMEOUT_MS=40000
+          EOF
+
       - name: Setup Database Schema (Prisma)
         run: |
           npx prisma generate --schema=apps/backend/prisma/schema.prisma
