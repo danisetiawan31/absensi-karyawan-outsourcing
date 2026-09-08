@@ -1,0 +1,9 @@
+{
+  "apps/backend/src/**/*.{ts,js}": [
+    "npm --prefix apps/backend run format",
+    "npm --prefix apps/backend run lint"
+  ],
+  "apps/mobile/src/**/*.{ts,tsx,js,jsx}": [
+    "npm --prefix apps/mobile run lint"
+  ]
+}
